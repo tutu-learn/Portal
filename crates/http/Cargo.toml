@@ -1,0 +1,27 @@
+[package]
+name = "http"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+error          = { workspace = true }
+config         = { workspace = true }
+orm            = { workspace = true }
+session        = { path = "../session" }
+permissions    = { path = "../permissions" }
+metadata       = { path = "../metadata" }
+queue          = { path = "../queue" }
+sql-translator = { path = "../sql-translator" }
+python-bridge  = { path = "../python-bridge" }
+axum           = { workspace = true }
+tower          = { workspace = true }
+tower-http     = { workspace = true }
+tokio          = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+tracing        = { workspace = true }
+dashmap        = { workspace = true }
+uuid           = { workspace = true }
+chrono         = { workspace = true }
+mime_guess       = { workspace = true }
+serde_urlencoded = "0.7"

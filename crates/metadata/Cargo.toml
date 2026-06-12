@@ -1,0 +1,14 @@
+[package]
+name = "metadata"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+error       = { workspace = true }
+orm         = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+dashmap     = { workspace = true }
+tokio       = { workspace = true }
+tracing     = { workspace = true }
+uuid        = { workspace = true }

@@ -1,0 +1,23 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Start Server" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="run -p runtime --bin kiff-runtime" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+    <envs>
+      <env name="PYO3_PYTHON" value="$PROJECT_DIR$/.venv/bin/python3.12" />
+      <env name="RUSTFLAGS" value="-L/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib -C link-arg=-Wl,-rpath,/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12" />
+      <env name="DYLD_FRAMEWORK_PATH" value="/opt/homebrew/opt/python@3.12/Frameworks" />
+    </envs>
+    <option name="emulateTerminal" value="false" />
+    <option name="channel" value="DEFAULT" />
+    <option name="requiredFeatures" value="true" />
+    <option name="allFeatures" value="false" />
+    <option name="withSudo" value="false" />
+    <option name="buildTarget" value="REMOTE" />
+    <option name="backtrace" value="SHORT" />
+    <option name="isRedirectInput" value="false" />
+    <option name="redirectInputPath" value="" />
+    <method v="2">
+      <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+    </method>
+  </configuration>
+</component>

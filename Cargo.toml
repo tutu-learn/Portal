@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/error",
+    "crates/config",
+    "crates/orm",
+    "crates/sql-translator",
+    "crates/python-bridge",
+    "crates/permissions",
+    "crates/session",
+    "crates/queue",
+    "crates/metadata",
+    "crates/http",
+    "crates/runtime",
+    "cli",
+]
+
+[workspace.dependencies]
+# async runtime
+tokio        = { version = "1",    features = ["full"] }
+axum         = { version = "0.7",  features = ["ws", "multipart"] }
+
+# database
+sqlx         = { version = "0.7",  features = [
+                    "postgres", "sqlite",
+                    "runtime-tokio", "migrate", "json",
+                    "chrono", "uuid",
+                ]}
+
+# python embedding
+pyo3         = { version = "0.21", features = ["auto-initialize", "serde"] }
+
+# sql parsing
+sqlparser    = { version = "0.54" }
+
+# parallelism
+rayon        = { version = "1.8" }
+
+# serialization
+serde        = { version = "1",    features = ["derive"] }
+serde_json   = { version = "1" }
+toml         = { version = "0.8" }
+
+# error handling
+thiserror    = { version = "1" }
+anyhow       = { version = "1" }
+
+# logging
+tracing             = { version = "0.1" }
+tracing-subscriber  = { version = "0.3", features = ["env-filter", "json"] }
+
+# auth
+argon2       = { version = "0.5" }
+totp-rs      = { version = "5" }
+jsonwebtoken = { version = "9" }
+
+# utilities
+uuid         = { version = "1",    features = ["v4", "serde"] }
+chrono       = { version = "0.4",  features = ["serde"] }
+dashmap      = { version = "5" }
+mime_guess   = { version = "2" }
+tokio-util   = { version = "0.7",  features = ["io"] }
+tower        = { version = "0.5" }
+tower-http   = { version = "0.5",  features = ["trace", "cors", "fs"] }
+
+# internal crates
+error        = { path = "crates/error" }
+config       = { path = "crates/config" }
+orm          = { path = "crates/orm" }
+
+[package]
+name = "open_frappe"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "open_frappe"
+path = "src/lib.rs"
+
+[dependencies]
+error          = { workspace = true }
+config         = { workspace = true }
+orm            = { workspace = true }
+permissions    = { path = "crates/permissions" }
+session        = { path = "crates/session" }
+queue          = { path = "crates/queue" }
+metadata       = { path = "crates/metadata" }
+http           = { path = "crates/http" }
+sql-translator = { path = "crates/sql-translator" }
+tokio          = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+chrono         = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum           = { workspace = true }
+tower          = { workspace = true }
+dashmap        = { workspace = true }
+
+[dev-dependencies]
+http-body-util = "0.1"

@@ -1,0 +1,25 @@
+[runtime]
+frappe_path  = "./apps/frappe"
+erpnext_path = ""  # set to a local apps/erpnext path if ERPNext is installed
+shim_path    = "./python"
+sites_path   = "./sites"
+
+[database]
+# default: SQLite — zero setup, single file per site
+# to switch: change driver to "postgres" and set url
+driver = "sqlite"
+url    = "./sites/{site}/site.db"   # {site} replaced with site name at runtime
+
+# Postgres alternative (uncomment to use):
+# driver = "postgres"
+# url    = "postgres://localhost/{site}_db"
+
+[server]
+host    = "0.0.0.0"
+port    = 8000
+workers = 4
+
+[queue]
+short_workers   = 2
+default_workers = 2
+long_workers    = 1

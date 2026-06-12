@@ -1,0 +1,9 @@
+[package]
+name = "sql-translator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+error       = { workspace = true }
+sqlparser   = { workspace = true }
+serde_json  = { workspace = true }

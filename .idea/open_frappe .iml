@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/config/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/error/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/http/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/metadata/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/orm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/permissions/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/python-bridge/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/queue/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/runtime/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/session/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sql-translator/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

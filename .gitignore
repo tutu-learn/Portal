@@ -1,0 +1,13 @@
+/target
+**/*.rs.bk
+Cargo.lock
+*.db
+*.db-journal
+sites/*/
+!sites/.gitkeep
+python/__pycache__
+python/frappe/__pycache__
+python/frappe/**/*.pyc
+.DS_Store
+/apps/frappe/
+/.venv/
