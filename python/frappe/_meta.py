@@ -38,16 +38,44 @@ def _load_doctype_json(doctype: str):
 def get_meta(doctype, cached=True):
     """Load DocType meta from JSON file — never touches the database."""
     data = _load_doctype_json(doctype)
+    defaults = {
+        "name": doctype,
+        "description": None,
+        "module": "Core",
+        "custom": 0,
+        "issingle": 0,
+        "istable": 0,
+        "is_submittable": 0,
+        "read_only": 0,
+        "allow_import": 0,
+        "track_changes": 1,
+        "fields": [],
+        "permissions": [],
+        "title_field": None,
+        "search_fields": None,
+        "sort_field": "modified",
+        "sort_order": "DESC",
+    }
     if data:
         proxy = _MetaProxy(data)
-        proxy.setdefault("name", doctype)
-        proxy.setdefault("permissions", [])
-        proxy.setdefault("fields", [])
-        # Wrap nested dicts so attribute access (perm.role) works.
-        for key in ("fields", "permissions"):
+        for key, val in defaults.items():
+            proxy.setdefault(key, val)
+        # Wrap nested dicts so attribute access (perm.role) works and inject
+        # parent metadata that real Frappe's meta always carries.
+        for key, parentfield in (("fields", "fields"), ("permissions", "permissions")):
             if key in proxy and isinstance(proxy[key], list):
-                proxy[key] = [
-                    _dict(item) if isinstance(item, dict) else item for item in proxy[key]
-                ]
+                child_doctype = "DocField" if key == "fields" else "DocPerm"
+                wrapped = []
+                for idx, item in enumerate(proxy[key], 1):
+                    if isinstance(item, dict):
+                        item.setdefault("doctype", child_doctype)
+                        item.setdefault("parent", doctype)
+                        item.setdefault("parenttype", "DocType")
+                        item.setdefault("parentfield", parentfield)
+                        item.setdefault("idx", idx)
+                        wrapped.append(_dict(item))
+                    else:
+                        wrapped.append(item)
+                proxy[key] = wrapped
         return proxy
-    return _MetaProxy({"name": doctype, "description": None, "fields": [], "permissions": [], "issingle": 0, "istable": 0})
+    return _MetaProxy(defaults)

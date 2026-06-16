@@ -2,6 +2,7 @@
 
 import os
 
+from collections import defaultdict
 from ._types import _dict
 
 
@@ -45,9 +46,65 @@ _local = {
     "replica_db": None,
     "system_settings": {},
     "website_settings": None,
+    "request_cache": defaultdict(dict),
+    "jenv_restricted": None,
+    "jenv_unrestricted": None,
+    "request": None,
 }
 
-_session = {"user": "Guest", "data": {}}
+
+# ------------------------------------------------------------------
+# Request stub
+# ------------------------------------------------------------------
+class _AfterResponse:
+    """Minimal stand-in for Werkzeug request.after_response callbacks."""
+
+    def __init__(self):
+        self._callbacks = []
+
+    def add(self, callback):
+        self._callbacks.append(callback)
+
+    def __call__(self, callback):
+        self._callbacks.append(callback)
+        return callback
+
+
+class _RequestProxy:
+    """Lightweight Werkzeug/Flask request stand-in for the shim runtime."""
+
+    def __init__(self, method="GET", path="/", headers=None, cookies=None,
+                 query=None, body=None, request_ip=None, scheme="http", host=None):
+        self.method = method.upper()
+        self.path = path
+        self.headers = _dict(headers or {})
+        self.cookies = _dict(cookies or {})
+        self.args = _dict(query or {})
+        self.form = _dict()
+        self.files = _dict()
+        self._body = body or b""
+        self.environ = {}
+        self.scheme = scheme
+        self.host = host or "localhost"
+        self.url = f"{scheme}://{self.host}{path}"
+        self.base_url = f"{scheme}://{self.host}"
+        self.remote_addr = request_ip
+        self.after_response = _AfterResponse()
+
+    def get_data(self, cache=True, as_text=False, parse_form_data=False):
+        data = self._body
+        if as_text and isinstance(data, bytes):
+            data = data.decode("utf-8", "replace")
+        return data
+
+    def get_json(self, force=False, silent=False):
+        import json
+        try:
+            return json.loads(self._body.decode("utf-8", "replace"))
+        except Exception:
+            if silent:
+                return None
+            raise
 
 
 # ------------------------------------------------------------------
@@ -56,53 +113,101 @@ _session = {"user": "Guest", "data": {}}
 class _LocalProxy:
     """Dict-backed proxy so any attribute can be get/set on frappe.local."""
 
-    __slots__ = ("_store",)
+    __slots__ = ("_store", "_key")
 
-    def __init__(self, store):
+    def __init__(self, store, key=None):
         object.__setattr__(self, "_store", store)
+        object.__setattr__(self, "_key", key)
+
+    def _resolve(self):
+        store = object.__getattribute__(self, "_store")
+        key = object.__getattribute__(self, "_key")
+        if key is None:
+            return store
+        return store[key]
 
     def __getattr__(self, name):
-        store = object.__getattribute__(self, "_store")
+        resolved = self._resolve()
+        # First try attribute access (for methods like .pop, .keys, etc.).
         try:
-            return store[name]
-        except KeyError:
+            return getattr(resolved, name)
+        except AttributeError:
+            pass
+        # Then try item access (keys exposed as attributes, e.g. frappe.flags.in_install).
+        try:
+            return resolved[name]
+        except (KeyError, TypeError):
             raise AttributeError(name)
 
     def __setattr__(self, name, val):
-        object.__getattribute__(self, "_store")[name] = val
+        self._resolve()[name] = val
 
     def __delattr__(self, name):
-        object.__getattribute__(self, "_store").__delitem__(name)
+        del self._resolve()[name]
 
     def __contains__(self, name):
-        return name in object.__getattribute__(self, "_store")
+        return name in self._resolve()
 
     def __iter__(self):
-        return iter(object.__getattribute__(self, "_store"))
+        return iter(self._resolve().items())
+
+    def __bool__(self):
+        return bool(self._resolve())
+
+    def __len__(self):
+        return len(self._resolve())
+
+    def __getitem__(self, key):
+        return self._resolve()[key]
+
+    def __setitem__(self, key, val):
+        self._resolve()[key] = val
 
     def get(self, name, default=None):
-        return object.__getattribute__(self, "_store").get(name, default)
+        return self._resolve().get(name, default)
 
 
-class _SessionProxy:
-    def __init__(self, store):
-        self._store = store
+class _SessionProxy(_dict):
+    """Session dict that also exposes common keys as attributes."""
 
     @property
     def user(self):
-        return self._store["user"]
+        return self.get("user", "Guest")
+
+    @user.setter
+    def user(self, value):
+        self["user"] = value
 
     @property
     def data(self):
-        return _dict(self._store["data"])
+        if "data" not in self:
+            self["data"] = _dict()
+        return self["data"]
+
+    @data.setter
+    def data(self, value):
+        self["data"] = value
 
 
 local = _LocalProxy(_local)
-session = _SessionProxy(_session)
+session = _LocalProxy(_local, "session")
+
+# Backward-compat direct reference kept in sync with _local["session"]
+_session = _local["session"]
+
 
 # Module-level config / response (mutable dicts shared by reference)
-conf = _dict(developer_mode=True)
-response = _dict(docs=[])
+conf = _dict(
+    developer_mode=True,
+    db_type="sqlite",
+    db_name="site.db",
+)
+response = _LocalProxy(_local, "response")
+
+# Keep the local store in sync with module-level objects.
+_local["conf"] = conf
+_local["db"] = None
+_local["qb"] = None
 
 
 # ------------------------------------------------------------------
@@ -111,7 +216,8 @@ response = _dict(docs=[])
 def _build_module_app() -> dict:
     """Return {scrubbed_module: app_name} from every modules.txt on disk."""
     result: dict = {}
-    apps_root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "apps")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    apps_root = os.path.join(project_root, "apps")
     if not os.path.isdir(apps_root):
         return result
     for app_name in os.listdir(apps_root):
@@ -133,9 +239,21 @@ _local["app_modules"] = {}
 # ------------------------------------------------------------------
 # Context reset helpers
 # ------------------------------------------------------------------
+def release_local(local_proxy):
+    """Clear a local proxy store (Werkzeug-compatible)."""
+    if isinstance(local_proxy, _LocalProxy):
+        store = object.__getattribute__(local_proxy, "_store")
+        key = object.__getattribute__(local_proxy, "_key")
+        if key is None:
+            store.clear()
+        else:
+            store[key] = _dict()
+
+
 def _set_context(site, user="Guest"):
     _local["site"] = site
-    _local["flags"] = {}
-    _local["form_dict"] = {}
-    _session["user"] = user
-    _session["data"] = {}
+    _local["flags"] = _dict()
+    _local["form_dict"] = _dict()
+    _local["conf"] = conf
+    _local["session"] = _SessionProxy(user=user, data=_dict())
+    _local["request"] = None

@@ -1,5 +1,7 @@
+use serde::Deserialize;
 use serde_json::Value;
 
+#[derive(Debug, Clone)]
 pub enum FilterCondition {
     Eq(Value),
     Ne(Value),
@@ -87,4 +89,48 @@ impl FilterCondition {
             }
         }
     }
+}
+
+impl<'de> Deserialize<'de> for FilterCondition {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        Ok(parse_filter_condition(value))
+    }
+}
+
+fn parse_filter_condition(val: Value) -> FilterCondition {
+    if let Value::Array(ref arr) = val {
+        if arr.len() == 2 {
+            let op = arr[0].as_str().unwrap_or("").to_lowercase();
+            let operand = arr[1].clone();
+            return match op.as_str() {
+                "=" => FilterCondition::Eq(operand),
+                "!=" => FilterCondition::Ne(operand),
+                ">" => FilterCondition::Gt(operand),
+                ">=" => FilterCondition::Gte(operand),
+                "<" => FilterCondition::Lt(operand),
+                "<=" => FilterCondition::Lte(operand),
+                "like" => FilterCondition::Like(operand.as_str().unwrap_or("").to_string()),
+                "not like" => FilterCondition::NotLike(operand.as_str().unwrap_or("").to_string()),
+                "in" => {
+                    let items = operand.as_array().cloned().unwrap_or_default();
+                    FilterCondition::In(items)
+                }
+                "not in" => {
+                    let items = operand.as_array().cloned().unwrap_or_default();
+                    FilterCondition::NotIn(items)
+                }
+                "is" => match operand.as_str().unwrap_or("").to_lowercase().as_str() {
+                    "set" => FilterCondition::IsSet,
+                    "not set" => FilterCondition::IsNotSet,
+                    _ => FilterCondition::Eq(operand),
+                },
+                _ => FilterCondition::Eq(val),
+            };
+        }
+    }
+    FilterCondition::Eq(val)
 }

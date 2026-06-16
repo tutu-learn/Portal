@@ -1,0 +1,49 @@
+2026-06-16T15:07:42.878174Z  INFO ThreadId(01) kiff_runtime: 11: kiff runtime starting
+2026-06-16T15:07:42.881747Z  WARN ThreadId(01) config: 139: site assets missing site_config.json, using defaults
+2026-06-16T15:07:42.881831Z  INFO ThreadId(01) config: 147: loaded 2 sites from "./sites"
+2026-06-16T15:07:42.885201Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site localhost
+2026-06-16T15:07:42.885246Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T15:07:42.910444Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T15:07:42.910454Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site localhost
+2026-06-16T15:07:42.910470Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T15:07:44.071820Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T15:07:44.071850Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T15:07:44.140289Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 289 data tables
+2026-06-16T15:07:44.183672Z  INFO ThreadId(01) orm::doctype_sync: 815: loaded 5 workspace fixtures
+2026-06-16T15:07:44.186945Z  INFO ThreadId(01) orm::doctype_sync: 871: loaded 9 page fixtures
+2026-06-16T15:07:44.189006Z  INFO ThreadId(01) orm::doctype_sync: 953: single settings seeded
+2026-06-16T15:07:44.189013Z  INFO ThreadId(01) orm::doctype_sync: 598: seed data inserted
+2026-06-16T15:07:44.189017Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T15:07:44.189265Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site assets
+2026-06-16T15:07:44.189270Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T15:07:44.201138Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T15:07:44.201144Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site assets
+2026-06-16T15:07:44.201148Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T15:07:45.259439Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T15:07:45.259457Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T15:07:45.328250Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 289 data tables
+2026-06-16T15:07:45.367050Z  INFO ThreadId(01) orm::doctype_sync: 815: loaded 5 workspace fixtures
+2026-06-16T15:07:45.369620Z  INFO ThreadId(01) orm::doctype_sync: 871: loaded 9 page fixtures
+2026-06-16T15:07:45.372261Z  INFO ThreadId(01) orm::doctype_sync: 953: single settings seeded
+2026-06-16T15:07:45.372266Z  INFO ThreadId(01) orm::doctype_sync: 598: seed data inserted
+2026-06-16T15:07:45.372269Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T15:07:45.372343Z  INFO ThreadId(01) kiff_runtime::startup: 81: setting up Python path: shim=/Users/johannnefdt/RustroverProjects/open_frappe/python, frappe=/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe
+2026-06-16T15:07:45.383376Z  INFO ThreadId(01) kiff_runtime::startup: 118: adding venv site-packages: /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages
+2026-06-16T15:07:45.385656Z  INFO ThreadId(01) kiff_runtime::startup: 58: installed kiff_core symlink: /Users/johannnefdt/RustroverProjects/open_frappe/target/debug/deps/libkiff_core.dylib → /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages/kiff_core.cpython-314-darwin.so
+2026-06-16T15:07:45.919365Z  INFO ThreadId(01) kiff_runtime::startup: 167: kiff_core .so instance initialized
+2026-06-16T15:07:45.920239Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: default
+2026-06-16T15:07:45.920316Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: long
+2026-06-16T15:07:45.920344Z  INFO ThreadId(01) queue::scheduler: 15: scheduler started
+2026-06-16T15:07:45.921884Z  INFO ThreadId(01) http: 27: HTTP server listening on 0.0.0.0:8000
+2026-06-16T15:07:45.921970Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: short
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/__init__.py", line 781, in _patched_get_bootinfo
+    info = _orig_get_bootinfo()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/boot.py", line 102, in get_bootinfo
+    bootinfo.lang_dict = get_lang_dict()
+                         ~~~~~~~~~~~~~^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 124, in get_lang_dict
+    return dict(
+    	frappe.get_all("Language", fields=["language_name", "name"], order_by="creation", as_list=True)
+    )
+ValueError: dictionary update sequence element #0 has length 7; 2 is required

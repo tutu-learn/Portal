@@ -1,0 +1,416 @@
+2026-06-14 12:19:56,143 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 12:19:56,145 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 12:21:06,248 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 12:21:35,579 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 12:22:15,092 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:03,834 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:03,869 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:04,105 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:04,146 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:04,146 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:04,177 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:30:04,232 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:32:16,168 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:32:34,275 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:33:11,714 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 13:34:20,219 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 19:57:28,566 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 19:58:24,680 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:00:52,165 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,231 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,263 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,510 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,511 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,550 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,567 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'
+2026-06-14 20:03:11,594 ERROR frappe Unable to load translations
+Site: localhost
+Form Dict: {}
+Traceback (most recent call last):
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 164, in get_all_translations
+    return frappe.cache.hget(MERGED_TRANSLATION_KEY, lang, generator=_merge_translations)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/python/frappe/_misc.py", line 29, in hget
+    return generator()
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 152, in _merge_translations
+    all_translations.update(get_translations_from_apps(lang))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe/frappe/translate.py", line 179, in get_translations_from_apps
+    for app in apps or frappe.get_installed_apps(_ensure_on_bench=True):
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: get_installed_apps() got an unexpected keyword argument '_ensure_on_bench'

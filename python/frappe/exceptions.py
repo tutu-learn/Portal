@@ -25,6 +25,31 @@ class AuthenticationError(Exception):
 class SessionExpired(Exception):
     pass
 
+
+# Database-level exceptions used by real Frappe code.
+class SQLError(Exception):
+    pass
+
+
+class OperationalError(SQLError):
+    pass
+
+
+class ProgrammingError(SQLError):
+    pass
+
+
+class InternalError(SQLError):
+    pass
+
+
+class DataError(SQLError):
+    pass
+
+
+class TableMissingError(SQLError):
+    pass
+
 # Eagerly load the real frappe exceptions and merge them in.
 def _load_real():
     _shim_dir = os.path.dirname(os.path.abspath(__file__))

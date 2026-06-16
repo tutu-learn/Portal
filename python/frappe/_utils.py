@@ -1,7 +1,9 @@
-"""Pure utility functions — no internal package dependencies."""
+"""Pure utility functions — minimal internal package dependencies."""
 
 import datetime as _dt
 import json as _json
+
+from ._types import _dict
 
 
 def flt(v, precision=None):
@@ -31,6 +33,14 @@ def cstr(v, encoding="utf-8"):
     return str(v)
 
 
+def as_unicode(v, encoding="utf-8"):
+    if v is None:
+        return ""
+    if isinstance(v, bytes):
+        return v.decode(encoding)
+    return str(v)
+
+
 def fmt_money(amount, precision=2, currency="USD"):
     return f"{currency} {flt(amount):,.{precision}f}"
 
@@ -51,44 +61,56 @@ def today():
     return _dt.date.today().isoformat()
 
 
-def getdate(string_date=None):
-    if string_date is None:
+def getdate(v=None):
+    if v is None:
         return _dt.date.today()
-    if isinstance(string_date, _dt.datetime):
-        return string_date.date()
-    if isinstance(string_date, _dt.date):
-        return string_date
-    return _dt.date.fromisoformat(str(string_date)[:10])
+    if isinstance(v, _dt.datetime):
+        return v.date()
+    if isinstance(v, _dt.date):
+        return v
+    if isinstance(v, str):
+        return _dt.date.fromisoformat(v.split()[0])
+    return v
 
 
-def get_datetime(dt=None):
-    if dt is None:
+def get_datetime(v=None):
+    if v is None:
         return _dt.datetime.now()
-    if isinstance(dt, _dt.datetime):
-        return dt
-    if isinstance(dt, _dt.date):
-        return _dt.datetime(dt.year, dt.month, dt.day)
-    try:
-        return _dt.datetime.fromisoformat(str(dt))
-    except Exception:
-        return _dt.datetime.now()
+    if isinstance(v, _dt.datetime):
+        return v
+    if isinstance(v, _dt.date):
+        return _dt.datetime.combine(v, _dt.time.min)
+    if isinstance(v, str):
+        return _dt.datetime.fromisoformat(v)
+    return v
 
 
 def add_days(date, days):
-    return (_dt.date.fromisoformat(str(date)[:10]) + _dt.timedelta(days=int(days))).isoformat()
+    return getdate(date) + _dt.timedelta(days=days)
 
 
-def date_diff(date1, date2):
-    return (getdate(date1) - getdate(date2)).days
+def date_diff(a, b):
+    return (getdate(a) - getdate(b)).days
 
 
-def _(msg, lang=None, context=None):
-    """Translation stub — returns the string as-is."""
-    return msg
+# Translation helpers — return the input unchanged.  Real Frappe replaces these
+# with lazy translation objects, but the shim must provide them so real Frappe
+# submodules can be imported before the real frappe module is initialized.
+def _(text, *args, **kwargs):
+    if args:
+        try:
+            return text % args
+        except Exception:
+            pass
+    return text
+
+
+def _lt(text, *args, **kwargs):
+    return _(text, *args, **kwargs)
 
 
 def scrub(txt):
-    return cstr(txt).replace(" ", "_").replace("-", "_").lower()
+    return str(txt).lower().replace(" ", "_").replace("-", "_")
 
 
 def unscrub(txt):
@@ -102,9 +124,13 @@ def bold(text):
 def parse_json(val):
     if isinstance(val, str):
         try:
-            return _json.loads(val)
+            val = _json.loads(val)
         except Exception:
             return val
+    if isinstance(val, dict):
+        return _dict(val)
+    if isinstance(val, list):
+        return [parse_json(i) for i in val]
     return val
 
 

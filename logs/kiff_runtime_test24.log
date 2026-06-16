@@ -1,0 +1,38 @@
+2026-06-16T18:50:43.627469Z  INFO ThreadId(01) kiff_runtime: 11: kiff runtime starting
+2026-06-16T18:50:43.630413Z  WARN ThreadId(01) config: 139: site assets missing site_config.json, using defaults
+2026-06-16T18:50:43.630450Z  INFO ThreadId(01) config: 147: loaded 2 sites from "./sites"
+2026-06-16T18:50:43.633006Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site localhost
+2026-06-16T18:50:43.633021Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T18:50:43.649519Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T18:50:43.649526Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site localhost
+2026-06-16T18:50:43.649542Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T18:50:44.722722Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T18:50:44.722753Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T18:50:44.791916Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 289 data tables
+2026-06-16T18:50:44.826059Z  INFO ThreadId(01) orm::doctype_sync: 815: loaded 5 workspace fixtures
+2026-06-16T18:50:44.829255Z  INFO ThreadId(01) orm::doctype_sync: 871: loaded 9 page fixtures
+2026-06-16T18:50:44.831020Z  INFO ThreadId(01) orm::doctype_sync: 953: single settings seeded
+2026-06-16T18:50:44.831026Z  INFO ThreadId(01) orm::doctype_sync: 598: seed data inserted
+2026-06-16T18:50:44.831028Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T18:50:44.831282Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site assets
+2026-06-16T18:50:44.831287Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T18:50:44.838808Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T18:50:44.838814Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site assets
+2026-06-16T18:50:44.838818Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T18:50:45.885560Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T18:50:45.885577Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T18:50:45.954717Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 289 data tables
+2026-06-16T18:50:45.987487Z  INFO ThreadId(01) orm::doctype_sync: 815: loaded 5 workspace fixtures
+2026-06-16T18:50:45.990099Z  INFO ThreadId(01) orm::doctype_sync: 871: loaded 9 page fixtures
+2026-06-16T18:50:45.991875Z  INFO ThreadId(01) orm::doctype_sync: 953: single settings seeded
+2026-06-16T18:50:45.991881Z  INFO ThreadId(01) orm::doctype_sync: 598: seed data inserted
+2026-06-16T18:50:45.991884Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T18:50:45.991966Z  INFO ThreadId(01) kiff_runtime::startup: 81: setting up Python path: shim=/Users/johannnefdt/RustroverProjects/open_frappe/python, frappe=/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe
+2026-06-16T18:50:46.003487Z  INFO ThreadId(01) kiff_runtime::startup: 118: adding venv site-packages: /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages
+2026-06-16T18:50:46.005776Z  INFO ThreadId(01) kiff_runtime::startup: 58: installed kiff_core symlink: /Users/johannnefdt/RustroverProjects/open_frappe/target/debug/deps/libkiff_core.dylib → /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages/kiff_core.cpython-314-darwin.so
+2026-06-16T18:50:46.634687Z  INFO ThreadId(01) kiff_runtime::startup: 167: kiff_core .so instance initialized
+2026-06-16T18:50:46.635308Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: short
+2026-06-16T18:50:46.635322Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: default
+2026-06-16T18:50:46.635327Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: long
+2026-06-16T18:50:46.635332Z  INFO ThreadId(01) queue::scheduler: 15: scheduler started
+2026-06-16T18:50:46.635988Z  INFO ThreadId(01) http: 27: HTTP server listening on 0.0.0.0:8000

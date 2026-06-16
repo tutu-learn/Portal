@@ -16,6 +16,50 @@ except ImportError:
 _APPS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "apps")
 
 
+class _FallbackDocument(_DocProxy):
+    """Minimal Document replacement used when the Rust bridge is unavailable."""
+
+    def __init__(self, doctype, name=None, **kwargs):
+        super().__init__()
+        self.doctype = doctype
+        self.name = name or kwargs.get("name")
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def to_dict(self):
+        return self.as_dict()
+
+    def save(self):
+        return self
+
+    def insert(self):
+        return self
+
+    def delete(self):
+        return self
+
+    def reload(self):
+        return self
+
+    def get(self, key, default=None):
+        return dict.get(self, key, default)
+
+    def set(self, key, value):
+        self[key] = value
+
+    def has_permission(self, permtype="read"):
+        return True
+
+    def get_permissions(self):
+        return {}
+
+    def add_comment(self, *args, **kwargs):
+        return self
+
+    def notify_update(self):
+        pass
+
+
 def _load_doc_from_fixture(doctype, name):
     """Return the raw dict from a Frappe fixture JSON file, or None if not found.
 
@@ -39,9 +83,43 @@ def _load_doc_from_fixture(doctype, name):
 
 
 def get_doc(doctype, name=None, **kwargs):
+    # If the first argument is a dict, let the real Document implementation
+    # create a new in-memory document (used by real ``new_doc``).  This must
+    # be handled before the (doctype, name) branch because real Frappe's
+    # dispatcher rejects a dict plus a positional name.
+    if isinstance(doctype, dict):
+        try:
+            import frappe
+            if getattr(frappe, "_real_frappe", None) is not None:
+                from frappe.model.document import get_doc as _real_get_doc
+                return _real_get_doc(doctype, **kwargs)
+        except Exception:
+            pass
+        return _FallbackDocument(**doctype)
+
+    # Prefer the real Frappe Document implementation whenever it is available.
+    # Real Documents handle child tables, properties and methods that the
+    # lightweight proxy cannot provide.
+    try:
+        import frappe
+        if getattr(frappe, "_real_frappe", None) is not None:
+            from frappe.model.document import get_doc as _real_get_doc
+            return _real_get_doc(doctype, name, **kwargs)
+    except Exception as e:
+        # Missing docs are common for workspace widgets that reference records
+        # we haven't seeded (Dashboard Chart, Number Card, etc.). Keep the log
+        # quiet for those; only dump the traceback for unexpected failures.
+        if isinstance(e, DoesNotExistError):
+            pass
+        else:
+            import traceback
+            print(f"[get_doc fallback] real get_doc failed for {doctype} {name}: {e}")
+            traceback.print_exc()
+        pass
+
     if _rust is None:
-        from .model.document import Document
-        return Document(doctype, name, **kwargs)
+        return _FallbackDocument(doctype, name, **kwargs)
+
     try:
         raw = _rust.get_doc(doctype, name)
         raw.setdefault("doctype", doctype)
@@ -99,15 +177,253 @@ def get_doc(doctype, name=None, **kwargs):
     raise DoesNotExistError(f"{doctype} {name} not found")
 
 
-def get_list(doctype, filters=None, fields=None, order_by=None, limit=None, **kwargs):
+def _normalize_filters(filters):
+    """Convert Frappe list-style filters into the dict form the Rust bridge expects.
+
+    Supported forms:
+      - dict: {"field": value} or {"field": ["operator", value]}
+      - list/tuple of lists: [["field", "operator", value], ...]
+      - list/tuple of dicts: [{"field": value}, ...]
+      - string: treated as {"name": string}
+    """
+    if filters is None:
+        return None
+    if isinstance(filters, str):
+        return {"name": filters}
+    if isinstance(filters, dict):
+        return filters
+    if isinstance(filters, (list, tuple)):
+        out = {}
+        for item in filters:
+            if isinstance(item, dict):
+                out.update(item)
+            elif isinstance(item, (list, tuple)) and len(item) >= 4:
+                # [doctype, fieldname, operator, value, as_condition?].
+                # If as_condition is explicitly False, skip the filter.
+                if len(item) == 5 and item[4] is False:
+                    continue
+                _doctype, field, operator, value = item[0], item[1], item[2], item[3]
+                out[field] = [operator, value]
+            elif isinstance(item, (list, tuple)) and len(item) == 3:
+                field, operator, value = item
+                out[field] = [operator, value]
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
+                field, value = item
+                out[field] = value
+            else:
+                raise ValueError(f"Invalid filter item: {item}")
+        return out
+    return filters
+
+
+def _field_keys(fields, rows):
+    """Return the output keys to use for as_list=True given the requested fields."""
+    if not fields:
+        if rows:
+            return [k for k in rows[0].keys() if k != "doctype"]
+        return []
+    keys = []
+    for f in fields:
+        if isinstance(f, dict):
+            func = next((k for k in f if k != "as"), None)
+            keys.append(f.get("as") or (func.lower() if func else None))
+        else:
+            keys.append(f)
+    return keys
+
+
+def _aggregate_get_list(doctype, filters, fields, as_list=False):
+    """Handle get_list calls with aggregate fields like [{"COUNT": "*", "as": "result"}]."""
+    table = doctype.lower().replace(" ", "_")
+    exprs = []
+    for f in fields:
+        if isinstance(f, dict):
+            func = next((k for k in f if k != "as"), None)
+            if func is None:
+                continue
+            arg = f[func]
+            alias = f.get("as") or func.lower()
+            arg_sql = f'"{arg}"' if arg != "*" else "*"
+            exprs.append(f'{func}({arg_sql}) AS "{alias}"')
+        else:
+            exprs.append(f'"{f}"')
+    sql = f'SELECT {", ".join(exprs)} FROM "{table}"'
+    params = []
+    if filters:
+        where = _filters_to_sql(filters, params)
+        sql += f" WHERE {where}"
+    try:
+        rows = _sqlite_query(sql, params)
+    except Exception:
+        return []
+    for r in rows:
+        r.setdefault("doctype", doctype)
+    if as_list:
+        keys = _field_keys(fields, rows)
+        return [[r.get(k) for k in keys] for r in rows]
+    return [_dict(r) for r in rows]
+
+
+def _operator_match(value, operator, operand):
+    """Return True if ``value`` matches ``operator operand``."""
+    op = (operator or "=").lower()
+    if op == "=":
+        return value == operand
+    if op == "!=":
+        return value != operand
+    if op in (">", ">=", "<", "<="):
+        try:
+            if op == ">":
+                return value > operand
+            if op == ">=":
+                return value >= operand
+            if op == "<":
+                return value < operand
+            if op == "<=":
+                return value <= operand
+        except Exception:
+            return False
+    if op == "in":
+        return value in operand
+    if op == "not in":
+        return value not in operand
+    if op == "like":
+        pattern = str(operand).replace("%", ".*").replace("_", ".")
+        import re
+        return bool(re.search(pattern, str(value), re.IGNORECASE))
+    if op == "not like":
+        pattern = str(operand).replace("%", ".*").replace("_", ".")
+        import re
+        return not bool(re.search(pattern, str(value), re.IGNORECASE))
+    if op == "is":
+        operand_str = str(operand).lower()
+        if operand_str == "set":
+            return value is not None and value != ""
+        if operand_str == "not set":
+            return value is None or value == ""
+        return value == operand
+    if op == "between":
+        if isinstance(operand, (list, tuple)) and len(operand) == 2:
+            try:
+                return operand[0] <= value <= operand[1]
+            except Exception:
+                return False
+        return False
+    return value == operand
+
+
+def _row_matches_filter(row, field, condition):
+    """Check if a row matches a single filter condition."""
+    value = row.get(field)
+    if isinstance(condition, (list, tuple)) and len(condition) == 2:
+        operator, operand = condition
+        return _operator_match(value, operator, operand)
+    return value == condition
+
+
+def _apply_filters(rows, filters, or_filters=None):
+    """Apply filters/or_filters in Python (used when Rust can't handle OR)."""
+    if not filters and not or_filters:
+        return rows
+
+    def matches(row):
+        if filters:
+            for field, condition in filters.items():
+                if not _row_matches_filter(row, field, condition):
+                    return False
+        if or_filters:
+            for field, condition in or_filters.items():
+                if _row_matches_filter(row, field, condition):
+                    return True
+            return False
+        return True
+
+    return [r for r in rows if matches(r)]
+
+
+def _filters_to_sql(filters, params):
+    """Translate normalized filters into SQL WHERE clause and params."""
+    conditions = []
+    for field, condition in filters.items():
+        if isinstance(condition, (list, tuple)) and len(condition) == 2:
+            operator, operand = condition
+            op = (operator or "=").lower()
+            if op == "in":
+                placeholders = ", ".join("?" for _ in operand)
+                conditions.append(f'"{field}" IN ({placeholders})')
+                params.extend(operand)
+            elif op == "not in":
+                placeholders = ", ".join("?" for _ in operand)
+                conditions.append(f'"{field}" NOT IN ({placeholders})')
+                params.extend(operand)
+            elif op == "like":
+                conditions.append(f'"{field}" LIKE ?')
+                params.append(operand)
+            elif op == "not like":
+                conditions.append(f'"{field}" NOT LIKE ?')
+                params.append(operand)
+            elif op == "is":
+                operand_str = str(operand).lower()
+                if operand_str == "set":
+                    conditions.append(f'("{field}" IS NOT NULL AND "{field}" != \'\')')
+                elif operand_str == "not set":
+                    conditions.append(f'("{field}" IS NULL OR "{field}" = \'\')')
+                else:
+                    conditions.append(f'"{field}" = ?')
+                    params.append(operand)
+            elif op == "between":
+                if isinstance(operand, (list, tuple)) and len(operand) == 2:
+                    conditions.append(f'"{field}" BETWEEN ? AND ?')
+                    params.extend(operand)
+                else:
+                    conditions.append("1=0")
+            else:
+                conditions.append(f'"{field}" {operator} ?')
+                params.append(operand)
+        else:
+            conditions.append(f'"{field}" = ?')
+            params.append(condition)
+    return " AND ".join(conditions) if conditions else "1=1"
+
+
+def get_list(
+    doctype,
+    filters=None,
+    fields=None,
+    order_by=None,
+    limit=None,
+    or_filters=None,
+    limit_start=None,
+    as_list=False,
+    **kwargs,
+):
     if _rust is None:
         return []
-    simple_filters = filters
+
+    normalized = _normalize_filters(filters)
+    or_normalized = _normalize_filters(or_filters)
+    limit = limit or kwargs.pop("limit_page_length", None) or 20
+    limit_start = limit_start or kwargs.pop("start", None) or 0
+
+    # Aggregate fields like [{"COUNT": "*", "as": "result"}] are used by
+    # Number Card. The Rust ORM doesn't understand them, so run them directly
+    # against SQLite and alias the result.
+    if isinstance(fields, list) and fields and any(isinstance(f, dict) for f in fields):
+        return _aggregate_get_list(doctype, normalized, fields, as_list=as_list)
+
+    # When OR filters are involved, Rust can't handle them.  Fetch a larger
+    # result set and filter in Python, then slice.
+    fetch_limit = limit + limit_start if or_normalized else limit
+    if or_normalized:
+        # Safety cap so we don't pull the whole table on huge datasets.
+        fetch_limit = min(fetch_limit, 5000)
+
     rows = []
     try:
-        rows = _rust.get_list(doctype, simple_filters, fields, order_by, limit)
+        rows = _rust.get_list(doctype, normalized, fields, order_by, fetch_limit)
     except Exception:
         pass
+
     if not rows:
         # Fallback: Python sqlite3 directly
         table = doctype.lower().replace(" ", "_")
@@ -116,18 +432,29 @@ def get_list(doctype, filters=None, fields=None, order_by=None, limit=None, **kw
             col_str = ", ".join(f'"{f}"' for f in fields)
         sql = f'SELECT {col_str} FROM "{table}"'
         params = []
-        if isinstance(simple_filters, dict) and simple_filters:
-            conditions = " AND ".join(f'"{k}" = ?' for k in simple_filters)
-            sql += f" WHERE {conditions}"
-            params = list(simple_filters.values())
+        if isinstance(normalized, dict) and normalized:
+            where = _filters_to_sql(normalized, params)
+            sql += f" WHERE {where}"
         if order_by:
             sql += f" ORDER BY {order_by}"
         if limit:
             sql += f" LIMIT {limit}"
+        if limit_start:
+            sql += f" OFFSET {limit_start}"
         try:
             rows = _sqlite_query(sql, params)
         except Exception:
             return []
+    else:
+        # Post-filter for OR conditions and apply offset.
+        if or_normalized:
+            rows = _apply_filters(rows, normalized, or_normalized)
+        rows = rows[limit_start:limit_start + limit]
+
+    if as_list:
+        keys = _field_keys(fields, rows)
+        return [[r.get(k) for k in keys] for r in rows]
+
     # Wrap every row in _dict so attribute access (doc.name) works.
     result = []
     for r in rows:
@@ -148,26 +475,71 @@ def get_all(
     start=None,
     pluck=None,
     distinct=False,
+    as_list=False,
     **kwargs,
 ):
+    # Frappe allows ``get_all(doctype, ["name", ...])`` (fields as 2nd arg).
+    if isinstance(filters, (list, tuple)) and fields is None:
+        fields = filters
+        filters = None
+
     rows = get_list(
-        doctype, filters=filters, fields=fields, order_by=order_by,
-        limit=limit or limit_page_length or 500, **kwargs
+        doctype,
+        filters=filters,
+        fields=fields,
+        order_by=order_by,
+        limit=limit or limit_page_length or 500,
+        limit_start=start,
+        **kwargs,
     )
     if pluck:
         return [r.get(pluck) for r in rows if r.get(pluck) is not None]
+    if as_list:
+        if isinstance(fields, (list, tuple)) and fields:
+            return [[r.get(f) for f in fields] for r in rows]
+        # No explicit fields: return a list of values in key order.
+        return [list(r.values()) for r in rows]
     return rows
 
 
-def get_value(doctype, filters, fieldname):
+def get_value(doctype, filters, fieldname, as_dict=False):
     if _rust is None:
         return None
-    return _rust.get_value(doctype, filters, fieldname)
+    # Normalize filters: string -> {"name": string}
+    if isinstance(filters, str):
+        filters = {"name": filters}
+    # Frappe API: fieldname can be a string, list or tuple.
+    # String -> single value; list/tuple -> list/tuple of values.
+    if isinstance(fieldname, (list, tuple)):
+        fields = list(fieldname)
+        rows = _rust.get_list(doctype, filters, fields, None, 1)
+        if not rows:
+            return None
+        row = rows[0]
+        values = [row.get(f) for f in fields]
+        if as_dict:
+            return _dict(dict(zip(fieldname, values)))
+        return tuple(values) if isinstance(fieldname, tuple) else values
+    val = _rust.get_value(doctype, filters, fieldname)
+    if as_dict:
+        return _dict({fieldname: val})
+    return val
 
 
 def new_doc(doctype, parent_doc=None, parentfield=None, as_dict=False, **kwargs):
-    from .model.document import Document
-    doc = Document(doctype, None, **kwargs)
+    try:
+        from frappe.model.document import new_doc as _real_new_doc
+
+        return _real_new_doc(
+            doctype,
+            parent_doc=parent_doc,
+            parentfield=parentfield,
+            as_dict=as_dict,
+            **kwargs,
+        )
+    except Exception:
+        pass
+    doc = _FallbackDocument(doctype, None, **kwargs)
     if as_dict:
         return doc.to_dict()
     return doc
@@ -177,11 +549,23 @@ def set_value(doctype, docname, fieldname, value=None):
     db.set_value(doctype, docname, fieldname, value)
 
 
+def _doc_fields(doc):
+    """Return the mutable field map for a document proxy or fallback."""
+    if hasattr(doc, "_fields"):
+        return doc._fields
+    if hasattr(doc, "as_dict"):
+        d = doc.as_dict()
+        d.pop("doctype", None)
+        d.pop("name", None)
+        return d
+    return {k: v for k, v in doc.items() if k not in ("doctype", "name")}
+
+
 def save_doc(doc):
     if _rust is None:
         return doc
     if hasattr(doc, "doctype") and hasattr(doc, "name"):
-        _rust.save_doc(doc.doctype, doc.name, doc._fields if hasattr(doc, "_fields") else {})
+        _rust.save_doc(doc.doctype, doc.name, _doc_fields(doc))
     return doc
 
 
@@ -189,7 +573,7 @@ def insert_doc(doc):
     if _rust is None:
         return doc
     if hasattr(doc, "doctype"):
-        name = _rust.insert_doc(doc.doctype, doc._fields if hasattr(doc, "_fields") else {})
+        name = _rust.insert_doc(doc.doctype, _doc_fields(doc))
         doc.name = name
     return doc
 

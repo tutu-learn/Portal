@@ -219,13 +219,27 @@ impl DatabasePool {
     }
 
     pub async fn commit(&self) -> Result<()> {
-        self.execute_raw("COMMIT", vec![]).await?;
-        Ok(())
+        // SQLite operates in auto-commit mode unless an explicit transaction
+        // was begun via DatabasePool::begin().  Issuing COMMIT without BEGIN
+        // raises "cannot commit - no transaction is active", so ignore it for
+        // SQLite; writes through execute_sql are already persisted.
+        match self {
+            DatabasePool::Sqlite(_) => Ok(()),
+            DatabasePool::Postgres(_) => {
+                self.execute_raw("COMMIT", vec![]).await?;
+                Ok(())
+            }
+        }
     }
 
     pub async fn rollback(&self) -> Result<()> {
-        self.execute_raw("ROLLBACK", vec![]).await?;
-        Ok(())
+        match self {
+            DatabasePool::Sqlite(_) => Ok(()),
+            DatabasePool::Postgres(_) => {
+                self.execute_raw("ROLLBACK", vec![]).await?;
+                Ok(())
+            }
+        }
     }
 
     pub async fn begin(&self) -> Result<Transaction<'_>> {

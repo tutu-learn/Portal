@@ -108,6 +108,10 @@ pub fn get_list(
         let dict = PyDict::new_bound(py);
         dict.set_item("doctype", doc.doctype)?;
         dict.set_item("name", doc.name)?;
+        dict.set_item("owner", doc.owner.clone())?;
+        dict.set_item("creation", doc.creation.to_rfc3339())?;
+        dict.set_item("modified", doc.modified.to_rfc3339())?;
+        dict.set_item("docstatus", doc.docstatus)?;
         for (k, v) in &doc.fields {
             dict.set_item(k, json_to_py(py, v)?)?;
         }

@@ -36,31 +36,82 @@ pub(crate) fn pubsub() -> Option<&'static std::sync::Arc<::queue::PubSub>> {
 pub(crate) fn py_to_json(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     use serde_json::Value;
     if obj.is_none() {
-        Ok(Value::Null)
-    } else if let Ok(b) = obj.extract::<bool>() {
-        Ok(Value::Bool(b))
-    } else if let Ok(i) = obj.extract::<i64>() {
-        Ok(Value::Number(i.into()))
-    } else if let Ok(f) = obj.extract::<f64>() {
-        Ok(Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into())))
-    } else if let Ok(s) = obj.extract::<String>() {
-        Ok(Value::String(s))
-    } else if let Ok(list) = obj.downcast::<pyo3::types::PyList>() {
+        return Ok(Value::Null);
+    }
+
+    // Shim _LocalProxy (python/frappe/_context.py) exposes _resolve().
+    if let Ok(proxy) = obj.getattr("_resolve") {
+        if proxy.is_callable() {
+            if let Ok(inner) = proxy.call0() {
+                return py_to_json(&inner);
+            }
+        }
+    }
+
+    // Werkzeug/Flask-style local proxy: resolve to the underlying object.
+    if let Ok(proxy) = obj.getattr("_get_current_object") {
+        if let Ok(inner) = proxy.call0() {
+            return py_to_json(&inner);
+        }
+    }
+
+    // Plain scalars.
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(Value::Bool(b));
+    }
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(Value::Number(i.into()));
+    }
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into())));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(Value::String(s));
+    }
+
+    // Collections.
+    if let Ok(list) = obj.downcast::<pyo3::types::PyList>() {
         let mut arr = Vec::new();
         for item in list.iter() {
             arr.push(py_to_json(&item)?);
         }
-        Ok(Value::Array(arr))
-    } else if let Ok(dict) = obj.downcast::<pyo3::types::PyDict>() {
+        return Ok(Value::Array(arr));
+    }
+    if let Ok(tuple) = obj.downcast::<pyo3::types::PyTuple>() {
+        let mut arr = Vec::new();
+        for item in tuple.iter() {
+            arr.push(py_to_json(&item)?);
+        }
+        return Ok(Value::Array(arr));
+    }
+    if let Ok(dict) = obj.downcast::<pyo3::types::PyDict>() {
         let mut map = serde_json::Map::new();
         for (k, v) in dict {
             let key: String = k.extract()?;
             map.insert(key, py_to_json(&v)?);
         }
-        Ok(Value::Object(map))
-    } else {
-        Ok(Value::String(obj.str()?.to_string()))
+        return Ok(Value::Object(map));
     }
+
+    // Datetime/date objects.
+    if let Ok(dt) = obj.getattr("isoformat") {
+        if let Ok(s) = dt.call0() {
+            if let Ok(s) = s.extract::<String>() {
+                return Ok(Value::String(s));
+            }
+        }
+    }
+
+    // Frappe Document / FormMeta objects expose ``as_dict``.  Use it so the
+    // result is JSON-serializable instead of a Python object repr.
+    if let Ok(as_dict) = obj.getattr("as_dict") {
+        if let Ok(d) = as_dict.call0() {
+            return py_to_json(&d);
+        }
+    }
+
+    // Fallback: string representation.
+    Ok(Value::String(obj.str()?.to_string()))
 }
 
 pub fn json_to_py(py: Python<'_>, val: &serde_json::Value) -> PyResult<PyObject> {
@@ -213,7 +264,33 @@ pub fn call_method_with_user(
             func.call((), Some(kw))
         } else {
             func.call0()
-        }.map_err(|e| error::RuntimeError::Python(format!("call {}: {}", method_path, e)))?;
+        }.map_err(|e| {
+            // Extract a full Python traceback so the JS console / logs show the
+            // real failure point instead of just the exception message.
+            let detail = Python::with_gil(|py| {
+                let traceback = py.import_bound("traceback").ok()
+                    .and_then(|tb| tb.getattr("format_exception").ok())
+                    .and_then(|fmt| {
+                        // format_exception(exception_type, exception_value, traceback)
+                        let args = (
+                            e.get_type_bound(py),
+                            e.clone_ref(py),
+                            e.traceback_bound(py),
+                        );
+                        fmt.call1(args).ok()
+                    })
+                    .and_then(|lines| py_to_json(&lines).ok())
+                    .and_then(|v| v.as_array().cloned())
+                    .map(|arr| arr.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect::<String>())
+                    .unwrap_or_default();
+                if traceback.is_empty() {
+                    e.to_string()
+                } else {
+                    traceback
+                }
+            });
+            error::RuntimeError::Python(format!("call {}: {}", method_path, detail))
+        })?;
 
         let result_json = py_to_json(&result)
             .map_err(|e| error::RuntimeError::Python(format!("convert result: {}", e)))?;

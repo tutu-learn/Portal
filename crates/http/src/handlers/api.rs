@@ -177,8 +177,16 @@ async fn load_doctype_from_json(
     let content = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| format!("read error: {}", e))?;
+    load_doctype_from_content(doctype, &content, cached_timestamp)
+}
+
+fn load_doctype_from_content(
+    doctype: &str,
+    content: &str,
+    cached_timestamp: &str,
+) -> Result<Vec<serde_json::Value>, String> {
     let mut doc: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("parse error: {}", e))?;
+        serde_json::from_str(content).map_err(|e| format!("parse error: {}", e))?;
 
     // Check cache timestamp
     if !cached_timestamp.is_empty() {
@@ -189,31 +197,87 @@ async fn load_doctype_from_json(
         }
     }
 
-    // Ensure child fields have doctype set
+    let doctype_name = doc.get("name").and_then(|v| v.as_str()).unwrap_or(doctype).to_string();
+
+    // Ensure child fields have doctype/parent/parentfield/idx set
     if let Some(fields) = doc.get_mut("fields").and_then(|f| f.as_array_mut()) {
-        for field in fields {
+        for (idx, field) in fields.iter_mut().enumerate() {
             if let serde_json::Value::Object(map) = field {
                 map.entry("doctype".to_string())
                     .or_insert(serde_json::Value::String("DocField".into()));
+                map.entry("parent".to_string())
+                    .or_insert(serde_json::Value::String(doctype_name.clone()));
+                map.entry("parenttype".to_string())
+                    .or_insert(serde_json::Value::String("DocType".into()));
+                map.entry("parentfield".to_string())
+                    .or_insert(serde_json::Value::String("fields".into()));
+                map.entry("idx".to_string())
+                    .or_insert(serde_json::Value::Number((idx + 1).into()));
             }
         }
     }
 
-    // Ensure permissions have doctype set
+    // Ensure permissions have doctype/parent/parentfield/idx set
     if let Some(perms) = doc.get_mut("permissions").and_then(|p| p.as_array_mut()) {
-        for perm in perms {
+        for (idx, perm) in perms.iter_mut().enumerate() {
             if let serde_json::Value::Object(map) = perm {
                 map.entry("doctype".to_string())
                     .or_insert(serde_json::Value::String("DocPerm".into()));
+                map.entry("parent".to_string())
+                    .or_insert(serde_json::Value::String(doctype_name.clone()));
+                map.entry("parenttype".to_string())
+                    .or_insert(serde_json::Value::String("DocType".into()));
+                map.entry("parentfield".to_string())
+                    .or_insert(serde_json::Value::String("permissions".into()));
+                map.entry("idx".to_string())
+                    .or_insert(serde_json::Value::Number((idx + 1).into()));
             }
         }
     }
 
-    let mut docs = vec![doc];
+    let mut docs = vec![doc.clone()];
 
-    // TODO: load linked doctypes for Link/Table MultiSelect fields if needed
+    // Bundle child-table metas so forms with Table / Table MultiSelect render.
+    let table_fieldtypes = ["Table", "Table MultiSelect"];
+    let child_doctypes: Vec<String> = doc.get("fields")
+        .and_then(|f| f.as_array())
+        .map(|arr| arr.iter()
+            .filter(|f| f.get("fieldtype").and_then(|v| v.as_str()).map(|t| table_fieldtypes.contains(&t)).unwrap_or(false))
+            .filter_map(|f| f.get("options").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .collect())
+        .unwrap_or_default();
+
+    for child_dt in child_doctypes {
+        if child_dt == doctype {
+            continue;
+        }
+        if let Ok(child_meta) = load_child_doctype_from_json(&child_dt, cached_timestamp) {
+            docs.extend(child_meta);
+        }
+    }
 
     Ok(docs)
+}
+
+fn load_child_doctype_from_json(
+    doctype: &str,
+    cached_timestamp: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    let scrubbed = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
+    let base = PathBuf::from("apps/frappe/frappe");
+
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let path = entry.path().join("doctype").join(&scrubbed).join(format!("{}.json", scrubbed));
+            if path.exists() {
+                let content = std::fs::read_to_string(&path)
+                    .map_err(|e| format!("read error: {}", e))?;
+                return load_doctype_from_content(doctype, &content, cached_timestamp);
+            }
+        }
+    }
+
+    Err(format!("doctype json not found for {}", doctype))
 }
 
 fn extract_cookie_value(header: &str, name: &str) -> Option<String> {

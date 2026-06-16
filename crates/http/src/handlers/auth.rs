@@ -22,7 +22,7 @@ pub async fn login(
                     let cookie = format!("sid={}; Path=/; HttpOnly; SameSite=Lax", session.id);
                     let mut res = Json(serde_json::json!({
                         "message": "Logged In",
-                        "home_page": "/app",
+                        "home_page": "/desk",
                         "full_name": usr,
                     })).into_response();
                     res.headers_mut().insert(SET_COOKIE, cookie.parse().unwrap());

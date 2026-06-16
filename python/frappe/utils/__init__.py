@@ -1,76 +1,180 @@
-"""
-Frappe utils shim — extends __path__ and eagerly re-exports the real
-frappe.utils so that `from frappe.utils import format_timedelta` works.
+"""Shim for frappe.utils.
 
-By the time this module is imported, frappe/__init__ is fully initialized
-(since we removed the `from .utils import ...` startup import), so loading
-the real frappe utils here is safe.
+Try to use the real frappe.utils package where possible, and fall back to
+lightweight stubs for functions that pull in heavy dependencies.
 """
+
 import importlib.util
 import os
 import pkgutil
 import sys
 
-# Extend __path__ so submodules (deprecations, password, etc.) resolve to apps/frappe.
+# Fall back to real frappe.utils submodules for anything not shimmed here.
 __path__ = pkgutil.extend_path(__path__, __name__)
-_shim_utils_dir = os.path.dirname(os.path.abspath(__file__))
-for _p in sys.path:
-    _candidate = os.path.join(os.path.abspath(_p), "frappe", "utils")
-    if os.path.isdir(_candidate) and os.path.abspath(_candidate) not in [os.path.abspath(x) for x in __path__]:
-        __path__.append(_candidate)
 
-# ---------------------------------------------------------------------------
-# Eagerly load the real frappe/utils/__init__.py and merge its namespace.
-# ---------------------------------------------------------------------------
-def _load_real():
-    for _p in list(__path__):
-        if os.path.abspath(_p) == _shim_utils_dir:
+from frappe._utils import (
+    nowdate,
+    now_datetime,
+    now,
+    today,
+    getdate,
+    get_datetime,
+    add_days,
+    date_diff,
+    cint,
+    cstr,
+    flt,
+    fmt_money,
+    parse_json,
+    as_json,
+    safe_decode,
+    scrub,
+    unscrub,
+    _,
+)
+
+
+def _load_real_utils():
+    """Return the real frappe.utils module if it can be imported."""
+    shim_dir = os.path.dirname(os.path.abspath(__file__))
+    for p in sys.path:
+        candidate = os.path.join(os.path.abspath(p), "frappe", "utils", "__init__.py")
+        if os.path.abspath(os.path.dirname(candidate)) == shim_dir:
             continue
-        _init = os.path.join(os.path.abspath(_p), "__init__.py")
-        if os.path.isfile(_init):
-            spec = importlib.util.spec_from_file_location("_frappe_utils_real_init", _init)
+        if os.path.isfile(candidate):
+            spec = importlib.util.spec_from_file_location(
+                "_frappe_utils_real",
+                candidate,
+                submodule_search_locations=[os.path.dirname(candidate)],
+            )
             mod = importlib.util.module_from_spec(spec)
             try:
                 spec.loader.exec_module(mod)
-                globals().update({k: v for k, v in vars(mod).items() if not k.startswith("__")})
-                return
+                return mod
             except Exception:
-                import traceback
-                traceback.print_exc()
+                pass
+    return None
 
-_load_real()
 
-# Inline stubs as fallback for anything not provided by the real module.
-import datetime as _dt
+_real_utils = _load_real_utils()
+if _real_utils is not None:
+    for _name in dir(_real_utils):
+        if not _name.startswith("_") and _name not in globals():
+            globals()[_name] = getattr(_real_utils, _name)
 
-def _flt(v, precision=None):
-    if v is None:
-        return 0.0
+
+def get_system_timezone():
+    return "UTC"
+
+
+def add_user_info(user, user_info=None):
+    """Populate user_info dict for bootinfo / docinfo.
+
+    Mirrors real Frappe's semantics enough for the desk to resolve user
+    full names and avatars. Accepts a single user or an iterable of users.
+    """
+    if user_info is None:
+        user_info = {}
+
+    users = user
+    if isinstance(user, str):
+        users = [user]
+    elif not isinstance(user, (list, tuple, set)):
+        users = [user]
+
+    import frappe
+    for u in users:
+        if u in user_info:
+            continue
+        full_name = u
+        image = None
+        try:
+            row = frappe.db.get_value(
+                "User",
+                u,
+                ["full_name", "user_image"],
+                as_dict=True,
+            )
+            if row:
+                full_name = row.get("full_name") or u
+                image = row.get("user_image")
+        except Exception:
+            pass
+
+        user_info[u] = frappe._dict(
+            email=u,
+            fullname=full_name,
+            image=image,
+            name=u,
+            time_zone=None,
+        )
+    return user_info
+
+
+def get_table_name(table_name: str, wrap_in_backticks: bool = False) -> str:
+    """Return the SQL table name for a DocType, matching real Frappe's API.
+
+    In the kiff runtime data tables are stored without the ``tab`` prefix and
+    lower-cased, so the translation layer in :func:`frappe.db.sql` handles the
+    conversion.  This function keeps the ``tab`` prefix so existing Frappe code
+    that builds raw SQL continues to work.
+    """
+    name = f"tab{table_name}" if not table_name.startswith("__") else table_name
+    if wrap_in_backticks:
+        return f"`{name}`"
+    return name
+
+
+def get_datetime(dt=None):
+    import datetime
+    if dt is None:
+        return datetime.datetime.now()
+    if isinstance(dt, datetime.datetime):
+        return dt
+    if isinstance(dt, datetime.date):
+        return datetime.datetime(dt.year, dt.month, dt.day)
     try:
-        result = float(v)
-        return round(result, int(precision)) if precision is not None else result
-    except (TypeError, ValueError):
-        return 0.0
+        return datetime.datetime.fromisoformat(str(dt))
+    except Exception:
+        return datetime.datetime.now()
 
-def _cint(v, default=0):
-    if v is None:
-        return default
-    try:
-        return int(float(v))
-    except (TypeError, ValueError):
-        return default
 
-# Only define stubs if the real module didn't provide them
-if "flt" not in globals():
-    flt = _flt
-if "cint" not in globals():
-    cint = _cint
-if "now_datetime" not in globals():
-    def now_datetime():
-        return _dt.datetime.now()
-if "nowdate" not in globals():
-    def nowdate():
-        return _dt.date.today().isoformat()
-if "today" not in globals():
-    def today():
-        return _dt.date.today().isoformat()
+def get_traceback():
+    import traceback
+    return traceback.format_exc()
+
+
+def create_folder(path, with_init=False):
+    import os
+    os.makedirs(path, exist_ok=True)
+
+
+def mock(*args, **kwargs):
+    pass
+
+
+def safe_eval(*args, **kwargs):
+    pass
+
+
+# Module-level fallback for any other frappe.utils names.
+def __getattr__(name):
+    if name.startswith("_"):
+        raise AttributeError(name)
+    return _make_stub(name)
+
+
+def _make_stub(name):
+    def _stub(*args, **kwargs):
+        if len(args) == 1 and callable(args[0]) and not kwargs:
+            return args[0]
+
+        def _decorator(fn_or_val=None):
+            if callable(fn_or_val):
+                return fn_or_val
+            return None
+
+        return _decorator
+
+    _stub.__name__ = name
+    return _stub

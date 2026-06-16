@@ -96,6 +96,87 @@ class _SimpleUserPermissions:
     def get_defaults(self):
         return {}
 
+    def load_user(self):
+        """Return a dict compatible with frappe.utils.user.User.load_user()."""
+        from ._document import get_value
+        from ._types import _dict
+
+        fields = [
+            "creation",
+            "desk_theme",
+            "code_editor_type",
+            "document_follow_notify",
+            "email",
+            "email_signature",
+            "first_name",
+            "full_name",
+            "language",
+            "last_name",
+            "mute_sounds",
+            "show_absolute_datetime_in_timeline",
+            "send_me_a_copy",
+            "user_image",
+            "user_type",
+            "onboarding_status",
+            "default_workspace",
+        ]
+        d = get_value("User", self.name, fields, as_dict=True) or _dict()
+        if not d:
+            d = _dict({
+                "email": self.name,
+                "first_name": self.name,
+                "full_name": self.name,
+                "last_name": "",
+                "user_type": "System User",
+                "desk_theme": "Light",
+                "language": "en",
+            })
+
+        if not d.get("full_name"):
+            d.full_name = " ".join(filter(None, [d.get("first_name"), d.get("last_name")])) or self.name
+
+        if d.get("default_workspace"):
+            try:
+                from ._document import get_cached_doc
+                ws = get_cached_doc("Workspace", d.default_workspace)
+                d.default_workspace = {
+                    "name": ws.name,
+                    "public": ws.public,
+                    "title": ws.title,
+                }
+            except Exception:
+                d.default_workspace = None
+
+        d.name = self.name
+        d.onboarding_status = {}  # stub
+        d.roles = self.get_roles()
+        d.defaults = self.get_defaults()
+
+        if not self.can_read:
+            self.build_permissions()
+
+        for key in (
+            "can_select",
+            "can_create",
+            "can_write",
+            "can_read",
+            "can_submit",
+            "can_cancel",
+            "can_delete",
+            "can_get_report",
+            "allow_modules",
+            "all_read",
+            "can_search",
+            "in_create",
+            "can_export",
+            "can_import",
+            "can_print",
+            "can_email",
+            "permitted_modules",
+        ):
+            d[key] = list(set(getattr(self, key, [])))
+        return d
+
     def has_role(self, role):
         roles = self.get_roles()
         if isinstance(role, str):

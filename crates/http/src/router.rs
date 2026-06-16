@@ -2,6 +2,7 @@ use crate::handlers::{api, auth, desk, files, socketio};
 use crate::websocket::ws_handler;
 use crate::AppState;
 use axum::{
+    response::Redirect,
     routing::{get, post},
     Router,
 };
@@ -41,7 +42,9 @@ pub fn create_router(state: AppState) -> Router {
         .nest_service("/assets/frappe", ServeDir::new("apps/frappe/frappe/public"))
         .nest_service("/assets", ServeDir::new("crates/http/assets"))
         .route("/login", get(desk::serve_login))
-        .route("/app", get(desk::serve_desk))
+        // The bundled Frappe Desk JS only strips the /desk prefix. Redirect
+        // /app so the SPA sees a URL it can route correctly.
+        .route("/app", get(|| async { Redirect::temporary("/desk") }))
         .route("/desk", get(desk::serve_desk))
         .fallback(desk::serve_desk)
         .with_state(state)

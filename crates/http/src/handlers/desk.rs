@@ -112,7 +112,8 @@ async fn query_boot_data(
 ) -> error::Result<(Vec<Value>, Map<String, Value>, Vec<String>, Map<String, Value>, Option<String>)> {
     // Query workspaces
     let ws_rows = pool.execute_sql(
-        r#"SELECT name, label, title, icon, public, is_hidden, sequence_id, module, parent_page, for_user
+        r#"SELECT name, label, title, icon, public, is_hidden, sequence_id, module, parent_page, for_user, content,
+                  app, type, link_type, link_to, external_link, indicator_color
            FROM "workspace"
            WHERE (for_user = '' OR for_user IS NULL)
            ORDER BY COALESCE(sequence_id, 9999)"#,
@@ -144,7 +145,21 @@ async fn query_boot_data(
             .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|i| i as f64)).or_else(|| v.as_str().and_then(|s| s.parse().ok())))
             .unwrap_or(0.0);
 
-        let ws_obj = json!({
+        let content = match row.get("content") {
+            Some(Value::String(s)) if !s.trim().is_empty() => Value::String(s.clone()),
+            Some(Value::String(_)) => Value::Null,
+            Some(v) => v.clone(),
+            None => Value::Null,
+        };
+        let app = row.get("app").and_then(|v| v.as_str()).unwrap_or("frappe").to_string();
+        let ws_type = row.get("type").and_then(|v| v.as_str()).unwrap_or("Workspace").to_string();
+        let link_type = row.get("link_type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let link_to = row.get("link_to").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let external_link = row.get("external_link").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let indicator_color = row.get("indicator_color").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let for_user_val = row.get("for_user").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+        let mut ws_obj = json!({
             "name": name,
             "label": label,
             "title": title,
@@ -154,7 +169,28 @@ async fn query_boot_data(
             "sequence_id": sequence_id,
             "module": module,
             "parent_page": parent_page,
+            "content": content,
+            "app": app,
+            "type": ws_type,
+            "link_type": link_type,
+            "link_to": link_to,
+            "external_link": external_link,
+            "indicator_color": indicator_color,
+            "for_user": for_user_val,
         });
+
+        // Workspace links of type "Report" need a report object for the router.
+        if link_type == "Report" && !link_to.is_empty() {
+            ws_obj.as_object_mut().unwrap().insert(
+                "report".to_string(),
+                json!({
+                    "name": link_to,
+                    "title": link_to,
+                    "report_type": "Report Builder",
+                    "ref_doctype": "",
+                }),
+            );
+        }
         workspaces.push(ws_obj);
 
         // Track first workspace as default
@@ -209,6 +245,49 @@ async fn build_boot_info(
 ) -> serde_json::Value {
     let is_guest = user.is_none();
     let user_name = user.unwrap_or("Guest");
+
+    // Try to build bootinfo via the real Frappe boot module through the Python bridge.
+    // Frappe 16's frontend expects many fields that are tedious to hardcode; delegating
+    // to the real framework is the most compatible path. We then overlay our own values
+    // (assets_json, user info, etc.) so the Kiff runtime stays in control.
+    if !is_guest {
+        let u = user_name.to_string();
+        let py_boot = tokio::task::spawn_blocking(move || {
+            kiff_core::call_method_with_user(
+                "frappe.boot.get_bootinfo",
+                &serde_json::json!({}),
+                Some(&u),
+            )
+        })
+        .await;
+
+        match &py_boot {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => tracing::warn!("frappe.boot.get_bootinfo failed: {}", e),
+            Err(e) => tracing::warn!("frappe.boot.get_bootinfo task panicked: {}", e),
+        }
+
+        if let Some(Value::Object(mut wrapper)) = py_boot.ok().and_then(|r| r.ok()) {
+            // call_method_with_user returns {"message": <bootinfo>} for standard API methods.
+            let mut boot = if let Some(Value::Object(boot)) = wrapper.remove("message") {
+                boot
+            } else {
+                wrapper
+            };
+            // Overlay Kiff-specific / runtime-controlled fields.
+            boot.insert("assets_json".to_string(), json!(bundle_map));
+            boot.insert("sitename".to_string(), json!("localhost"));
+            boot.insert("home_page".to_string(), json!("Workspaces"));
+            boot.insert("lang".to_string(), json!("en"));
+            boot.insert("desk_theme".to_string(), json!("Light"));
+            boot.insert("developer_mode".to_string(), json!(true));
+            boot.insert("socketio_port".to_string(), json!(9000));
+            boot.insert("disable_async".to_string(), json!(false));
+            boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
+            boot.insert("metadata_version".to_string(), json!("1"));
+            return Value::Object(boot);
+        }
+    }
 
     // Get DB pool for site queries
     let pool = state.pools.iter().next().map(|e| e.value().clone());
@@ -415,15 +494,123 @@ async fn build_boot_info(
     boot.insert("developer_mode".to_string(), json!(true));
     boot.insert("read_only".to_string(), json!(false));
     boot.insert("assets_json".to_string(), json!(bundle_map));
-    boot.insert("docs".to_string(), json!([]));
+    // Singles that the desk syncs into locals via frappe.model.sync(frappe.boot.docs).
+    // Print Settings is required by the form sidebar; System Settings by many boot paths.
+    let docs = json!([
+        {
+            "doctype": ":Print Settings",
+            "name": "Print Settings",
+            "allow_print_for_draft": 1,
+            "allow_print_for_cancelled": 0,
+            "print_style": "Redesign",
+            "font": "Default",
+            "font_size": 9.0,
+            "pdf_page_size": "A4",
+            "send_print_as_pdf": 1,
+            "repeat_header_footer": 1,
+            "with_letterhead": 1,
+            "add_draft_heading": 1,
+        },
+        {
+            "doctype": ":System Settings",
+            "name": "System Settings",
+            "language": "en",
+            "time_zone": "UTC",
+            "date_format": "yyyy-mm-dd",
+            "time_format": "HH:mm:ss",
+            "setup_complete": 1,
+            "currency": "USD",
+            "float_precision": 3,
+            "currency_precision": 2,
+            "rounding_method": "Banker's Rounding (legacy)",
+            "enable_scheduler": 0,
+            "max_report_rows": 100000,
+            "link_field_results_limit": 10,
+        },
+    ]);
+    boot.insert("docs".to_string(), docs);
+    // Frappe 16 expects boot.workspaces = { pages, has_access, has_create_access }
+    let mut workspaces_obj = Map::new();
+    workspaces_obj.insert("pages".to_string(), json!(workspaces));
+    workspaces_obj.insert(
+        "has_access".to_string(),
+        json!(true),
+    );
+    workspaces_obj.insert(
+        "has_create_access".to_string(),
+        json!(!is_guest),
+    );
+    boot.insert("workspaces".to_string(), Value::Object(workspaces_obj));
+    // Kept for older frontend code that may still reference it
     boot.insert("allowed_workspaces".to_string(), json!(workspaces));
     boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
+
+    // Frappe 16 sidebar expects workspace_sidebar_item = { title_lower: { items, module, app } }
+    let mut workspace_sidebar_item = Map::new();
+    workspace_sidebar_item.insert(
+        "my workspaces".to_string(),
+        json!({
+            "items": workspaces.iter().map(|ws| {
+                json!({
+                    "label": ws.get("label").unwrap_or(&Value::Null),
+                    "link_to": ws.get("name").unwrap_or(&Value::Null),
+                    "link_type": "Workspace",
+                    "type": "Link",
+                    "icon": ws.get("icon").unwrap_or(&Value::Null),
+                    "child": false,
+                    "collapsible": false,
+                    "indent": 0,
+                    "keep_closed": false,
+                    "url": Value::Null,
+                    "show_arrow": false,
+                    "filters": Value::Null,
+                    "route_options": Value::Null,
+                    "tab": Value::Null,
+                })
+            }).collect::<Vec<Value>>(),
+            "module": "Core",
+            "app": "frappe",
+        }),
+    );
+    for ws in &workspaces {
+        if let Some(title) = ws.get("title").and_then(|v| v.as_str()) {
+            let name = ws.get("name").and_then(|v| v.as_str()).unwrap_or(title);
+            workspace_sidebar_item.insert(
+                title.to_lowercase(),
+                json!({
+                    "items": [{
+                        "label": title,
+                        "link_to": name,
+                        "link_type": "Workspace",
+                        "type": "Link",
+                        "icon": ws.get("icon").unwrap_or(&Value::Null),
+                        "child": false,
+                        "collapsible": false,
+                        "indent": 0,
+                        "keep_closed": false,
+                        "url": Value::Null,
+                        "show_arrow": false,
+                        "filters": Value::Null,
+                        "route_options": Value::Null,
+                        "tab": Value::Null,
+                    }],
+                    "module": ws.get("module").unwrap_or(&json!("")),
+                    "app": "frappe",
+                }),
+            );
+        }
+    }
+    boot.insert("workspace_sidebar_item".to_string(), Value::Object(workspace_sidebar_item));
     boot.insert("dashboards".to_string(), json!([]));
     boot.insert("page_info".to_string(), json!({}));
     boot.insert("allowed_pages".to_string(), json!([]));
     boot.insert("allowed_modules".to_string(), json!([]));
+    boot.insert("notes".to_string(), json!([]));
     boot.insert("letter_heads".to_string(), json!({}));
     boot.insert("module_app".to_string(), json!({}));
+    boot.insert("app_data".to_string(), json!([]));
+    boot.insert("app_name_style".to_string(), json!("Default"));
+    boot.insert("desktop_icons".to_string(), json!([]));
     boot.insert("calendars".to_string(), json!([]));
     boot.insert("treeviews".to_string(), json!([]));
     boot.insert("print_css".to_string(), json!(""));

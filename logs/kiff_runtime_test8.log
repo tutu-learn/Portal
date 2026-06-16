@@ -1,0 +1,182 @@
+2026-06-16T14:41:19.634752Z  INFO ThreadId(01) kiff_runtime: 11: kiff runtime starting
+2026-06-16T14:41:19.637824Z  WARN ThreadId(01) config: 139: site assets missing site_config.json, using defaults
+2026-06-16T14:41:19.637900Z  INFO ThreadId(01) config: 147: loaded 2 sites from "./sites"
+2026-06-16T14:41:19.641089Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site localhost
+2026-06-16T14:41:19.641117Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T14:41:19.659611Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T14:41:19.659628Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site localhost
+2026-06-16T14:41:19.659634Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T14:41:20.629300Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T14:41:20.629331Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T14:41:20.630425Z  WARN ThreadId(01) orm::doctype_sync: 470: table transaction_log has unexpected columns (["row_index", "reference_doctype", "document_name", "timestamp", "checksum_version", "previous_hash", "transaction_hash", "chaining_hash", "data", "amended_from"]); recreating to match metadata
+2026-06-16T14:41:20.630447Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table transaction_log with migration
+2026-06-16T14:41:20.634795Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Transaction Log: database error: error returned from database: (code: 1) there is already another table or index with this name: transaction_log
+2026-06-16T14:41:20.638408Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_post has unexpected columns (["title", "published_on", "published", "blog_category", "blogger", "route", "blog_intro", "content_type", "content", "content_md", "content_html", "email_sent", "disable_comments", "meta_description", "meta_image", "read_time", "featured", "hide_cta", "meta_title", "enable_email_notification", "disable_likes"]); recreating to match metadata
+2026-06-16T14:41:20.638425Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_post with migration
+2026-06-16T14:41:20.642687Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Post: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_post
+2026-06-16T14:41:20.645917Z  WARN ThreadId(01) orm::doctype_sync: 470: table marketing_campaign has unexpected columns (["campaign_description"]); recreating to match metadata
+2026-06-16T14:41:20.645923Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table marketing_campaign with migration
+2026-06-16T14:41:20.649949Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Marketing Campaign: database error: error returned from database: (code: 1) there is already another table or index with this name: marketing_campaign
+2026-06-16T14:41:20.653204Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_category has unexpected columns (["title", "published", "route", "description", "preview_image"]); recreating to match metadata
+2026-06-16T14:41:20.653211Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_category with migration
+2026-06-16T14:41:20.657245Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Category: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_category
+2026-06-16T14:41:20.660534Z  WARN ThreadId(01) orm::doctype_sync: 470: table blogger has unexpected columns (["disabled", "short_name", "full_name", "user", "bio", "avatar"]); recreating to match metadata
+2026-06-16T14:41:20.660540Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blogger with migration
+2026-06-16T14:41:20.664610Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blogger: database error: error returned from database: (code: 1) there is already another table or index with this name: blogger
+2026-06-16T14:41:20.667949Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_settings has unexpected columns (["blog_title", "blog_introduction", "enable_social_sharing", "show_cta_in_blog", "title", "subtitle", "cta_label", "cta_url", "comment_limit", "allow_guest_to_comment", "browse_by_category", "like_limit", "preview_image"]); recreating to match metadata
+2026-06-16T14:41:20.667961Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_settings with migration
+2026-06-16T14:41:20.672031Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_settings
+2026-06-16T14:41:20.675377Z  WARN ThreadId(01) orm::doctype_sync: 470: table s3_backup_settings has unexpected columns (["enabled", "notify_email", "send_email_for_successful_backup", "frequency", "access_key_id", "secret_access_key", "endpoint_url", "bucket", "backup_files", "backup_path"]); recreating to match metadata
+2026-06-16T14:41:20.675388Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table s3_backup_settings with migration
+2026-06-16T14:41:20.679460Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for S3 Backup Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: s3_backup_settings
+2026-06-16T14:41:20.682773Z  WARN ThreadId(01) orm::doctype_sync: 470: table dropbox_settings has unexpected columns (["enabled", "send_notifications_to", "send_email_for_successful_backup", "backup_frequency", "limit_no_of_backups", "no_of_backups", "file_backup", "app_access_key", "app_secret_key", "dropbox_refresh_token", "dropbox_access_token"]); recreating to match metadata
+2026-06-16T14:41:20.682782Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table dropbox_settings with migration
+2026-06-16T14:41:20.686845Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Dropbox Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: dropbox_settings
+2026-06-16T14:41:20.690115Z  WARN ThreadId(01) orm::doctype_sync: 470: table google_drive has unexpected columns (["enable", "backup_folder_name", "backup_folder_id", "frequency", "refresh_token", "authorization_code", "last_backup_on", "send_email_for_successful_backup", "file_backup", "email"]); recreating to match metadata
+2026-06-16T14:41:20.690123Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table google_drive with migration
+2026-06-16T14:41:20.694098Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Google Drive: database error: error returned from database: (code: 1) there is already another table or index with this name: google_drive
+2026-06-16T14:41:20.697439Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_rule has unexpected columns (["enabled", "rule_name", "reference_doctype", "condition", "points", "user_field", "multiplier_field", "max_points", "for_doc_event", "for_assigned_users", "field_to_check", "apply_only_once"]); recreating to match metadata
+2026-06-16T14:41:20.697447Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_rule with migration
+2026-06-16T14:41:20.701462Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Rule: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_rule
+2026-06-16T14:41:20.704704Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_settings has unexpected columns (["enabled", "point_allocation_periodicity", "last_point_allocation_date"]); recreating to match metadata
+2026-06-16T14:41:20.704711Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_settings with migration
+2026-06-16T14:41:20.708613Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_settings
+2026-06-16T14:41:20.712241Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_log has unexpected columns (["user", "type", "rule", "reference_doctype", "reference_name", "points", "reason", "reverted", "revert_of", "seen"]); recreating to match metadata
+2026-06-16T14:41:20.712255Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_log with migration
+2026-06-16T14:41:20.716425Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Log: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_log
+2026-06-16T14:41:20.719706Z  WARN ThreadId(01) orm::doctype_sync: 470: table review_level has unexpected columns (["level_name", "role", "review_points"]); recreating to match metadata
+2026-06-16T14:41:20.719712Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table review_level with migration
+2026-06-16T14:41:20.723760Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Review Level: database error: error returned from database: (code: 1) there is already another table or index with this name: review_level
+2026-06-16T14:41:20.726984Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter_attachment has unexpected columns (["attachment"]); recreating to match metadata
+2026-06-16T14:41:20.726991Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter_attachment with migration
+2026-06-16T14:41:20.730966Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter Attachment: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter_attachment
+2026-06-16T14:41:20.734270Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter_email_group has unexpected columns (["email_group", "total_subscribers"]); recreating to match metadata
+2026-06-16T14:41:20.734276Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter_email_group with migration
+2026-06-16T14:41:20.738306Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter Email Group: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter_email_group
+2026-06-16T14:41:20.741650Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter has unexpected columns (["send_from", "email_sent", "subject", "message", "send_unsubscribe_link", "published", "route", "scheduled_to_send", "schedule_send", "content_type", "message_md", "message_html", "schedule_sending", "send_webview_link", "sender_name", "sender_email", "email_sent_at", "total_recipients", "total_views", "campaign"]); recreating to match metadata
+2026-06-16T14:41:20.741661Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter with migration
+2026-06-16T14:41:20.745654Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter
+2026-06-16T14:41:20.750496Z  WARN ThreadId(01) orm::doctype_sync: 470: table system_settings has unexpected columns (["allow_older_web_view_links"]); recreating to match metadata
+2026-06-16T14:41:20.750502Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table system_settings with migration
+2026-06-16T14:41:20.755749Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for System Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: system_settings
+2026-06-16T14:41:20.776573Z  WARN ThreadId(01) orm::doctype_sync: 470: table communication has unexpected columns (["comment_type", "rating", "feedback_request"]); recreating to match metadata
+2026-06-16T14:41:20.776579Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table communication with migration
+2026-06-16T14:41:20.780995Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Communication: database error: error returned from database: (code: 1) there is already another table or index with this name: communication
+2026-06-16T14:41:20.787955Z  WARN ThreadId(01) orm::doctype_sync: 470: table module_onboarding has unexpected columns (["subtitle", "success_message", "documentation_url"]); recreating to match metadata
+2026-06-16T14:41:20.787964Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table module_onboarding with migration
+2026-06-16T14:41:20.791902Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Module Onboarding: database error: error returned from database: (code: 1) there is already another table or index with this name: module_onboarding
+2026-06-16T14:41:20.795372Z  WARN ThreadId(01) orm::doctype_sync: 470: table list_view_settings has unexpected columns (["total_fields"]); recreating to match metadata
+2026-06-16T14:41:20.795377Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table list_view_settings with migration
+2026-06-16T14:41:20.799416Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for List View Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: list_view_settings
+2026-06-16T14:41:20.809375Z  WARN ThreadId(01) orm::doctype_sync: 470: table notification_settings has unexpected columns (["enable_email_energy_point", "energy_points_system_notifications"]); recreating to match metadata
+2026-06-16T14:41:20.809381Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table notification_settings with migration
+2026-06-16T14:41:20.813455Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Notification Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: notification_settings
+2026-06-16T14:41:20.820794Z  WARN ThreadId(01) orm::doctype_sync: 470: table desktop_icon has unexpected columns (["module_name", "custom", "description", "category", "blocked", "force_show", "type", "_doctype", "_report", "color", "reverse"]); recreating to match metadata
+2026-06-16T14:41:20.820808Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table desktop_icon with migration
+2026-06-16T14:41:20.820881Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Desktop Icon: database error: error returned from database: (code: 1) duplicate column name: idx
+2026-06-16T14:41:20.836956Z  WARN ThreadId(01) orm::doctype_sync: 470: table webhook has unexpected columns (["preview_document", "preview_request_body", "meets_condition"]); recreating to match metadata
+2026-06-16T14:41:20.836964Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table webhook with migration
+2026-06-16T14:41:20.841277Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Webhook: database error: error returned from database: (code: 1) there is already another table or index with this name: webhook
+2026-06-16T14:41:20.857665Z  WARN ThreadId(01) orm::doctype_sync: 470: table email_queue has unexpected columns (["unsubscribe_param"]); recreating to match metadata
+2026-06-16T14:41:20.857671Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table email_queue with migration
+2026-06-16T14:41:20.862013Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Email Queue: database error: error returned from database: (code: 1) there is already another table or index with this name: email_queue
+2026-06-16T14:41:20.869496Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 265 data tables
+2026-06-16T14:41:20.909278Z  INFO ThreadId(01) orm::doctype_sync: 837: loaded 5 workspace fixtures
+2026-06-16T14:41:20.913623Z  INFO ThreadId(01) orm::doctype_sync: 893: loaded 9 page fixtures
+2026-06-16T14:41:20.914460Z  INFO ThreadId(01) orm::doctype_sync: 942: single settings seeded
+2026-06-16T14:41:20.914464Z  INFO ThreadId(01) orm::doctype_sync: 620: seed data inserted
+2026-06-16T14:41:20.914467Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T14:41:20.914738Z  INFO ThreadId(01) kiff_runtime: 25: connected pool for site assets
+2026-06-16T14:41:20.914743Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-06-16T14:41:20.921801Z  INFO ThreadId(01) orm::migrations: 165: migrations complete
+2026-06-16T14:41:20.921806Z  INFO ThreadId(01) kiff_runtime: 30: migrations complete for site assets
+2026-06-16T14:41:20.921810Z  INFO ThreadId(01) orm::doctype_sync: 7: syncing frappe doctypes
+2026-06-16T14:41:21.897373Z  INFO ThreadId(01) orm::doctype_sync: 95: synced 275 doctypes with 3119 fields into metadata tables
+2026-06-16T14:41:21.897389Z  INFO ThreadId(01) orm::doctype_sync: 350: syncing data tables from metadata
+2026-06-16T14:41:21.898419Z  WARN ThreadId(01) orm::doctype_sync: 470: table transaction_log has unexpected columns (["row_index", "reference_doctype", "document_name", "timestamp", "checksum_version", "previous_hash", "transaction_hash", "chaining_hash", "data", "amended_from"]); recreating to match metadata
+2026-06-16T14:41:21.898431Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table transaction_log with migration
+2026-06-16T14:41:21.902722Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Transaction Log: database error: error returned from database: (code: 1) there is already another table or index with this name: transaction_log
+2026-06-16T14:41:21.906288Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_post has unexpected columns (["title", "published_on", "published", "blog_category", "blogger", "route", "blog_intro", "content_type", "content", "content_md", "content_html", "email_sent", "disable_comments", "meta_description", "meta_image", "read_time", "featured", "hide_cta", "meta_title", "enable_email_notification", "disable_likes"]); recreating to match metadata
+2026-06-16T14:41:21.906301Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_post with migration
+2026-06-16T14:41:21.910457Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Post: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_post
+2026-06-16T14:41:21.913718Z  WARN ThreadId(01) orm::doctype_sync: 470: table marketing_campaign has unexpected columns (["campaign_description"]); recreating to match metadata
+2026-06-16T14:41:21.913725Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table marketing_campaign with migration
+2026-06-16T14:41:21.917690Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Marketing Campaign: database error: error returned from database: (code: 1) there is already another table or index with this name: marketing_campaign
+2026-06-16T14:41:21.920892Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_category has unexpected columns (["title", "published", "route", "description", "preview_image"]); recreating to match metadata
+2026-06-16T14:41:21.920899Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_category with migration
+2026-06-16T14:41:21.924907Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Category: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_category
+2026-06-16T14:41:21.928256Z  WARN ThreadId(01) orm::doctype_sync: 470: table blogger has unexpected columns (["disabled", "short_name", "full_name", "user", "bio", "avatar"]); recreating to match metadata
+2026-06-16T14:41:21.928266Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blogger with migration
+2026-06-16T14:41:21.932221Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blogger: database error: error returned from database: (code: 1) there is already another table or index with this name: blogger
+2026-06-16T14:41:21.935597Z  WARN ThreadId(01) orm::doctype_sync: 470: table blog_settings has unexpected columns (["blog_title", "blog_introduction", "enable_social_sharing", "show_cta_in_blog", "title", "subtitle", "cta_label", "cta_url", "comment_limit", "allow_guest_to_comment", "browse_by_category", "like_limit", "preview_image"]); recreating to match metadata
+2026-06-16T14:41:21.935606Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table blog_settings with migration
+2026-06-16T14:41:21.939605Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Blog Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: blog_settings
+2026-06-16T14:41:21.942823Z  WARN ThreadId(01) orm::doctype_sync: 470: table s3_backup_settings has unexpected columns (["enabled", "notify_email", "send_email_for_successful_backup", "frequency", "access_key_id", "secret_access_key", "endpoint_url", "bucket", "backup_files", "backup_path"]); recreating to match metadata
+2026-06-16T14:41:21.942832Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table s3_backup_settings with migration
+2026-06-16T14:41:21.946912Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for S3 Backup Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: s3_backup_settings
+2026-06-16T14:41:21.950215Z  WARN ThreadId(01) orm::doctype_sync: 470: table dropbox_settings has unexpected columns (["enabled", "send_notifications_to", "send_email_for_successful_backup", "backup_frequency", "limit_no_of_backups", "no_of_backups", "file_backup", "app_access_key", "app_secret_key", "dropbox_refresh_token", "dropbox_access_token"]); recreating to match metadata
+2026-06-16T14:41:21.950224Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table dropbox_settings with migration
+2026-06-16T14:41:21.954242Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Dropbox Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: dropbox_settings
+2026-06-16T14:41:21.957537Z  WARN ThreadId(01) orm::doctype_sync: 470: table google_drive has unexpected columns (["enable", "backup_folder_name", "backup_folder_id", "frequency", "refresh_token", "authorization_code", "last_backup_on", "send_email_for_successful_backup", "file_backup", "email"]); recreating to match metadata
+2026-06-16T14:41:21.957546Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table google_drive with migration
+2026-06-16T14:41:21.961521Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Google Drive: database error: error returned from database: (code: 1) there is already another table or index with this name: google_drive
+2026-06-16T14:41:21.964819Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_rule has unexpected columns (["enabled", "rule_name", "reference_doctype", "condition", "points", "user_field", "multiplier_field", "max_points", "for_doc_event", "for_assigned_users", "field_to_check", "apply_only_once"]); recreating to match metadata
+2026-06-16T14:41:21.964828Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_rule with migration
+2026-06-16T14:41:21.968806Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Rule: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_rule
+2026-06-16T14:41:21.971970Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_settings has unexpected columns (["enabled", "point_allocation_periodicity", "last_point_allocation_date"]); recreating to match metadata
+2026-06-16T14:41:21.971976Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_settings with migration
+2026-06-16T14:41:21.975868Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_settings
+2026-06-16T14:41:21.979103Z  WARN ThreadId(01) orm::doctype_sync: 470: table energy_point_log has unexpected columns (["user", "type", "rule", "reference_doctype", "reference_name", "points", "reason", "reverted", "revert_of", "seen"]); recreating to match metadata
+2026-06-16T14:41:21.979111Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table energy_point_log with migration
+2026-06-16T14:41:21.983112Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Energy Point Log: database error: error returned from database: (code: 1) there is already another table or index with this name: energy_point_log
+2026-06-16T14:41:21.986390Z  WARN ThreadId(01) orm::doctype_sync: 470: table review_level has unexpected columns (["level_name", "role", "review_points"]); recreating to match metadata
+2026-06-16T14:41:21.986396Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table review_level with migration
+2026-06-16T14:41:21.990712Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Review Level: database error: error returned from database: (code: 1) there is already another table or index with this name: review_level
+2026-06-16T14:41:21.993979Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter_attachment has unexpected columns (["attachment"]); recreating to match metadata
+2026-06-16T14:41:21.993986Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter_attachment with migration
+2026-06-16T14:41:21.997894Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter Attachment: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter_attachment
+2026-06-16T14:41:22.001145Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter_email_group has unexpected columns (["email_group", "total_subscribers"]); recreating to match metadata
+2026-06-16T14:41:22.001151Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter_email_group with migration
+2026-06-16T14:41:22.005137Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter Email Group: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter_email_group
+2026-06-16T14:41:22.008442Z  WARN ThreadId(01) orm::doctype_sync: 470: table newsletter has unexpected columns (["send_from", "email_sent", "subject", "message", "send_unsubscribe_link", "published", "route", "scheduled_to_send", "schedule_send", "content_type", "message_md", "message_html", "schedule_sending", "send_webview_link", "sender_name", "sender_email", "email_sent_at", "total_recipients", "total_views", "campaign"]); recreating to match metadata
+2026-06-16T14:41:22.008454Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table newsletter with migration
+2026-06-16T14:41:22.012575Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Newsletter: database error: error returned from database: (code: 1) there is already another table or index with this name: newsletter
+2026-06-16T14:41:22.017404Z  WARN ThreadId(01) orm::doctype_sync: 470: table system_settings has unexpected columns (["allow_older_web_view_links"]); recreating to match metadata
+2026-06-16T14:41:22.017413Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table system_settings with migration
+2026-06-16T14:41:22.022548Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for System Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: system_settings
+2026-06-16T14:41:22.043491Z  WARN ThreadId(01) orm::doctype_sync: 470: table communication has unexpected columns (["comment_type", "rating", "feedback_request"]); recreating to match metadata
+2026-06-16T14:41:22.043499Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table communication with migration
+2026-06-16T14:41:22.047875Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Communication: database error: error returned from database: (code: 1) there is already another table or index with this name: communication
+2026-06-16T14:41:22.054741Z  WARN ThreadId(01) orm::doctype_sync: 470: table module_onboarding has unexpected columns (["subtitle", "success_message", "documentation_url"]); recreating to match metadata
+2026-06-16T14:41:22.054748Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table module_onboarding with migration
+2026-06-16T14:41:22.058711Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Module Onboarding: database error: error returned from database: (code: 1) there is already another table or index with this name: module_onboarding
+2026-06-16T14:41:22.062122Z  WARN ThreadId(01) orm::doctype_sync: 470: table list_view_settings has unexpected columns (["total_fields"]); recreating to match metadata
+2026-06-16T14:41:22.062128Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table list_view_settings with migration
+2026-06-16T14:41:22.066196Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for List View Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: list_view_settings
+2026-06-16T14:41:22.076191Z  WARN ThreadId(01) orm::doctype_sync: 470: table notification_settings has unexpected columns (["enable_email_energy_point", "energy_points_system_notifications"]); recreating to match metadata
+2026-06-16T14:41:22.076197Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table notification_settings with migration
+2026-06-16T14:41:22.080277Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Notification Settings: database error: error returned from database: (code: 1) there is already another table or index with this name: notification_settings
+2026-06-16T14:41:22.087399Z  WARN ThreadId(01) orm::doctype_sync: 470: table desktop_icon has unexpected columns (["module_name", "custom", "description", "category", "blocked", "force_show", "type", "_doctype", "_report", "color", "reverse"]); recreating to match metadata
+2026-06-16T14:41:22.087410Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table desktop_icon with migration
+2026-06-16T14:41:22.087470Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Desktop Icon: database error: error returned from database: (code: 1) duplicate column name: idx
+2026-06-16T14:41:22.103628Z  WARN ThreadId(01) orm::doctype_sync: 470: table webhook has unexpected columns (["preview_document", "preview_request_body", "meets_condition"]); recreating to match metadata
+2026-06-16T14:41:22.103634Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table webhook with migration
+2026-06-16T14:41:22.107877Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Webhook: database error: error returned from database: (code: 1) there is already another table or index with this name: webhook
+2026-06-16T14:41:22.124434Z  WARN ThreadId(01) orm::doctype_sync: 470: table email_queue has unexpected columns (["unsubscribe_param"]); recreating to match metadata
+2026-06-16T14:41:22.124447Z  WARN ThreadId(01) orm::doctype_sync: 512: recreating table email_queue with migration
+2026-06-16T14:41:22.128808Z  WARN ThreadId(01) orm::doctype_sync: 390: failed to create data table for Email Queue: database error: error returned from database: (code: 1) there is already another table or index with this name: email_queue
+2026-06-16T14:41:22.136305Z  INFO ThreadId(01) orm::doctype_sync: 396: created/verified 265 data tables
+2026-06-16T14:41:22.174438Z  INFO ThreadId(01) orm::doctype_sync: 837: loaded 5 workspace fixtures
+2026-06-16T14:41:22.177356Z  INFO ThreadId(01) orm::doctype_sync: 893: loaded 9 page fixtures
+2026-06-16T14:41:22.178193Z  INFO ThreadId(01) orm::doctype_sync: 942: single settings seeded
+2026-06-16T14:41:22.178197Z  INFO ThreadId(01) orm::doctype_sync: 620: seed data inserted
+2026-06-16T14:41:22.178199Z  INFO ThreadId(01) orm::doctype_sync: 11: doctype sync complete
+2026-06-16T14:41:22.178282Z  INFO ThreadId(01) kiff_runtime::startup: 81: setting up Python path: shim=/Users/johannnefdt/RustroverProjects/open_frappe/python, frappe=/Users/johannnefdt/RustroverProjects/open_frappe/apps/frappe
+2026-06-16T14:41:22.185185Z  INFO ThreadId(01) kiff_runtime::startup: 118: adding venv site-packages: /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages
+2026-06-16T14:41:22.186565Z  INFO ThreadId(01) kiff_runtime::startup: 58: installed kiff_core symlink: /Users/johannnefdt/RustroverProjects/open_frappe/target/debug/deps/libkiff_core.dylib → /Users/johannnefdt/RustroverProjects/open_frappe/.venv/lib/python3.14/site-packages/kiff_core.cpython-314-darwin.so
+2026-06-16T14:41:22.710156Z  INFO ThreadId(01) kiff_runtime::startup: 167: kiff_core .so instance initialized
+2026-06-16T14:41:22.711234Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: long
+2026-06-16T14:41:22.711293Z  INFO ThreadId(01) queue::scheduler: 15: scheduler started
+2026-06-16T14:41:22.713312Z  INFO ThreadId(01) http: 27: HTTP server listening on 0.0.0.0:8000
+2026-06-16T14:41:22.713389Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: short
+2026-06-16T14:41:22.713425Z  INFO ThreadId(01) queue::worker: 17: worker started for queue: default
