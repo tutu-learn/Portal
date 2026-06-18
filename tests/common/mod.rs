@@ -12,7 +12,7 @@ pub async fn setup_test_db() -> error::Result<orm::DatabasePool> {
     let _ = std::fs::remove_file(&path);
     let pool = orm::DatabasePool::connect_sqlite(&path).await?;
     orm::migrations::Migrator::run(&pool).await?;
-    orm::doctype_sync::sync_all(&pool).await?;
+    orm::doctype_sync::sync_all(&pool, vec![]).await?;
     Ok(pool)
 }
 
@@ -56,5 +56,6 @@ pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
         metadata: Arc::new(metadata::Meta::new()),
         pubsub: Arc::new(queue::PubSub::new()),
         translator: Arc::new(sql_translator::SqlTranslator::new(sql_translator::TargetDialect::Sqlite)),
+        rust_apps: rust_apps_core::RustAppRegistry::default(),
     }
 }

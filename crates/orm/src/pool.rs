@@ -136,6 +136,8 @@ impl DatabasePool {
     }
 
     pub async fn save_doc(&self, doc: &Document) -> Result<()> {
+        crate::hooks::run_hook("before_save", &doc.doctype, doc).await?;
+
         let table = self.table_name(&doc.doctype);
         let mut sets = Vec::new();
         let mut params: Vec<Value> = Vec::new();
@@ -157,10 +159,14 @@ impl DatabasePool {
 
         debug!("save_doc sql: {}", sql);
         self.execute_raw(&sql, params).await?;
+
+        crate::hooks::run_hook("on_update", &doc.doctype, doc).await?;
         Ok(())
     }
 
     pub async fn insert_doc(&self, doc: &Document) -> Result<String> {
+        crate::hooks::run_hook("before_insert", &doc.doctype, doc).await?;
+
         let table = self.table_name(&doc.doctype);
         let mut cols = vec!["name".to_string(), "owner".to_string(), "creation".to_string(), "modified".to_string(), "docstatus".to_string()];
         let mut params: Vec<Value> = vec![
@@ -189,13 +195,20 @@ impl DatabasePool {
 
         debug!("insert_doc sql: {}", sql);
         self.execute_raw(&sql, params).await?;
+
+        crate::hooks::run_hook("after_insert", &doc.doctype, doc).await?;
         Ok(doc.name.clone())
     }
 
     pub async fn delete_doc(&self, doctype: &str, name: &str) -> Result<()> {
+        let stub_doc = Document::new(doctype, name);
+        crate::hooks::run_hook("before_trash", doctype, &stub_doc).await?;
+
         let table = self.table_name(doctype);
         let sql = format!("DELETE FROM \"{}\" WHERE name = {}", table, self.placeholder(1));
         self.execute_raw(&sql, vec![Value::String(name.into())]).await?;
+
+        crate::hooks::run_hook("after_trash", doctype, &stub_doc).await?;
         Ok(())
     }
 

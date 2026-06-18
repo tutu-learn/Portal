@@ -2,10 +2,28 @@ use crate::pool::DatabasePool;
 use error::{Result, RuntimeError};
 use tracing::{info, warn};
 
+/// A DocType fixture contributed outside the standard `apps/frappe` tree.
+#[derive(Debug, Clone)]
+pub struct DoctypeFixture {
+    pub module: String,
+    pub name: String,
+    pub json: String,
+}
+
+impl DoctypeFixture {
+    pub fn new(module: impl Into<String>, name: impl Into<String>, json: impl Into<String>) -> Self {
+        Self {
+            module: module.into(),
+            name: name.into(),
+            json: json.into(),
+        }
+    }
+}
+
 /// Main entry point: sync metadata tables, create all data tables, insert seed data.
-pub async fn sync_all(pool: &DatabasePool) -> Result<()> {
+pub async fn sync_all(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Result<()> {
     info!("syncing frappe doctypes");
-    sync_metadata(pool).await?;
+    sync_metadata(pool, fixtures).await?;
     sync_data_tables(pool).await?;
     insert_seed_data(pool).await?;
     info!("doctype sync complete");
@@ -14,25 +32,58 @@ pub async fn sync_all(pool: &DatabasePool) -> Result<()> {
 
 // ------------------------------------------------------------------
 // 1. Metadata sync — create doctype/docfield tables and populate
-//    from JSON files in apps/frappe/frappe/*/doctype/
+//    from JSON files in apps/frappe/frappe/*/doctype/ plus any
+//    fixtures provided by Rust apps.
 // ------------------------------------------------------------------
 
-async fn sync_metadata(pool: &DatabasePool) -> Result<()> {
+async fn sync_metadata(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Result<()> {
     create_metadata_tables(pool).await?;
-
-    let base = std::path::PathBuf::from("apps/frappe/frappe");
-    if !base.exists() {
-        warn!("frappe app path not found at {}", base.display());
-        return Ok(());
-    }
 
     let mut synced = 0usize;
     let mut fields_synced = 0usize;
+
+    // Sync fixtures from Rust apps first.
+    for fixture in fixtures {
+        let doc: serde_json::Value = match serde_json::from_str(&fixture.json) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("failed to parse fixture for {}: {}", fixture.name, e);
+                continue;
+            }
+        };
+
+        let doctype_name = doc.get("name").and_then(|n| n.as_str()).unwrap_or(&fixture.name);
+
+        if let Err(e) = insert_doctype(pool, &doc).await {
+            warn!("failed to insert fixture doctype {}: {}", fixture.name, e);
+            continue;
+        }
+        synced += 1;
+
+        if let Some(fields) = doc.get("fields").and_then(|f| f.as_array()) {
+            for (idx, field) in fields.iter().enumerate() {
+                if let Err(e) = insert_docfield(pool, doctype_name, field, idx).await {
+                    warn!("failed to insert docfield for {}: {}", doctype_name, e);
+                    continue;
+                }
+                fields_synced += 1;
+            }
+        }
+    }
+
+    // Sync fixtures from the bundled frappe app tree.
+    let base = std::path::PathBuf::from("apps/frappe/frappe");
+    if !base.exists() {
+        warn!("frappe app path not found at {}", base.display());
+        info!("synced {} doctypes with {} fields into metadata tables", synced, fields_synced);
+        return Ok(());
+    }
 
     let entries = match std::fs::read_dir(&base) {
         Ok(e) => e,
         Err(e) => {
             warn!("failed to read frappe modules dir: {}", e);
+            info!("synced {} doctypes with {} fields into metadata tables", synced, fields_synced);
             return Ok(());
         }
     };

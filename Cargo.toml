@@ -13,6 +13,8 @@ members = [
     "crates/http",
     "crates/runtime",
     "cli",
+    "rust_apps/core",
+    "rust_apps/sample",
 ]
 
 [workspace.dependencies]
@@ -87,6 +89,7 @@ queue          = { path = "crates/queue" }
 metadata       = { path = "crates/metadata" }
 http           = { path = "crates/http" }
 sql-translator = { path = "crates/sql-translator" }
+rust_apps_core = { path = "rust_apps/core" }
 tokio          = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
@@ -98,3 +101,5 @@ dashmap        = { workspace = true }
 
 [dev-dependencies]
 http-body-util = "0.1"
+rust_apps_core = { path = "rust_apps/core" }
+sample         = { path = "rust_apps/sample" }

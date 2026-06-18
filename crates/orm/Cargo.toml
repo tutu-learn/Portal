@@ -14,3 +14,4 @@ tracing     = { workspace = true }
 chrono      = { workspace = true }
 uuid        = { workspace = true }
 dashmap     = { workspace = true }
+async-trait = "0.1"

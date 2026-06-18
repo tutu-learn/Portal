@@ -3,9 +3,9 @@
     <option name="command" value="test --test orm --test permissions --test http --test sql_translator --test erpnext" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <envs>
-      <env name="PYO3_PYTHON" value="$PROJECT_DIR$/.venv/bin/python3.12" />
-      <env name="RUSTFLAGS" value="-L/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib -C link-arg=-Wl,-rpath,/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12" />
-      <env name="DYLD_FRAMEWORK_PATH" value="/opt/homebrew/opt/python@3.12/Frameworks" />
+      <env name="PYO3_PYTHON" value="$PROJECT_DIR$/.venv/bin/python" />
+      <env name="RUSTFLAGS" value="-L/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib -C link-arg=-Wl,-rpath,/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14" />
+      <env name="DYLD_FRAMEWORK_PATH" value="/opt/homebrew/opt/python@3.14/Frameworks" />
     </envs>
     <option name="emulateTerminal" value="false" />
     <option name="channel" value="DEFAULT" />

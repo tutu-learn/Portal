@@ -1,0 +1,22 @@
+[package]
+name = "rust_apps_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+error          = { workspace = true }
+config         = { workspace = true }
+orm            = { workspace = true }
+metadata       = { path = "../../crates/metadata" }
+permissions    = { path = "../../crates/permissions" }
+queue          = { path = "../../crates/queue" }
+session        = { path = "../../crates/session" }
+sql-translator = { path = "../../crates/sql-translator" }
+
+axum           = { workspace = true }
+dashmap        = { workspace = true }
+tokio          = { workspace = true }
+async-trait    = "0.1"
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+chrono         = { workspace = true }

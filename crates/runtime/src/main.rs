@@ -3,6 +3,8 @@ use tracing::{error, info, warn};
 
 mod hooks;
 mod logging;
+mod registered_apps;
+mod rust_apps;
 mod startup;
 
 #[tokio::main]
@@ -12,6 +14,13 @@ async fn main() -> error::Result<()> {
 
     let config = config::RuntimeConfig::from_file("runtime.toml")?;
     let site_manager = Arc::new(config::SiteManager::load(&config.runtime.sites_path).await?);
+
+    // Load Rust app registry before DB setup so we can sync DocType fixtures.
+    let rust_app_registry = rust_apps::load_registry();
+    info!(
+        "loaded {} rust app(s)",
+        rust_app_registry.apps().len()
+    );
 
     // Connect DB pools for all sites
     let pools = Arc::new(dashmap::DashMap::new());
@@ -30,7 +39,8 @@ async fn main() -> error::Result<()> {
                     info!("migrations complete for site {}", name);
                 }
                 // Sync Frappe doctypes: metadata tables, dynamic data tables, seed data
-                if let Err(e) = orm::doctype_sync::sync_all(&p).await {
+                let fixtures = rust_app_registry.all_doctypes();
+                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures).await {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }
                 pools.insert(name.clone(), p);
@@ -83,14 +93,29 @@ async fn main() -> error::Result<()> {
         metadata: Arc::new(metadata::Meta::new()),
         pubsub,
         translator: Arc::new(sql_translator::SqlTranslator::default()),
+        rust_apps: rust_app_registry.clone(),
     };
 
-    // Build HTTP server
-    let http_future = http::run_server(
-        app_state.clone(),
-        &config.server.host,
-        config.server.port,
-    );
+    // Register Rust app hooks with the ORM so document lifecycle events invoke them.
+    orm::set_hook_runner(Some(Arc::new(rust_app_registry.clone())));
+
+    // Run Rust app startup hooks.
+    for app in rust_app_registry.apps() {
+        let ctx = rust_apps_core::AppContext::new(app.name(), app_state.clone());
+        if let Err(e) = app.on_startup(&ctx).await {
+            warn!("startup hook for app {} failed: {}", app.name(), e);
+        }
+    }
+
+    // Build HTTP server, allowing Rust apps to mount routes before state is applied.
+    let app_state_for_routes = app_state.clone();
+    let mut router: axum::Router<rust_apps_core::AppState> = http::router::create_router();
+    for app in rust_app_registry.apps() {
+        let ctx = rust_apps_core::AppContext::new(app.name(), app_state_for_routes.clone());
+        router = app.routes(&ctx, router);
+    }
+    let router = router.with_state(app_state_for_routes);
+    let http_future = http::run_server_with_router(router, &config.server.host, config.server.port);
 
     // Start background workers and scheduler if we have pools
     if let Some(pool) = pools.iter().next().map(|e| e.value().clone()) {

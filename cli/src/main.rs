@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use tracing::info;
 
 mod commands;
 
@@ -16,6 +15,7 @@ enum Commands {
     Init,
     Start,
     NewSite { name: String },
+    NewRustApp { name: String },
     Migrate,
     Shell,
     Backup,
@@ -29,6 +29,7 @@ async fn main() -> error::Result<()> {
         Commands::Init => commands::init::run().await,
         Commands::Start => commands::start::run().await,
         Commands::NewSite { name } => commands::new_site::run(&name).await,
+        Commands::NewRustApp { name } => commands::new_rust_app::run(&name).await,
         Commands::Migrate => commands::migrate::run().await,
         Commands::Shell => commands::shell::run().await,
         Commands::Backup => commands::backup::run().await,

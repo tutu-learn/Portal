@@ -1,0 +1,40 @@
+{
+    "name": "Rust ToDo",
+    "doctype": "DocType",
+    "module": "Sample",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "track_changes": 1,
+    "fields": [
+        {
+            "fieldname": "title",
+            "fieldtype": "Data",
+            "label": "Title",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "description",
+            "fieldtype": "Text",
+            "label": "Description"
+        },
+        {
+            "fieldname": "status",
+            "fieldtype": "Select",
+            "label": "Status",
+            "options": "Open\nCompleted",
+            "default": "Open",
+            "in_list_view": 1
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}

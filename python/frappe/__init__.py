@@ -18,6 +18,8 @@ import pkgutil
 import sys
 from collections import defaultdict
 
+from werkzeug.datastructures import Headers
+
 # Allow real framework submodules to be imported alongside this shim.
 __path__ = pkgutil.extend_path(__path__, __name__)
 
@@ -498,6 +500,7 @@ def _set_request_context(
     # frappe.response is cleared but must remain the same proxy object.
     _local["response"].clear()
     _local["response"]["docs"] = []
+    _local["response_headers"] = Headers()
 
     # Rebind module-level names that are not proxies so freshly-imported
     # code sees the updated values.

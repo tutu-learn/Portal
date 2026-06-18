@@ -158,7 +158,7 @@ impl PermissionEngine {
         Ok(true)
     }
 
-    async fn get_docperms(&self, pool: &DatabasePool, doctype: &str) -> Result<Vec<DocPerm>> {
+    pub async fn get_docperms(&self, pool: &DatabasePool, doctype: &str) -> Result<Vec<DocPerm>> {
         let cache_key = format!("{}", doctype);
         if let Some(entry) = self.perm_cache.get(&cache_key) {
             return Ok(entry.clone());

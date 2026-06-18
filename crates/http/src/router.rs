@@ -1,4 +1,4 @@
-use crate::handlers::{api, auth, desk, files, socketio};
+use crate::handlers::{api, auth, desk, files, permissions, socketio};
 use crate::websocket::ws_handler;
 use crate::AppState;
 use axum::{
@@ -8,7 +8,11 @@ use axum::{
 };
 use tower_http::services::ServeDir;
 
-pub fn create_router(state: AppState) -> Router {
+/// Create the base router parameterized with [`AppState`].
+///
+/// The caller applies state via `.with_state(state)` after all apps have
+/// contributed their routes.
+pub fn create_router() -> Router<AppState> {
     Router::new()
         .route(
             "/api/resource/:doctype",
@@ -26,6 +30,18 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/api/method/frappe.desk.form.load.getdoctype",
             get(api::getdoctype_native),
+        )
+        .route(
+            "/api/method/frappe.desk.desk_page.getpage",
+            get(api::getpage).post(api::getpage_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.get_roles_and_doctypes",
+            get(permissions::get_roles_and_doctypes_get).post(permissions::get_roles_and_doctypes_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.get_permissions",
+            get(permissions::get_permissions_get).post(permissions::get_permissions_post),
         )
         .route(
             "/api/method/:method",
@@ -47,5 +63,4 @@ pub fn create_router(state: AppState) -> Router {
         .route("/app", get(|| async { Redirect::temporary("/desk") }))
         .route("/desk", get(desk::serve_desk))
         .fallback(desk::serve_desk)
-        .with_state(state)
 }

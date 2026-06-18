@@ -122,6 +122,271 @@ pub async fn delete_doc(
     }
 }
 
+/// Native Rust implementation of frappe.desk.desk_page.getpage.
+/// Loads page metadata and assets from JSON/files in apps/frappe/frappe/*/page/
+/// so the desk can render pages such as the permission manager.
+pub async fn getpage(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let name = params.get("name").cloned().unwrap_or_default();
+    getpage_response(&state, &name, &headers).await
+}
+
+pub async fn getpage_post(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> impl IntoResponse {
+    let name = extract_name_from_body(body);
+    getpage_response(&state, &name, &headers).await
+}
+
+fn extract_name_from_body(body: Value) -> String {
+    match body {
+        Value::Object(mut map) => {
+            if let Some(Value::String(name)) = map.remove("name") {
+                return name;
+            }
+            if let Some(args) = map.remove("args") {
+                return match args {
+                    Value::String(s) => serde_json::from_str::<HashMap<String, Value>>(&s)
+                        .ok()
+                        .and_then(|mut m| m.remove("name"))
+                        .and_then(|v| match v {
+                            Value::String(s) => Some(s),
+                            _ => None,
+                        })
+                        .unwrap_or_default(),
+                    Value::Object(mut m) => m
+                        .remove("name")
+                        .and_then(|v| match v {
+                            Value::String(s) => Some(s),
+                            _ => None,
+                        })
+                        .unwrap_or_default(),
+                    _ => String::new(),
+                };
+            }
+            String::new()
+        }
+        _ => String::new(),
+    }
+}
+
+async fn getpage_response(
+    state: &AppState,
+    name: &str,
+    headers: &axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let user = session_user_from_request(state, headers).await;
+
+    // Basic permission check: require an authenticated user. Pages with role
+    // restrictions are checked below.
+    let user = match user {
+        Some(u) => u,
+        None => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "exc": "Not permitted" })),
+            );
+        }
+    };
+
+    match load_page_from_json(state, name, &user).await {
+        Ok(doc) => {
+            let mut resp = serde_json::Map::new();
+            resp.insert("docs".to_string(), serde_json::Value::Array(vec![doc]));
+            (StatusCode::OK, Json(serde_json::Value::Object(resp)))
+        }
+        Err(ref e) if e == "not_permitted" => (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "exc": "Not permitted" })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
+        ),
+    }
+}
+
+async fn load_page_from_json(state: &AppState, name: &str, user: &str) -> Result<serde_json::Value, String> {
+    let scrubbed = name.to_lowercase().replace(" ", "_").replace("-", "_");
+    let base = PathBuf::from("apps/frappe/frappe");
+
+    let mut page_path = None;
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let path = entry.path().join("page").join(&scrubbed).join(format!("{}.json", scrubbed));
+            if path.exists() {
+                page_path = Some(path);
+                break;
+            }
+        }
+    }
+
+    let path = page_path.ok_or_else(|| format!("page json not found for {}", name))?;
+    let content = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|e| format!("read error: {}", e))?;
+    let mut doc: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("parse error: {}", e))?;
+
+    // Enforce page roles if defined.
+    let allowed_roles: Vec<String> = doc
+        .get("roles")
+        .and_then(|r| r.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.get("role").and_then(|r| r.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if !allowed_roles.is_empty() {
+        let user_roles = get_user_roles(&state, user).await;
+        let has_role = user_roles.iter().any(|r| allowed_roles.contains(r));
+        if !has_role && user != "Administrator" {
+            return Err("not_permitted".into());
+        }
+    }
+
+    // Load assets from the page directory.
+    let dir = path.parent().unwrap().to_path_buf();
+    let js_path = dir.join(format!("{}.js", scrubbed));
+    let css_path = dir.join(format!("{}.css", scrubbed));
+
+    // Convert any .html templates in the page directory into frappe.templates
+    // entries, matching Frappe's Page.load_assets behaviour. This lets page
+    // scripts call frappe.render_template("<name>", {}) without the template
+    // needing to be bundled into a desk asset bundle.
+    let mut template_script = String::new();
+    let mut entries = tokio::fs::read_dir(&dir)
+        .await
+        .map_err(|e| format!("read dir error: {}", e))?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("html") {
+            let content = tokio::fs::read_to_string(&path)
+                .await
+                .map_err(|e| format!("read html error: {}", e))?;
+            let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            template_script.push_str(&html_to_js_template(filename, &content));
+        }
+    }
+
+    let script = if js_path.exists() {
+        let js = tokio::fs::read_to_string(&js_path)
+            .await
+            .map_err(|e| format!("read script error: {}", e))?;
+        format!("{}{}", template_script, js)
+    } else {
+        template_script
+    };
+
+    let style = if css_path.exists() {
+        tokio::fs::read_to_string(&css_path)
+            .await
+            .map_err(|e| format!("read style error: {}", e))?
+    } else {
+        String::new()
+    };
+
+    if let serde_json::Value::Object(ref mut map) = doc {
+        map.insert("script".to_string(), serde_json::Value::String(script));
+        map.insert("style".to_string(), serde_json::Value::String(style));
+    }
+
+    Ok(doc)
+}
+
+/// Convert HTML template content into a `frappe.templates` JS assignment,
+/// mirroring Frappe's `frappe.build.html_to_js_template`.
+fn html_to_js_template(name: &str, content: &str) -> String {
+    let scrubbed = scrub_html_template(content);
+    format!("frappe.templates[\"{}\"] = '{}';\n", name, scrubbed)
+}
+
+/// Scrub HTML template content so it can safely live inside a single-quoted
+/// JavaScript string. Whitespace is collapsed, HTML comments are removed, and
+/// characters that would break the JS string are escaped.
+fn scrub_html_template(content: &str) -> String {
+    let mut result = String::with_capacity(content.len());
+    let mut in_comment = false;
+    let mut chars = content.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if in_comment {
+            if c == '-' && chars.peek() == Some(&'-') {
+                chars.next();
+                if chars.peek() == Some(&'>') {
+                    chars.next();
+                    in_comment = false;
+                }
+            }
+            continue;
+        }
+
+        if c == '<' && chars.peek() == Some(&'!') {
+            chars.next();
+            if chars.peek() == Some(&'-') {
+                chars.next();
+                if chars.peek() == Some(&'-') {
+                    chars.next();
+                    in_comment = true;
+                    continue;
+                }
+                result.push('<');
+                result.push('!');
+                result.push('-');
+                continue;
+            }
+            result.push('<');
+            result.push('!');
+            continue;
+        }
+
+        if c.is_whitespace() {
+            result.push(' ');
+            while chars.peek().map(|c| c.is_whitespace()).unwrap_or(false) {
+                chars.next();
+            }
+        } else if c == '\\' {
+            result.push_str("\\\\");
+        } else if c == '\'' {
+            result.push_str("\\'");
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
+async fn get_user_roles(state: &AppState, user: &str) -> Vec<String> {
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    match pool {
+        Some(pool) => state
+            .permissions
+            .get_roles(&pool, user)
+            .await
+            .unwrap_or_default(),
+        None => {
+            // Fallback for tests / no-pool scenarios.
+            if user == "Administrator" {
+                vec![
+                    "Administrator".into(),
+                    "System Manager".into(),
+                    "All".into(),
+                ]
+            } else {
+                vec!["All".into()]
+            }
+        }
+    }
+}
+
 /// Native Rust implementation of frappe.desk.form.load.getdoctype.
 /// Loads doctype metadata from JSON files in apps/frappe/frappe/*/doctype/
 /// instead of relying on the Python bridge and missing DB tables.
@@ -309,9 +574,12 @@ pub async fn call_method_get(
     headers: axum::http::HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    let body = serde_json::to_value(params).unwrap_or(serde_json::Value::Object(Default::default()));
-    let user = session_user_from_request(&state, &headers).await;
-    match kiff_core::call_method_with_user(&method, &body, user.as_deref()) {
+    let params: HashMap<String, Value> = params
+        .into_iter()
+        .map(|(k, v)| (k, Value::String(v)))
+        .collect();
+
+    match call_rust_or_python_method(&state, &method, params, &headers).await {
         Ok(result) => (StatusCode::OK, Json(result)),
         Err(e) => frappe_error_response(e),
     }
@@ -323,11 +591,32 @@ pub async fn call_method(
     headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
-    let user = session_user_from_request(&state, &headers).await;
-    match kiff_core::call_method_with_user(&method, &body, user.as_deref()) {
+    let params = match body {
+        Value::Object(map) => map.into_iter().collect::<HashMap<String, Value>>(),
+        _ => HashMap::new(),
+    };
+
+    match call_rust_or_python_method(&state, &method, params, &headers).await {
         Ok(result) => (StatusCode::OK, Json(result)),
         Err(e) => frappe_error_response(e),
     }
+}
+
+async fn call_rust_or_python_method(
+    state: &AppState,
+    method: &str,
+    params: HashMap<String, Value>,
+    headers: &axum::http::HeaderMap,
+) -> error::Result<Value> {
+    // Try Rust apps first.
+    if let Some(result) = state.rust_apps.call_method(method, state.clone(), params.clone()).await? {
+        return Ok(result);
+    }
+
+    // Fall back to Python method dispatcher.
+    let user = session_user_from_request(state, headers).await;
+    let body = serde_json::to_value(params).unwrap_or(Value::Object(Default::default()));
+    kiff_core::call_method_with_user(method, &body, user.as_deref())
 }
 
 fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json::Value>) {

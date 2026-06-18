@@ -53,8 +53,30 @@ kiff/
 │   └── runtime/         # Main binary
 ├── python/frappe/       # frappe shim (drop-in replacement)
 ├── cli/                 # kiff CLI
+├── rust_apps/           # Native Rust Frappe apps
+│   ├── core/            # Rust app SDK
+│   └── sample/          # Example Rust app
 └── sites/               # Auto-discovered at startup
 ```
+
+## Building Rust Frappe Apps
+
+The `rust_apps/` directory lets you build Frappe apps as native Rust crates that integrate directly with the Kiff runtime:
+
+```bash
+# Scaffold a new Rust app
+./target/release/kiff new-rust-app my_app
+
+# The app is created at rust_apps/my_app/ and automatically registered
+# in the runtime. Implement the RustApp trait to contribute:
+#   - DocType fixtures
+#   - HTTP routes
+#   - API methods
+#   - Document lifecycle hooks
+#   - Scheduled jobs
+```
+
+A sample app is included at `rust_apps/sample/`.
 
 ## License
 

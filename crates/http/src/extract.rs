@@ -41,9 +41,9 @@ where
                 serde_urlencoded::from_bytes(&bytes).unwrap_or_default();
             let mut map = serde_json::Map::new();
             for (k, v) in pairs {
-                // Frappe sometimes sends nested JSON strings in form fields (e.g. `args`)
-                let json_val = serde_json::from_str(&v).unwrap_or(Value::String(v));
-                map.insert(k, json_val);
+                // Keep form values as strings. Frappe methods that need parsed
+                // JSON (e.g. user_settings.save) call json.loads themselves.
+                map.insert(k, Value::String(v));
             }
             Ok(AnyBody(Value::Object(map)))
         } else {

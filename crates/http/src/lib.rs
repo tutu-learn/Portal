@@ -4,28 +4,20 @@ pub mod middleware;
 pub mod router;
 pub mod websocket;
 
-use axum::Router;
-use dashmap::DashMap;
-use std::sync::Arc;
+pub use rust_apps_core::AppState;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub config: Arc<config::RuntimeConfig>,
-    pub site_manager: Arc<config::SiteManager>,
-    pub pools: Arc<DashMap<String, orm::DatabasePool>>,
-    pub sessions: Arc<session::SessionStore>,
-    pub permissions: Arc<permissions::PermissionEngine>,
-    pub metadata: Arc<metadata::Meta>,
-    pub pubsub: Arc<queue::PubSub>,
-    pub translator: Arc<sql_translator::SqlTranslator>,
-}
+use axum::Router;
 
 pub async fn run_server(state: AppState, host: &str, port: u16) -> error::Result<()> {
-    let app = router::create_router(state);
+    let app = router::create_router().with_state(state);
+    run_server_with_router(app, host, port).await
+}
+
+pub async fn run_server_with_router(router: Router, host: &str, port: u16) -> error::Result<()> {
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await
         .map_err(error::RuntimeError::Io)?;
     tracing::info!("HTTP server listening on {}:{}", host, port);
-    axum::serve(listener, app).await
+    axum::serve(listener, router).await
         .map_err(|e| error::RuntimeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
     Ok(())
 }
