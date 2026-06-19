@@ -25,7 +25,7 @@ pub fn create_router() -> Router<AppState> {
                 .delete(api::delete_doc),
         )
         .route("/api/method/login", post(auth::login))
-        .route("/api/method/logout", get(auth::logout))
+        .route("/api/method/logout", post(auth::logout))
         .route("/api/method/upload_file", post(files::upload_file))
         .route(
             "/api/method/frappe.desk.form.load.getdoctype",

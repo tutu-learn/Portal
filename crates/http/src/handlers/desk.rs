@@ -34,6 +34,14 @@ const DESK_CSS_BUNDLES: &[&str] = &[
     "report.bundle.css",
 ];
 
+/// Icon sprites required by Frappe Desk (from frappe/hooks.py app_include_icons).
+const DESK_ICON_SPRITES: &[&str] = &[
+    "apps/frappe/frappe/public/icons/lucide/icons.svg",
+    "apps/frappe/frappe/public/icons/timeless/icons.svg",
+    "apps/frappe/frappe/public/icons/espresso/icons.svg",
+    "apps/frappe/frappe/public/icons/desktop_icons/alphabets.svg",
+];
+
 /// Serve the Frappe Desk SPA with boot info injected.
 pub async fn serve_desk(
     State(state): State<AppState>,
@@ -71,10 +79,13 @@ pub async fn serve_desk(
     let lang = "en";
     let layout_direction = "ltr";
 
+    let icon_sprites = load_icon_sprites().await;
+
     let html = DESK_TEMPLATE
         .replace("{{BOOT_JSON}}", &boot_json)
         .replace("{{JS_INCLUDES}}", &js_includes)
         .replace("{{CSS_INCLUDES}}", &css_includes)
+        .replace("{{ICON_SPRITES}}", &icon_sprites)
         .replace("{{BUILD_VERSION}}", build_version)
         .replace("{{CSRF_TOKEN}}", &csrf_token)
         .replace("{{LANG}}", lang)
@@ -715,6 +726,27 @@ fn sanitize_bootinfo(boot: &mut Map<String, Value>) {
     } else {
         boot.insert("frequently_visited_links".to_string(), json!([]));
     }
+}
+
+async fn load_icon_sprites() -> String {
+    let mut sprites = String::new();
+    for path in DESK_ICON_SPRITES {
+        match tokio::fs::read_to_string(path).await {
+            Ok(content) => {
+                // Strip XML declaration so multiple SVG roots can sit inside the div.
+                let trimmed = content
+                    .trim_start()
+                    .strip_prefix("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+                    .or_else(|| content.trim_start().strip_prefix("<?xml version=\"1.0\"?>"))
+                    .unwrap_or(&content)
+                    .trim_start();
+                sprites.push_str(trimmed);
+                sprites.push('\n');
+            }
+            Err(e) => tracing::warn!("failed to load icon sprite {}: {}", path, e),
+        }
+    }
+    sprites
 }
 
 async fn load_bundle_map(assets_base: &PathBuf) -> HashMap<String, String> {

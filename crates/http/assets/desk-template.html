@@ -30,6 +30,16 @@
         .splash-content {
             text-align: center;
         }
+        .splash-logo {
+            width: 220px;
+            height: 185px;
+            margin: 0 auto 24px;
+        }
+        .splash-logo svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
         .splash-text {
             color: #171717;
             font-size: 16px;
@@ -45,8 +55,50 @@
 <body>
     <div id="splash-screen">
         <div class="splash-content">
-            <div class="splash-text">Open Frappe</div>
-            <div class="splash-sub">Loading Desk...</div>
+            <div class="splash-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 741 622">
+                    <defs>
+                        <linearGradient id="blueGrad" x1="5%" y1="0%" x2="95%" y2="95%">
+                            <stop offset="0%" stop-color="#013C8F">
+                                <animate attributeName="stop-color"
+                                    values="#01275C;#013C8F;#2A6FC0;#013C8F;#01275C"
+                                    dur="2.4s" repeatCount="indefinite"/>
+                            </stop>
+                            <stop offset="45%" stop-color="#0F5FAE">
+                                <animate attributeName="stop-color"
+                                    values="#093F75;#0F5FAE;#4789D0;#0F5FAE;#093F75"
+                                    dur="2.4s" repeatCount="indefinite"/>
+                            </stop>
+                            <stop offset="100%" stop-color="#4B9CD7">
+                                <animate attributeName="stop-color"
+                                    values="#2F6F9F;#4B9CD7;#8FC4EA;#4B9CD7;#2F6F9F"
+                                    dur="2.4s" repeatCount="indefinite"/>
+                            </stop>
+                        </linearGradient>
+                    </defs>
+                    <g transform="translate(0,622) scale(0.1,-0.1)" stroke="none">
+                        <path fill="#282829" d="M351 4427 c-39 -48 -46 -131 -46 -542 0 -448 9 -542 81 -802 193
+-705 694 -1150 1463 -1303 239 -47 297 -50 1171 -60 1474 -17 1909 -31 2025
+-61 201 -54 166 -386 -52 -498 -60 -30 -125 -32 -1798 -41 -1015 -6 -1560 -13
+-1600 -20 -61 -11 -271 -106 -389 -177 -397 -237 -655 -556 -644 -799 4 -85
+21 -100 128 -114 185 -24 4320 -6 4570 20 379 39 767 241 1015 528 291 336
+393 817 259 1218 -111 331 -349 589 -697 754 -309 147 -505 170 -1612 190
+-1774 31 -2010 49 -2415 181 -636 209 -973 481 -1192 964 -39 87 -72 182 -137
+391 -51 165 -91 217 -130 171z">
+                            <animate attributeName="fill"
+                                values="#0E0E0F;#282829;#4A4A4C;#282829;#0E0E0F"
+                                dur="2.4s" repeatCount="indefinite"/>
+                        </path>
+                        <path fill="url(#blueGrad)" d="M2915 6049 c-615 -7 -745 -15 -892 -54 -670 -177 -1109 -675 -1130
+-1285 -19 -522 248 -942 750 -1180 309 -147 505 -170 1612 -190 1774 -31 2010
+-49 2415 -181 636 -209 973 -481 1192 -964 39 -87 72 -182 137 -391 42 -134
+69 -184 101 -184 26 0 37 18 57 91 30 109 26 814 -5 1003 -146 868 -658 1395
+-1521 1566 -239 47 -297 50 -1171 60 -1474 17 -1909 31 -2025 61 -201 54 -166
+386 52 498 60 30 125 32 1798 41 1015 6 1560 13 1600 20 61 11 271 106 389
+177 397 237 655 556 644 799 -4 85 -21 100 -128 114 -87 11 -2973 11 -3875 -1z"/>
+                    </g>
+                </svg>
+            </div>
         </div>
     </div>
 
@@ -55,7 +107,9 @@
         <div id="body"></div>
         <footer></footer>
     </div>
-    <div id="all-symbols" style="display:none"></div>
+    <div id="all-symbols" style="display:none">
+{{ICON_SPRITES}}
+    </div>
     <div id="build-events-overlay"></div>
 
     <script>

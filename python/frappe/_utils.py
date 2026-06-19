@@ -134,8 +134,17 @@ def parse_json(val):
     return val
 
 
-def as_json(val, indent=1):
-    return _json.dumps(val, indent=indent, default=str)
+def as_json(val, indent=1, separators=None, ensure_ascii=True):
+    if separators is None:
+        separators = (",", ": ")
+    return _json.dumps(
+        val,
+        indent=indent,
+        separators=separators,
+        ensure_ascii=ensure_ascii,
+        sort_keys=True,
+        default=str,
+    )
 
 
 def safe_decode(val, encoding="utf-8"):

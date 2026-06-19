@@ -553,7 +553,8 @@ def _patch_real_module(mod):
         "get_installed_apps", "get_all_apps", "get_active_domains",
         "is_setup_complete", "get_single", "logger", "call", "respond_as_web_page",
         "is_whitelisted",
-        "throw", "msgprint", "log_error",
+        "throw", "msgprint", "log_error", "enqueue", "publish_realtime",
+        "parse_json", "as_json", "safe_decode",
         "qb", "utils",
         "_set_request_context",
     ):

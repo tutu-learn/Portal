@@ -701,12 +701,15 @@ async fn insert_seed_data(
 
 async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     // Create __auth table for password storage (matches Frappe's architecture)
+    // Older databases were created without the encrypted column; migrate them.
+    add_column_if_missing(pool, "__auth", "encrypted", "encrypted INTEGER NOT NULL DEFAULT 0").await?;
     pool.execute_sql(
         r#"CREATE TABLE IF NOT EXISTS "__auth" (
             name TEXT,
             doctype TEXT,
             fieldname TEXT,
             password TEXT,
+            encrypted INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (name, doctype, fieldname)
         )"#,
         vec![],
@@ -729,12 +732,13 @@ async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ).await;
     }
 
-    // Administrator password hash for "admin"
-    // Generated with: argon2 hash of "admin"
+    // Administrator password hash for "admin".
+    // Generated with: argon2 hash of "admin".
+    // Use INSERT OR IGNORE so a user-changed password survives restarts.
     let admin_hash = "$argon2id$v=19$m=19456,t=2,p=1$UEWqTMicBrdEJXqPMhP4oA$bR1RecCR37Rw+Spup2ULPNKAZ7H6vZTX4VeqNAfvdkY";
     let _ = pool.execute_sql(
-        r#"INSERT OR REPLACE INTO "__auth" (name, doctype, fieldname, password)
-           VALUES ('Administrator', 'User', '_password', ?)"#,
+        r#"INSERT OR IGNORE INTO "__auth" (name, doctype, fieldname, password, encrypted)
+           VALUES ('Administrator', 'User', 'password', ?, 0)"#,
         vec![serde_json::Value::String(admin_hash.into())],
     ).await;
 
