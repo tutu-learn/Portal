@@ -1,9 +1,10 @@
 use crate::AppState;
 use axum::{
-    extract::{OriginalUri, State},
+    extract::{OriginalUri, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Redirect, Response},
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -794,13 +795,215 @@ fn generate_csrf_token() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-/// Serve the standalone login page.
-pub async fn serve_login() -> impl IntoResponse {
-    let path = PathBuf::from("crates/http/assets/login.html");
-    match tokio::fs::read_to_string(&path).await {
-        Ok(html) => axum::response::Html(html).into_response(),
-        Err(_) => error_response("login page not found"),
+/// Enabled social login provider as stored in the Social Login Key doctype.
+#[derive(Debug)]
+struct SocialLoginProvider {
+    name: String,
+    provider_name: String,
+    client_id: String,
+    authorize_url: String,
+    redirect_url: String,
+    auth_url_data: Option<Value>,
+    custom_base_url: bool,
+    base_url: Option<String>,
+    icon: Option<String>,
+}
+
+/// Build the absolute site URL from the request Host header.
+fn site_url_from_headers(headers: &HeaderMap) -> String {
+    let host = headers
+        .get("host")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost:8000");
+    let scheme = headers
+        .get("x-forwarded-proto")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("http");
+    format!("{}://{}", scheme, host)
+}
+
+/// Load enabled Social Login Keys from the database.
+async fn get_social_login_providers(pool: &orm::DatabasePool) -> Vec<SocialLoginProvider> {
+    let sql = r#"SELECT name, client_id, base_url, provider_name, icon,
+                        authorize_url, redirect_url, auth_url_data, custom_base_url
+                 FROM "social_login_key"
+                 WHERE enable_social_login = 1
+                 ORDER BY name"#;
+
+    let rows = match pool.execute_sql(sql, vec![]).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("failed to load social login keys: {}", e);
+            return vec![];
+        }
+    };
+
+    rows.into_iter()
+        .filter_map(|mut row| {
+            let client_id = row.remove("client_id")?.as_str()?.to_string();
+            if client_id.is_empty() {
+                return None;
+            }
+            let name = row.remove("name")?.as_str()?.to_string();
+            let provider_name = row
+                .remove("provider_name")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| name.clone());
+            let authorize_url = row.remove("authorize_url")?.as_str()?.to_string();
+            let redirect_url = row.remove("redirect_url")?.as_str()?.to_string();
+            let auth_url_data = row.remove("auth_url_data").filter(|v| !v.is_null());
+            let custom_base_url = row
+                .remove("custom_base_url")
+                .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .unwrap_or(0)
+                == 1;
+            let base_url = row.remove("base_url").and_then(|v| v.as_str().map(String::from));
+            let icon = row.remove("icon").and_then(|v| v.as_str().map(String::from));
+
+            Some(SocialLoginProvider {
+                name,
+                provider_name,
+                client_id,
+                authorize_url,
+                redirect_url,
+                auth_url_data,
+                custom_base_url,
+                base_url,
+                icon,
+            })
+        })
+        .collect()
+}
+
+/// Build the OAuth2 authorization URL for a provider.
+fn build_authorize_url(
+    provider: &SocialLoginProvider,
+    site_url: &str,
+    redirect_to: Option<&str>,
+) -> Option<String> {
+    let authorize_url = if provider.custom_base_url {
+        match &provider.base_url {
+            Some(base) => build_oauth_url(base, &provider.authorize_url),
+            None => return None,
+        }
+    } else {
+        provider.authorize_url.clone()
+    };
+
+    let redirect_uri = if provider.redirect_url.starts_with("http://")
+        || provider.redirect_url.starts_with("https://")
+    {
+        provider.redirect_url.clone()
+    } else {
+        format!("{}{}", site_url.trim_end_matches('/'), provider.redirect_url)
+    };
+
+    let token = uuid::Uuid::new_v4().simple().to_string();
+    let state = json!({
+        "site": site_url,
+        "token": token,
+        "redirect_to": redirect_to.unwrap_or(""),
+    });
+    let state_b64 = BASE64.encode(state.to_string().as_bytes());
+
+    let mut params: HashMap<String, String> = HashMap::new();
+    params.insert("client_id".to_string(), provider.client_id.clone());
+    params.insert("redirect_uri".to_string(), redirect_uri);
+    params.insert("state".to_string(), state_b64);
+
+    if let Some(Value::Object(map)) = &provider.auth_url_data {
+        for (k, v) in map {
+            if let Some(s) = v.as_str() {
+                params.insert(k.clone(), s.to_string());
+            } else if !v.is_null() {
+                params.insert(k.clone(), v.to_string());
+            }
+        }
     }
+
+    // Default OAuth2 parameters if the provider config did not supply them.
+    params.entry("response_type".to_string()).or_insert_with(|| "code".to_string());
+
+    let query = match serde_urlencoded::to_string(&params) {
+        Ok(q) => q,
+        Err(_) => return None,
+    };
+
+    Some(format!("{}?{}", authorize_url, query))
+}
+
+/// Join a base URL with a relative or absolute OAuth URL.
+fn build_oauth_url(base_url: &str, url: &str) -> String {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        return url.to_string();
+    }
+    format!("{}{}", base_url.trim_end_matches('/'), url)
+}
+
+/// Render the social login buttons HTML for injection into the login page.
+fn render_social_login_buttons(providers: &[(SocialLoginProvider, String)]) -> String {
+    if providers.is_empty() {
+        return String::new();
+    }
+
+    let mut html = String::new();
+    html.push_str(r#"<div class="social-logins">"#);
+    html.push_str(r#"<div class="login-divider"><span>or</span></div>"#);
+    html.push_str(r#"<div class="social-login-buttons">"#);
+
+    for (provider, auth_url) in providers {
+        let icon_html = match &provider.icon {
+            Some(icon) if icon.ends_with(".svg") => {
+                format!(r#"<img src="{}" alt="{}" class="social-icon">"#, icon, provider.provider_name)
+            }
+            Some(icon) => {
+                format!(r#"<span class="social-icon {}"></span>"#, icon)
+            }
+            None => String::new(),
+        };
+
+        let btn_class = format!("btn btn-social btn-{}", provider.name.to_lowercase().replace(' ', "_"));
+        html.push_str(&format!(
+            r#"<a href="{}" class="{}">{}Login with {}</a>"#,
+            auth_url, btn_class, icon_html, provider.provider_name
+        ));
+    }
+
+    html.push_str("</div></div>");
+    html
+}
+
+/// Serve the standalone login page.
+pub async fn serve_login(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let path = PathBuf::from("crates/http/assets/login.html");
+    let html = match tokio::fs::read_to_string(&path).await {
+        Ok(h) => h,
+        Err(_) => return error_response("login page not found"),
+    };
+
+    let site_url = site_url_from_headers(&headers);
+    let redirect_to = query.get("redirect-to").map(|s| s.as_str());
+
+    let social_buttons = if let Some(pool) = state.pools.iter().next().map(|e| e.value().clone()) {
+        let providers = get_social_login_providers(&pool).await;
+        let providers_with_urls: Vec<_> = providers
+            .into_iter()
+            .filter_map(|p| {
+                let url = build_authorize_url(&p, &site_url, redirect_to)?;
+                Some((p, url))
+            })
+            .collect();
+        render_social_login_buttons(&providers_with_urls)
+    } else {
+        String::new()
+    };
+
+    let html = html.replace("{{SOCIAL_LOGINS}}", &social_buttons);
+    axum::response::Html(html).into_response()
 }
 
 fn error_response(msg: &str) -> Response {
@@ -810,4 +1013,83 @@ fn error_response(msg: &str) -> Response {
         msg.to_string(),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_oauth_url_with_absolute_url() {
+        assert_eq!(
+            build_oauth_url("https://example.com", "https://login.microsoftonline.com/common/oauth2/authorize"),
+            "https://login.microsoftonline.com/common/oauth2/authorize"
+        );
+    }
+
+    #[test]
+    fn test_build_oauth_url_with_relative_url() {
+        assert_eq!(
+            build_oauth_url("https://example.com", "/oauth2/authorize"),
+            "https://example.com/oauth2/authorize"
+        );
+    }
+
+    #[test]
+    fn test_build_oauth_url_with_base_trailing_slash() {
+        assert_eq!(
+            build_oauth_url("https://example.com/", "/oauth2/authorize"),
+            "https://example.com/oauth2/authorize"
+        );
+    }
+
+    #[test]
+    fn test_build_authorize_url_for_office365() {
+        let provider = SocialLoginProvider {
+            name: "office_365".to_string(),
+            provider_name: "Office 365".to_string(),
+            client_id: "test-client-id".to_string(),
+            authorize_url: "https://login.microsoftonline.com/common/oauth2/authorize".to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365".to_string(),
+            auth_url_data: Some(json!({"response_type": "code", "scope": "openid"})),
+            custom_base_url: false,
+            base_url: None,
+            icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
+        };
+
+        let url = build_authorize_url(&provider, "http://localhost:8000", Some("/app")).unwrap();
+        assert!(url.starts_with("https://login.microsoftonline.com/common/oauth2/authorize?"));
+        assert!(url.contains("client_id=test-client-id"));
+        assert!(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_office365"));
+        assert!(url.contains("response_type=code"));
+        assert!(url.contains("scope=openid"));
+        assert!(url.contains("state="));
+    }
+
+    #[test]
+    fn test_render_social_login_buttons_includes_provider() {
+        let provider = SocialLoginProvider {
+            name: "office_365".to_string(),
+            provider_name: "Office 365".to_string(),
+            client_id: "test-client-id".to_string(),
+            authorize_url: "https://login.microsoftonline.com/common/oauth2/authorize".to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365".to_string(),
+            auth_url_data: None,
+            custom_base_url: false,
+            base_url: None,
+            icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
+        };
+
+        let auth_url = "https://login.microsoftonline.com/common/oauth2/authorize?test=1".to_string();
+        let html = render_social_login_buttons(&[(provider, auth_url)]);
+        assert!(html.contains("Login with Office 365"));
+        assert!(html.contains("btn-office_365"));
+        assert!(html.contains("/assets/frappe/icons/social/office_365.svg"));
+    }
+
+    #[test]
+    fn test_render_social_login_buttons_empty() {
+        let html = render_social_login_buttons(&[]);
+        assert!(html.is_empty());
+    }
 }

@@ -73,6 +73,61 @@
             text-align: center;
             display: none;
         }
+        .social-logins {
+            margin-top: 20px;
+        }
+        .login-divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #8d99a6;
+            font-size: 13px;
+            margin: 16px 0;
+        }
+        .login-divider::before,
+        .login-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #d1d8dd;
+        }
+        .login-divider span {
+            padding: 0 10px;
+        }
+        .social-login-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn-social {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 12px;
+            background: white;
+            color: #36414c;
+            border: 1px solid #d1d8dd;
+            border-radius: 4px;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-social:hover {
+            background: #f4f5f7;
+        }
+        .social-icon {
+            width: 18px;
+            height: 18px;
+        }
+        .btn-office_365 {
+            border-color: #0078d4;
+            color: #0078d4;
+        }
+        .btn-office_365:hover {
+            background: #f0f6fa;
+        }
     </style>
 </head>
 <body>
@@ -93,6 +148,7 @@
             <button type="submit">Login</button>
             <div class="error" id="error-msg"></div>
         </form>
+        {{SOCIAL_LOGINS}}
     </div>
     <script>
         document.getElementById('login-form').addEventListener('submit', async function(e) {
