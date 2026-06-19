@@ -13,7 +13,16 @@ async fn main() -> error::Result<()> {
     info!("kiff runtime starting");
 
     let config = config::RuntimeConfig::from_file("runtime.toml")?;
-    let site_manager = Arc::new(config::SiteManager::load(&config.runtime.sites_path).await?);
+    let mut site_manager = config::SiteManager::load(&config.runtime.sites_path).await?;
+
+    // Ensure a default site exists so the Python shim and desk frontend can find
+    // a real site database (e.g. sites/localhost/site.db).
+    if site_manager.sites().is_empty() {
+        info!("no sites found, creating default localhost site");
+        site_manager.create_site("localhost")?;
+    }
+
+    let site_manager = Arc::new(site_manager);
 
     // Load Rust app registry before DB setup so we can sync DocType fixtures.
     let rust_app_registry = rust_apps::load_registry();

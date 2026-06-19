@@ -489,8 +489,17 @@ async fn create_data_table(
         expected_cols.push(("parenttype".into(), "parenttype TEXT".into()));
     }
 
+    let standard_names: std::collections::HashSet<String> = expected_cols.iter()
+        .map(|(name, _)| name.clone())
+        .collect();
+
     for (fieldname, fieldtype) in fields {
         if is_ui_or_child_field(fieldtype) {
+            continue;
+        }
+        // Standard columns (name, idx, etc.) are already added above with the
+        // correct SQL types. DocType metadata may repeat them, so skip duplicates.
+        if standard_names.contains(fieldname) {
             continue;
         }
         let col_name = quote_if_reserved(fieldname);

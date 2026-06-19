@@ -285,6 +285,7 @@ async fn build_boot_info(
             boot.insert("disable_async".to_string(), json!(false));
             boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
             boot.insert("metadata_version".to_string(), json!("1"));
+            sanitize_bootinfo(&mut boot);
             return Value::Object(boot);
         }
     }
@@ -651,7 +652,48 @@ async fn build_boot_info(
     boot.insert("disable_async".to_string(), json!(false));
     boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
 
+    sanitize_bootinfo(&mut boot);
     Value::Object(boot)
+}
+
+/// Ensure the bootinfo object contains the shapes the Frappe 16 frontend
+/// expects. Python's get_bootinfo may return partial/null values against a
+/// fresh/empty site, so we guard the critical paths here.
+fn sanitize_bootinfo(boot: &mut Map<String, Value>) {
+    // user object
+    if !boot.get("user").map(|v| v.is_object()).unwrap_or(false) {
+        boot.insert("user".to_string(), json!({}));
+    }
+    let user = boot.get_mut("user").unwrap().as_object_mut().unwrap();
+
+    // all_reports must be an object for Object.keys() in search_utils.js
+    if !user.get("all_reports").map(|v| v.is_object()).unwrap_or(false) {
+        user.insert("all_reports".to_string(), json!({}));
+    }
+
+    // recent is parsed with JSON.parse(... || "[]") in the frontend
+    if let Some(recent) = user.get("recent") {
+        if !recent.is_string() {
+            user.insert("recent".to_string(), json!(recent.to_string()));
+        }
+    } else {
+        user.insert("recent".to_string(), json!("[]"));
+    }
+
+    // frequently_visited_links items must have a non-null route
+    if let Some(Value::Array(links)) = boot.get("frequently_visited_links").cloned() {
+        let filtered: Vec<Value> = links
+            .into_iter()
+            .filter(|link| {
+                link.get("route")
+                    .map(|r| !r.is_null() && (r.is_string() || r.is_array()))
+                    .unwrap_or(false)
+            })
+            .collect();
+        boot.insert("frequently_visited_links".to_string(), json!(filtered));
+    } else {
+        boot.insert("frequently_visited_links".to_string(), json!([]));
+    }
 }
 
 async fn load_bundle_map(assets_base: &PathBuf) -> HashMap<String, String> {

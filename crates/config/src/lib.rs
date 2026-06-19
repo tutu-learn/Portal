@@ -5,7 +5,7 @@ use error::{Result, RuntimeError};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct DatabaseConfig {
@@ -130,15 +130,15 @@ impl SiteManager {
             }
 
             let config_path = path.join("site_config.json");
-            let config = if config_path.exists() {
-                let content = tokio::fs::read_to_string(&config_path).await
-                    .map_err(RuntimeError::Io)?;
-                serde_json::from_str(&content)
-                    .map_err(|e| RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e)))?
-            } else {
-                warn!("site {} missing site_config.json, using defaults", name);
-                SiteConfig::default()
-            };
+            if !config_path.exists() {
+                // Directories like sites/assets are build output, not real sites.
+                // Only treat directories with an explicit site_config.json as sites.
+                continue;
+            }
+            let content = tokio::fs::read_to_string(&config_path).await
+                .map_err(RuntimeError::Io)?;
+            let config = serde_json::from_str(&content)
+                .map_err(|e| RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e)))?;
 
             let site = Site::new(name.clone(), path, config);
             sites.insert(name, site);
