@@ -1204,10 +1204,17 @@ async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Resul
 
     pool.execute_sql(sql, params).await?;
 
-    // Insert only navigation links; skip chart/number-card/shortcut widgets that
-    // reference records we don't seed.
+    // Insert all workspace child tables. Widget blocks (charts, shortcuts, etc.)
+    // are kept empty when fixtures don't supply them, which lets Frappe's
+    // workspace loader treat them as empty lists instead of None.
     let child_mappings = [
         ("links", "workspace_link"),
+        ("charts", "workspace_chart"),
+        ("shortcuts", "workspace_shortcut"),
+        ("quick_lists", "workspace_quick_list"),
+        ("number_cards", "workspace_number_card"),
+        ("custom_blocks", "workspace_custom_block"),
+        ("roles", "has_role"),
     ];
 
     for (fieldname, table) in child_mappings {

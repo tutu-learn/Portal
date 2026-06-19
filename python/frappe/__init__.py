@@ -673,6 +673,35 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # Workspace loader (frappe.desk.desktop.Workspace) assumes child-table
+    # attributes on the Workspace doc are always lists. With the minimal
+    # SQLite-backed fixtures used by Kiff they can be None, which crashes the
+    # desk page. Patch the getters to treat None as an empty list.
+    try:
+        from frappe.desk import desktop as _desktop_mod
+        if not getattr(_desktop_mod.Workspace, "_kiff_patched", False):
+            import functools
+
+            def _safe_list(getter):
+                @functools.wraps(getter)
+                def wrapper(self, *args, **kwargs):
+                    return getter(self, *args, **kwargs) or []
+                return wrapper
+
+            for _method_name in (
+                "get_charts",
+                "get_shortcuts",
+                "get_quick_lists",
+                "get_number_cards",
+                "get_custom_blocks",
+            ):
+                _orig = getattr(_desktop_mod.Workspace, _method_name)
+                setattr(_desktop_mod.Workspace, _method_name, _safe_list(_orig))
+
+            _desktop_mod.Workspace._kiff_patched = True
+    except Exception:
+        pass
+
     # Desk settings are read from the User doc; seeded Administrator often has
     # all desk_properties set to 0, which hides the sidebar/search/notifications.
     # Ensure sensible defaults while still respecting real values if present.
