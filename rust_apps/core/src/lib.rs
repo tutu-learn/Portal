@@ -46,6 +46,25 @@ impl AppContext {
 /// type.
 pub use orm::doctype_sync::DoctypeFixture;
 
+/// A Workspace fixture contributed by a Rust app.
+#[derive(Debug, Clone)]
+pub struct WorkspaceFixture {
+    pub name: &'static str,
+    pub json: &'static str,
+    pub app: &'static str,
+}
+
+impl WorkspaceFixture {
+    pub fn new(name: &'static str, json: &'static str) -> Self {
+        Self { name, json, app: "" }
+    }
+
+    pub fn with_app(mut self, app: &'static str) -> Self {
+        self.app = app;
+        self
+    }
+}
+
 /// Document lifecycle event kinds supported for Rust hooks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DocEvent {
@@ -181,6 +200,11 @@ pub trait RustApp: Send + Sync + 'static {
         vec![]
     }
 
+    /// Return Workspace JSON fixtures to sync into the metadata tables.
+    fn workspaces(&self) -> Vec<WorkspaceFixture> {
+        vec![]
+    }
+
     /// Register Rust handlers for document lifecycle events.
     fn doc_hooks(&self) -> Vec<DocHook> {
         vec![]
@@ -231,7 +255,30 @@ impl RustAppRegistry {
     pub fn all_doctypes(&self) -> Vec<DoctypeFixture> {
         self.apps
             .iter()
-            .flat_map(|app| app.doctypes())
+            .flat_map(|app| {
+                let app_name = app.name();
+                app.doctypes().into_iter().map(move |mut f| {
+                    if f.app.is_empty() {
+                        f.app = app_name.to_string();
+                    }
+                    f
+                })
+            })
+            .collect()
+    }
+
+    pub fn all_workspaces(&self) -> Vec<WorkspaceFixture> {
+        self.apps
+            .iter()
+            .flat_map(|app| {
+                let app_name = app.name();
+                app.workspaces().into_iter().map(move |mut f| {
+                    if f.app.is_empty() {
+                        f.app = app_name;
+                    }
+                    f
+                })
+            })
             .collect()
     }
 

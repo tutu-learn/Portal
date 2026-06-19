@@ -422,27 +422,73 @@ async fn load_doctype_from_json(
     doctype: &str,
     cached_timestamp: &str,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let scrubbed = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
-
-    // Search in apps/frappe/frappe/*/doctype/<scrubbed>/<scrubbed>.json
-    let base = PathBuf::from("apps/frappe/frappe");
-    let mut found = None;
-
-    if let Ok(entries) = std::fs::read_dir(&base) {
-        for entry in entries.flatten() {
-            let path = entry.path().join("doctype").join(&scrubbed).join(format!("{}.json", scrubbed));
-            if path.exists() {
-                found = Some(path);
-                break;
-            }
-        }
-    }
-
-    let path = found.ok_or_else(|| format!("doctype json not found for {}", doctype))?;
+    let path = find_doctype_json_path(doctype)
+        .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
     let content = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| format!("read error: {}", e))?;
     load_doctype_from_content(doctype, &content, cached_timestamp)
+}
+
+fn find_doctype_json_path(doctype: &str) -> Option<PathBuf> {
+    let scrubbed = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
+
+    // 1. Search in bundled Frappe app tree by path convention.
+    let frappe_base = PathBuf::from("apps/frappe/frappe");
+    if let Ok(entries) = std::fs::read_dir(&frappe_base) {
+        for entry in entries.flatten() {
+            let path = entry
+                .path()
+                .join("doctype")
+                .join(&scrubbed)
+                .join(format!("{}.json", scrubbed));
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    // 2. Search in Rust app doctype fixtures by JSON name.
+    let rust_apps_base = PathBuf::from("rust_apps");
+    if let Ok(app_entries) = std::fs::read_dir(&rust_apps_base) {
+        for app_entry in app_entries.flatten() {
+            let doctypes_dir = app_entry.path().join("src").join("doctypes");
+            if !doctypes_dir.exists() {
+                continue;
+            }
+            let Ok(entries) = std::fs::read_dir(&doctypes_dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                let Ok(files) = std::fs::read_dir(&path) else {
+                    continue;
+                };
+                for file in files.flatten() {
+                    let file_path = file.path();
+                    if file_path.extension().and_then(|e| e.to_str()) != Some("json") {
+                        continue;
+                    }
+                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                        if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&content) {
+                            if doc.get("name")
+                                .and_then(|v| v.as_str())
+                                .map(|n| n == doctype)
+                                .unwrap_or(false)
+                            {
+                                return Some(file_path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn load_doctype_from_content(
@@ -528,21 +574,11 @@ fn load_child_doctype_from_json(
     doctype: &str,
     cached_timestamp: &str,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let scrubbed = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
-    let base = PathBuf::from("apps/frappe/frappe");
-
-    if let Ok(entries) = std::fs::read_dir(&base) {
-        for entry in entries.flatten() {
-            let path = entry.path().join("doctype").join(&scrubbed).join(format!("{}.json", scrubbed));
-            if path.exists() {
-                let content = std::fs::read_to_string(&path)
-                    .map_err(|e| format!("read error: {}", e))?;
-                return load_doctype_from_content(doctype, &content, cached_timestamp);
-            }
-        }
-    }
-
-    Err(format!("doctype json not found for {}", doctype))
+    let path = find_doctype_json_path(doctype)
+        .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("read error: {}", e))?;
+    load_doctype_from_content(doctype, &content, cached_timestamp)
 }
 
 fn extract_cookie_value(header: &str, name: &str) -> Option<String> {

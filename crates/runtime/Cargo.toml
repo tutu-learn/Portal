@@ -19,7 +19,7 @@ metadata       = { path = "../metadata" }
 queue          = { path = "../queue" }
 http           = { path = "../http" }
 rust_apps_core = { path = "../../rust_apps/core" }
-sample         = { path = "../../rust_apps/sample" }
+audit_ready    = { path = "../../rust_apps/audit_ready" }
 axum           = { workspace = true }
 tokio          = { workspace = true }
 serde          = { workspace = true }

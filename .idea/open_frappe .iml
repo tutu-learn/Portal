@@ -19,6 +19,7 @@
       <sourceFolder url="file://$MODULE_DIR$/python" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/rust_apps/core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/rust_apps/sample/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>

@@ -162,19 +162,11 @@ fn add_to_workspace(name: &str) -> error::Result<()> {
         return Ok(());
     }
 
-    let new_contents = if contents.contains("    \"rust_apps/sample\",\n") {
-        contents.replacen(
-            "    \"rust_apps/sample\",\n",
-            &format!("    \"rust_apps/sample\",\n{member_line}\n"),
-            1,
-        )
-    } else {
-        contents.replacen(
-            "    \"rust_apps/core\",\n",
-            &format!("    \"rust_apps/core\",\n{member_line}\n"),
-            1,
-        )
-    };
+    let new_contents = contents.replacen(
+        "    \"rust_apps/core\",\n",
+        &format!("    \"rust_apps/core\",\n{member_line}\n"),
+        1,
+    );
     fs::write(path, new_contents)?;
     Ok(())
 }
@@ -188,19 +180,11 @@ fn add_to_registry(name: &str, pascal_name: &str) -> error::Result<()> {
         return Ok(());
     }
 
-    let new_contents = if contents.contains("        Box::new(sample::SampleApp),\n") {
-        contents.replacen(
-            "        Box::new(sample::SampleApp),\n",
-            &format!("        Box::new(sample::SampleApp),\n{app_line}\n"),
-            1,
-        )
-    } else {
-        contents.replacen(
-            "    vec![\n",
-            &format!("    vec![\n{app_line}\n"),
-            1,
-        )
-    };
+    let new_contents = contents.replacen(
+        "    vec![\n",
+        &format!("    vec![\n{app_line}\n"),
+        1,
+    );
     fs::write(path, new_contents)?;
     Ok(())
 }

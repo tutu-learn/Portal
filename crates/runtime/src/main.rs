@@ -40,7 +40,12 @@ async fn main() -> error::Result<()> {
                 }
                 // Sync Frappe doctypes: metadata tables, dynamic data tables, seed data
                 let fixtures = rust_app_registry.all_doctypes();
-                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures).await {
+                let workspace_fixtures: Vec<(String, String, String)> = rust_app_registry
+                    .all_workspaces()
+                    .into_iter()
+                    .map(|w| (w.name.to_string(), w.json.to_string(), w.app.to_string()))
+                    .collect();
+                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures).await {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }
                 pools.insert(name.clone(), p);

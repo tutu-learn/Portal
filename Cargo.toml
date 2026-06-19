@@ -14,7 +14,7 @@ members = [
     "crates/runtime",
     "cli",
     "rust_apps/core",
-    "rust_apps/sample",
+    "rust_apps/audit_ready",
 ]
 
 [workspace.dependencies]
@@ -102,4 +102,3 @@ dashmap        = { workspace = true }
 [dev-dependencies]
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
-sample         = { path = "rust_apps/sample" }

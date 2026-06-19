@@ -8,6 +8,7 @@ pub struct DoctypeFixture {
     pub module: String,
     pub name: String,
     pub json: String,
+    pub app: String,
 }
 
 impl DoctypeFixture {
@@ -16,16 +17,26 @@ impl DoctypeFixture {
             module: module.into(),
             name: name.into(),
             json: json.into(),
+            app: String::new(),
         }
+    }
+
+    pub fn with_app(mut self, app: impl Into<String>) -> Self {
+        self.app = app.into();
+        self
     }
 }
 
 /// Main entry point: sync metadata tables, create all data tables, insert seed data.
-pub async fn sync_all(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Result<()> {
+pub async fn sync_all(
+    pool: &DatabasePool,
+    fixtures: Vec<DoctypeFixture>,
+    workspace_fixtures: Vec<(String, String, String)>,
+) -> Result<()> {
     info!("syncing frappe doctypes");
-    sync_metadata(pool, fixtures).await?;
+    sync_metadata(pool, fixtures.clone()).await?;
     sync_data_tables(pool).await?;
-    insert_seed_data(pool).await?;
+    insert_seed_data(pool, fixtures, workspace_fixtures.clone()).await?;
     info!("doctype sync complete");
     Ok(())
 }
@@ -585,6 +596,31 @@ fn data_table_name(doctype: &str) -> String {
     name.strip_prefix("tab").unwrap_or(&name).to_string()
 }
 
+async fn add_column_if_missing(
+    pool: &DatabasePool,
+    table: &str,
+    column: &str,
+    column_def: &str,
+) -> Result<()> {
+    let pragma = format!(r#"PRAGMA table_info("{}")"#, table);
+    let rows = pool.execute_sql(&pragma, vec![]).await?;
+    let exists = rows.iter().any(|r| {
+        r.get("name")
+            .and_then(|v| v.as_str())
+            .map(|n| n.eq_ignore_ascii_case(column))
+            .unwrap_or(false)
+    });
+    if exists {
+        return Ok(());
+    }
+    let alter_sql = format!(r#"ALTER TABLE "{}" ADD COLUMN {}"#, table, column_def);
+    match pool.execute_sql(&alter_sql, vec![]).await {
+        Ok(_) => info!("added column {} to {}", column, table),
+        Err(e) => warn!("failed to add column {} to {}: {}", column, table, e),
+    }
+    Ok(())
+}
+
 fn is_ui_or_child_field(fieldtype: &str) -> bool {
     matches!(
         fieldtype,
@@ -637,13 +673,17 @@ fn quote_if_reserved(name: &str) -> String {
 // 3. Seed data — minimal records needed for the desk to boot
 // ------------------------------------------------------------------
 
-async fn insert_seed_data(pool: &DatabasePool) -> Result<()> {
+async fn insert_seed_data(
+    pool: &DatabasePool,
+    fixtures: Vec<DoctypeFixture>,
+    workspace_fixtures: Vec<(String, String, String)>,
+) -> Result<()> {
     insert_core_users_and_roles(pool).await?;
-    insert_module_defs(pool).await?;
+    insert_module_defs(pool, fixtures, workspace_fixtures.clone()).await?;
     insert_user_types(pool).await?;
     insert_workflow_defaults(pool).await?;
     insert_genders_and_salutations(pool).await?;
-    load_workspace_fixtures(pool).await?;
+    load_workspace_fixtures(pool, workspace_fixtures).await?;
     load_page_fixtures(pool).await?;
     insert_single_settings(pool).await?;
     info!("seed data inserted");
@@ -725,14 +765,62 @@ async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     Ok(())
 }
 
-async fn insert_module_defs(pool: &DatabasePool) -> Result<()> {
-    for module in ["Core", "Desk", "Website", "Integrations", "Automation", "Printing", "Email", "Geo", "Contacts", "Custom"] {
+async fn insert_module_defs(
+    pool: &DatabasePool,
+    fixtures: Vec<DoctypeFixture>,
+    workspace_fixtures: Vec<(String, String, String)>,
+) -> Result<()> {
+    // Ensure the module_def data table has the app_name column.
+    // This handles upgrades from databases created before Rust apps contributed modules.
+    add_column_if_missing(pool, "module_def", "app_name", "app_name TEXT").await?;
+
+    let mut module_apps: std::collections::BTreeMap<String, String> = [
+        ("Core", "frappe"),
+        ("Desk", "frappe"),
+        ("Website", "frappe"),
+        ("Integrations", "frappe"),
+        ("Automation", "frappe"),
+        ("Printing", "frappe"),
+        ("Email", "frappe"),
+        ("Geo", "frappe"),
+        ("Contacts", "frappe"),
+        ("Custom", "frappe"),
+    ]
+    .iter()
+    .map(|(m, a)| (m.to_string(), a.to_string()))
+    .collect();
+
+    for fixture in fixtures {
+        if !fixture.module.is_empty() {
+            module_apps
+                .entry(fixture.module)
+                .or_insert_with(|| fixture.app.clone());
+        }
+    }
+
+    for (name, _json, app) in workspace_fixtures {
+        let doc: serde_json::Value = match serde_json::from_str(&_json) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+        if let Some(module) = doc.get("module").and_then(|m| m.as_str()) {
+            if !module.is_empty() {
+                module_apps
+                    .entry(module.to_string())
+                    .or_insert_with(|| app.clone());
+            }
+        }
+    }
+
+    for (module, app) in module_apps {
+        let app_name = if app.is_empty() { "frappe".to_string() } else { app };
         let _ = pool.execute_sql(
-            r#"INSERT OR REPLACE INTO "module_def" (name, creation, modified, modified_by, owner, docstatus, module_name)
-               VALUES (?, datetime('now'), datetime('now'), 'Administrator', 'Administrator', 0, ?)"#,
+            r#"INSERT OR REPLACE INTO "module_def" (name, creation, modified, modified_by, owner, docstatus, module_name, app_name)
+               VALUES (?, datetime('now'), datetime('now'), 'Administrator', 'Administrator', 0, ?, ?)"#,
             vec![
-                serde_json::Value::String(module.into()),
-                serde_json::Value::String(module.into()),
+                serde_json::Value::String(module.clone()),
+                serde_json::Value::String(module),
+                serde_json::Value::String(app_name),
             ],
         ).await;
     }
@@ -812,53 +900,75 @@ async fn insert_genders_and_salutations(pool: &DatabasePool) -> Result<()> {
     Ok(())
 }
 
-async fn load_workspace_fixtures(pool: &DatabasePool) -> Result<()> {
-    let base = std::path::PathBuf::from("apps/frappe/frappe");
-    if !base.exists() {
-        return Ok(());
-    }
+async fn load_workspace_fixtures(
+    pool: &DatabasePool,
+    workspace_fixtures: Vec<(String, String, String)>,
+) -> Result<()> {
+    // Ensure workspace table has columns used by Rust app fixtures.
+    add_column_if_missing(pool, "workspace", "app", "app TEXT").await?;
+    add_column_if_missing(pool, "workspace", "restrict_to_domain", "restrict_to_domain TEXT").await?;
 
     let mut loaded = 0usize;
 
-    let entries = match std::fs::read_dir(&base) {
-        Ok(e) => e,
-        Err(_) => return Ok(()),
-    };
-
-    for entry in entries.flatten() {
-        let workspace_dir = entry.path().join("workspace");
-        if !workspace_dir.exists() {
+    // Insert workspace fixtures contributed by Rust apps first.
+    for (name, json, _app) in workspace_fixtures {
+        let doc: serde_json::Value = match serde_json::from_str(&json) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("failed to parse workspace fixture {}: {}", name, e);
+                continue;
+            }
+        };
+        if let Err(e) = insert_workspace(pool, &doc).await {
+            warn!("failed to insert workspace fixture {}: {}", name, e);
             continue;
         }
+        loaded += 1;
+    }
 
-        let workspaces = match std::fs::read_dir(&workspace_dir) {
-            Ok(w) => w,
-            Err(_) => continue,
+    // Then load workspace fixtures from the bundled frappe app tree.
+    let base = std::path::PathBuf::from("apps/frappe/frappe");
+    if base.exists() {
+        let entries = match std::fs::read_dir(&base) {
+            Ok(e) => e,
+            Err(_) => return Ok(()),
         };
 
-        for ws_entry in workspaces.flatten() {
-            let path = ws_entry.path();
-            let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            let json_path = path.join(format!("{}.json", fname));
-            if !json_path.exists() {
+        for entry in entries.flatten() {
+            let workspace_dir = entry.path().join("workspace");
+            if !workspace_dir.exists() {
                 continue;
             }
 
-            let content = match tokio::fs::read_to_string(&json_path).await {
-                Ok(c) => c,
+            let workspaces = match std::fs::read_dir(&workspace_dir) {
+                Ok(w) => w,
                 Err(_) => continue,
             };
 
-            let doc: serde_json::Value = match serde_json::from_str(&content) {
-                Ok(d) => d,
-                Err(_) => continue,
-            };
+            for ws_entry in workspaces.flatten() {
+                let path = ws_entry.path();
+                let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                let json_path = path.join(format!("{}.json", fname));
+                if !json_path.exists() {
+                    continue;
+                }
 
-            if let Err(e) = insert_workspace(pool, &doc).await {
-                warn!("failed to insert workspace from {}: {}", json_path.display(), e);
-                continue;
+                let content = match tokio::fs::read_to_string(&json_path).await {
+                    Ok(c) => c,
+                    Err(_) => continue,
+                };
+
+                let doc: serde_json::Value = match serde_json::from_str(&content) {
+                    Ok(d) => d,
+                    Err(_) => continue,
+                };
+
+                if let Err(e) = insert_workspace(pool, &doc).await {
+                    warn!("failed to insert workspace from {}: {}", json_path.display(), e);
+                    continue;
+                }
+                loaded += 1;
             }
-            loaded += 1;
         }
     }
 
@@ -1054,8 +1164,8 @@ async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Resul
     let sql = r#"
         INSERT OR REPLACE INTO "workspace" (
             name, creation, modified, modified_by, owner, docstatus,
-            label, title, icon, public, is_hidden, content, sequence_id, module, parent_page, for_user
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            label, title, icon, public, is_hidden, content, sequence_id, module, parent_page, for_user, app, restrict_to_domain
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     "#;
 
     let params = vec![
@@ -1075,6 +1185,8 @@ async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Resul
         val(json_str(doc, "module")),
         val(json_str(doc, "parent_page")),
         val(json_str(doc, "for_user")),
+        val(json_str(doc, "app")),
+        json_str_or_null(doc, "restrict_to_domain"),
     ];
 
     pool.execute_sql(sql, params).await?;
@@ -1113,6 +1225,16 @@ async fn insert_child_rows(
         warn!("child table {} does not exist, skipping", table);
         return Ok(());
     }
+
+    // Remove stale child rows so re-syncs don't accumulate duplicates.
+    let _ = pool.execute_sql(
+        &format!(r#"DELETE FROM "{}" WHERE parent = ? AND parenttype = ? AND parentfield = ?"#, table),
+        vec![
+            serde_json::Value::String(parent.into()),
+            serde_json::Value::String(parenttype.into()),
+            serde_json::Value::String(parentfield.into()),
+        ],
+    ).await;
 
     for (idx, row) in rows.iter().enumerate() {
         let mut values: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
@@ -1167,6 +1289,13 @@ async fn insert_child_rows(
 
 fn json_str(doc: &serde_json::Value, key: &str) -> String {
     doc.get(key).and_then(|v| v.as_str()).unwrap_or("").to_string()
+}
+
+fn json_str_or_null(doc: &serde_json::Value, key: &str) -> serde_json::Value {
+    match doc.get(key) {
+        Some(serde_json::Value::String(s)) if !s.is_empty() => serde_json::Value::String(s.clone()),
+        _ => serde_json::Value::Null,
+    }
 }
 
 fn json_i64(doc: &serde_json::Value, key: &str) -> i64 {
