@@ -55,6 +55,7 @@ pub fn create_router() -> Router<AppState> {
             get(socketio::handle_get).post(socketio::handle_post),
         )
         .nest_service("/assets/frappe/dist", ServeDir::new("crates/http/assets/frappe/dist"))
+        .nest_service("/assets/frappe/node_modules", ServeDir::new("apps/frappe/node_modules"))
         .nest_service("/assets/frappe", ServeDir::new("apps/frappe/frappe/public"))
         .nest_service("/assets", ServeDir::new("crates/http/assets"))
         .route("/login", get(desk::serve_login))
