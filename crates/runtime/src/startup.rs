@@ -6,7 +6,7 @@ use tracing::info;
 /// Ask the embedded Python for its extension suffix (e.g. `.cpython-312-darwin.so`).
 fn ext_suffix() -> String {
     Python::with_gil(|py| {
-        py.import_bound("sysconfig")
+        py.import("sysconfig")
             .and_then(|m| m.call_method1("get_config_var", ("EXT_SUFFIX",)))
             .and_then(|v| v.extract::<String>())
             .unwrap_or_else(|_| ".cpython-312-darwin.so".to_string())
@@ -85,7 +85,7 @@ pub fn setup_python_path_with_db(
     );
 
     Python::with_gil(|py| {
-        let sys = py.import_bound("sys")?;
+        let sys = py.import("sys")?;
         let path_obj = sys.getattr("path")?;
         let path = path_obj.downcast::<PyList>()?;
 
@@ -122,7 +122,7 @@ pub fn setup_python_path_with_db(
             } else {
                 // Fallback: try site.getsitepackages() in case we're running
                 // from a venv-aware interpreter.
-                let site_pkgs: Vec<String> = py.import_bound("site")
+                let site_pkgs: Vec<String> = py.import("site")
                     .and_then(|m| m.call_method0("getsitepackages"))
                     .and_then(|v| v.extract())
                     .unwrap_or_default();
@@ -162,7 +162,7 @@ pub fn setup_python_path_with_db(
 
         // Initialize kiff_core .so instance with DB connection so Python can use it.
         if let (Some(driver), Some(url)) = (db_driver, db_url) {
-            match py.import_bound("kiff_core") {
+            match py.import("kiff_core") {
                 Ok(kc) => match kc.call_method1("init_from_url", (driver, url)) {
                     Ok(_) => info!("kiff_core .so instance initialized"),
                     Err(e) => info!("kiff_core init_from_url failed: {}", e),

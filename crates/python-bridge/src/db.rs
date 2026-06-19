@@ -45,7 +45,7 @@ pub fn get_doc(py: Python<'_>, doctype: String, name: Option<String>) -> PyResul
         .block_on(async { pool().get_doc(&doctype, &name).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-    let dict = PyDict::new_bound(py);
+    let dict = PyDict::new(py);
     dict.set_item("doctype", doc.doctype)?;
     dict.set_item("name", doc.name)?;
     dict.set_item("owner", doc.owner)?;
@@ -55,7 +55,7 @@ pub fn get_doc(py: Python<'_>, doctype: String, name: Option<String>) -> PyResul
     for (k, v) in &doc.fields {
         dict.set_item(k, json_to_py(py, v)?)?;
     }
-    Ok(dict.into_py(py))
+    Ok(dict.unbind().into())
 }
 
 #[pyfunction]
@@ -103,9 +103,9 @@ pub fn get_list(
         })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-    let list = PyList::empty_bound(py);
+    let list = PyList::empty(py);
     for doc in docs {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("doctype", doc.doctype)?;
         dict.set_item("name", doc.name)?;
         dict.set_item("owner", doc.owner.clone())?;
@@ -117,7 +117,7 @@ pub fn get_list(
         }
         list.append(dict)?;
     }
-    Ok(list.into_py(py))
+    Ok(list.unbind().into())
 }
 
 #[pyfunction]
@@ -166,15 +166,15 @@ pub fn db_sql(
         .block_on(async { pool().execute_sql(&query, params).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-    let list = PyList::empty_bound(py);
+    let list = PyList::empty(py);
     for row in rows {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         for (k, v) in row {
             dict.set_item(k, json_to_py(py, &v)?)?;
         }
         list.append(dict)?;
     }
-    Ok(list.into_py(py))
+    Ok(list.unbind().into())
 }
 
 #[pyfunction]

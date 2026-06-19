@@ -25,10 +25,12 @@ impl HookRegistry {
 
         info!("loading hooks from {:?}", hooks_path);
         Python::with_gil(|py| -> error::Result<()> {
-            let locals = PyDict::new_bound(py);
+            let locals = PyDict::new(py);
             let code = std::fs::read_to_string(&hooks_path)
                 .map_err(|e| error::RuntimeError::Io(e))?;
-            py.run_bound(&code, None, Some(&locals))
+            let code_c = std::ffi::CString::new(code)
+                .map_err(|e| error::RuntimeError::Python(format!("null byte in hooks.py: {}", e)))?;
+            py.run(&code_c, None, Some(&locals))
                 .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
 
             let events = vec![
@@ -151,13 +153,13 @@ impl HookRegistry {
                 let doc_dict = doc_dict.clone();
                 move || {
                     Python::with_gil(|py| -> error::Result<()> {
-                        let module = py.import_bound(module_name.as_str())
+                        let module = py.import(module_name.as_str())
                             .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
                         let func = module.getattr(func_name.as_str())
                             .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
 
                         if let Some(ref dict) = doc_dict {
-                            let py_dict = pyo3::types::PyDict::new_bound(py);
+                            let py_dict = pyo3::types::PyDict::new(py);
                             for (k, v) in dict {
                                 let val = kiff_core::json_to_py(py, v)
                                     .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
