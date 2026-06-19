@@ -238,6 +238,89 @@ async fn query_boot_data(
     Ok((workspaces, modules_map, module_list, module_wise_workspaces, default_ws))
 }
 
+/// Build workspace-related boot objects from the workspace list queried from the DB.
+/// Returns (workspaces object, workspace_sidebar_item object, default_workspace object).
+fn build_workspace_boot_objects(
+    workspaces: &[Value],
+    is_guest: bool,
+) -> (Value, Value, Value) {
+    // Frappe 16 expects boot.workspaces = { pages, has_access, has_create_access }
+    let mut workspaces_obj = Map::new();
+    workspaces_obj.insert("pages".to_string(), json!(workspaces));
+    workspaces_obj.insert("has_access".to_string(), json!(true));
+    workspaces_obj.insert("has_create_access".to_string(), json!(!is_guest));
+    let workspaces_value = Value::Object(workspaces_obj);
+
+    // Frappe 16 sidebar expects workspace_sidebar_item = { title_lower: { items, module, app } }
+    let mut workspace_sidebar_item = Map::new();
+    workspace_sidebar_item.insert(
+        "my workspaces".to_string(),
+        json!({
+            "items": workspaces.iter().map(|ws| {
+                json!({
+                    "label": ws.get("label").unwrap_or(&Value::Null),
+                    "link_to": ws.get("name").unwrap_or(&Value::Null),
+                    "link_type": "Workspace",
+                    "type": "Link",
+                    "icon": ws.get("icon").unwrap_or(&Value::Null),
+                    "child": false,
+                    "collapsible": false,
+                    "indent": 0,
+                    "keep_closed": false,
+                    "url": Value::Null,
+                    "show_arrow": false,
+                    "filters": Value::Null,
+                    "route_options": Value::Null,
+                    "tab": Value::Null,
+                })
+            }).collect::<Vec<Value>>(),
+            "module": "Core",
+            "app": "frappe",
+        }),
+    );
+    for ws in workspaces {
+        if let Some(title) = ws.get("title").and_then(|v| v.as_str()) {
+            let name = ws.get("name").and_then(|v| v.as_str()).unwrap_or(title);
+            workspace_sidebar_item.insert(
+                title.to_lowercase(),
+                json!({
+                    "items": [{
+                        "label": title,
+                        "link_to": name,
+                        "link_type": "Workspace",
+                        "type": "Link",
+                        "icon": ws.get("icon").unwrap_or(&Value::Null),
+                        "child": false,
+                        "collapsible": false,
+                        "indent": 0,
+                        "keep_closed": false,
+                        "url": Value::Null,
+                        "show_arrow": false,
+                        "filters": Value::Null,
+                        "route_options": Value::Null,
+                        "tab": Value::Null,
+                    }],
+                    "module": ws.get("module").unwrap_or(&json!("")),
+                    "app": "frappe",
+                }),
+            );
+        }
+    }
+    let workspace_sidebar_item_value = Value::Object(workspace_sidebar_item);
+
+    // Build default_workspace as an object {name, title, public} — the frontend
+    // expects frappe.boot.user.default_workspace to be an object, not a string.
+    let default_workspace_obj = workspaces.first().map(|ws| {
+        json!({
+            "name": ws.get("name"),
+            "title": ws.get("title"),
+            "public": ws.get("public"),
+        })
+    }).unwrap_or(Value::Null);
+
+    (workspaces_value, workspace_sidebar_item_value, default_workspace_obj)
+}
+
 async fn build_boot_info(
     state: &AppState,
     user: Option<&str>,
@@ -246,10 +329,28 @@ async fn build_boot_info(
     let is_guest = user.is_none();
     let user_name = user.unwrap_or("Guest");
 
+    // Get DB pool for site queries first; workspace data is needed both for the
+    // Python bootinfo overlay and for the fallback bootinfo.
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+
+    // Query workspaces and modules from DB
+    let (workspaces, modules_map, module_list, module_wise_workspaces, _default_ws) =
+        if let Some(ref pool) = pool {
+            match query_boot_data(pool).await {
+                Ok(data) => data,
+                Err(_) => (vec![], Map::new(), vec![], Map::new(), None),
+            }
+        } else {
+            (vec![], Map::new(), vec![], Map::new(), None)
+        };
+
+    let (workspaces_value, workspace_sidebar_item_value, default_workspace_obj) =
+        build_workspace_boot_objects(&workspaces, is_guest);
+
     // Try to build bootinfo via the real Frappe boot module through the Python bridge.
     // Frappe 16's frontend expects many fields that are tedious to hardcode; delegating
     // to the real framework is the most compatible path. We then overlay our own values
-    // (assets_json, user info, etc.) so the Kiff runtime stays in control.
+    // (assets_json, user info, workspace sidebar, etc.) so the Kiff runtime stays in control.
     if !is_guest {
         let u = user_name.to_string();
         let py_boot = tokio::task::spawn_blocking(move || {
@@ -285,24 +386,20 @@ async fn build_boot_info(
             boot.insert("disable_async".to_string(), json!(false));
             boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
             boot.insert("metadata_version".to_string(), json!("1"));
+            // Replace Python-generated workspace data with the Rust-built version so
+            // Rust-app workspaces (Audit Ready, Policies, Procedures, ISO 27001) show
+            // up in the desk sidebar and a valid default workspace is set.
+            boot.insert("workspaces".to_string(), workspaces_value);
+            boot.insert("allowed_workspaces".to_string(), json!(workspaces));
+            boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
+            boot.insert("workspace_sidebar_item".to_string(), workspace_sidebar_item_value);
+            if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
+                user_obj.insert("default_workspace".to_string(), default_workspace_obj);
+            }
             sanitize_bootinfo(&mut boot);
             return Value::Object(boot);
         }
     }
-
-    // Get DB pool for site queries
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
-
-    // Query workspaces and modules from DB
-    let (workspaces, modules_map, module_list, module_wise_workspaces, _default_ws) =
-        if let Some(ref pool) = pool {
-            match query_boot_data(pool).await {
-                Ok(data) => data,
-                Err(_) => (vec![], Map::new(), vec![], Map::new(), None),
-            }
-        } else {
-            (vec![], Map::new(), vec![], Map::new(), None)
-        };
 
     let roles: Value = if is_guest {
         json!([])
@@ -395,15 +492,6 @@ async fn build_boot_info(
     user_obj.insert("send_me_a_copy".to_string(), json!(false));
     user_obj.insert("email_signature".to_string(), Value::Null);
     user_obj.insert("impersonated_by".to_string(), Value::Null);
-    // Build default_workspace as an object {name, title, public} — the frontend
-    // expects frappe.boot.user.default_workspace to be an object, not a string.
-    let default_workspace_obj = workspaces.first().map(|ws| {
-        json!({
-            "name": ws.get("name"),
-            "title": ws.get("title"),
-            "public": ws.get("public"),
-        })
-    }).unwrap_or(Value::Null);
     user_obj.insert("default_workspace".to_string(), default_workspace_obj);
     user_obj.insert("user_permissions".to_string(), json!({}));
 
@@ -530,78 +618,11 @@ async fn build_boot_info(
         },
     ]);
     boot.insert("docs".to_string(), docs);
-    // Frappe 16 expects boot.workspaces = { pages, has_access, has_create_access }
-    let mut workspaces_obj = Map::new();
-    workspaces_obj.insert("pages".to_string(), json!(workspaces));
-    workspaces_obj.insert(
-        "has_access".to_string(),
-        json!(true),
-    );
-    workspaces_obj.insert(
-        "has_create_access".to_string(),
-        json!(!is_guest),
-    );
-    boot.insert("workspaces".to_string(), Value::Object(workspaces_obj));
+    boot.insert("workspaces".to_string(), workspaces_value);
     // Kept for older frontend code that may still reference it
     boot.insert("allowed_workspaces".to_string(), json!(workspaces));
     boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
-
-    // Frappe 16 sidebar expects workspace_sidebar_item = { title_lower: { items, module, app } }
-    let mut workspace_sidebar_item = Map::new();
-    workspace_sidebar_item.insert(
-        "my workspaces".to_string(),
-        json!({
-            "items": workspaces.iter().map(|ws| {
-                json!({
-                    "label": ws.get("label").unwrap_or(&Value::Null),
-                    "link_to": ws.get("name").unwrap_or(&Value::Null),
-                    "link_type": "Workspace",
-                    "type": "Link",
-                    "icon": ws.get("icon").unwrap_or(&Value::Null),
-                    "child": false,
-                    "collapsible": false,
-                    "indent": 0,
-                    "keep_closed": false,
-                    "url": Value::Null,
-                    "show_arrow": false,
-                    "filters": Value::Null,
-                    "route_options": Value::Null,
-                    "tab": Value::Null,
-                })
-            }).collect::<Vec<Value>>(),
-            "module": "Core",
-            "app": "frappe",
-        }),
-    );
-    for ws in &workspaces {
-        if let Some(title) = ws.get("title").and_then(|v| v.as_str()) {
-            let name = ws.get("name").and_then(|v| v.as_str()).unwrap_or(title);
-            workspace_sidebar_item.insert(
-                title.to_lowercase(),
-                json!({
-                    "items": [{
-                        "label": title,
-                        "link_to": name,
-                        "link_type": "Workspace",
-                        "type": "Link",
-                        "icon": ws.get("icon").unwrap_or(&Value::Null),
-                        "child": false,
-                        "collapsible": false,
-                        "indent": 0,
-                        "keep_closed": false,
-                        "url": Value::Null,
-                        "show_arrow": false,
-                        "filters": Value::Null,
-                        "route_options": Value::Null,
-                        "tab": Value::Null,
-                    }],
-                    "module": ws.get("module").unwrap_or(&json!("")),
-                    "app": "frappe",
-                }),
-            );
-        }
-    }
-    boot.insert("workspace_sidebar_item".to_string(), Value::Object(workspace_sidebar_item));
+    boot.insert("workspace_sidebar_item".to_string(), workspace_sidebar_item_value);
     boot.insert("dashboards".to_string(), json!([]));
     boot.insert("page_info".to_string(), json!({}));
     boot.insert("allowed_pages".to_string(), json!([]));
