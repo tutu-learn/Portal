@@ -924,6 +924,12 @@ fn build_authorize_url(
     // Default OAuth2 parameters if the provider config did not supply them.
     params.entry("response_type".to_string()).or_insert_with(|| "code".to_string());
 
+    // Microsoft Entra ID (v2.0) requires a scope parameter on the authorize request.
+    // If the provider config left it out, default to the standard OIDC scopes so login works.
+    if authorize_url.contains("login.microsoftonline.com") && authorize_url.contains("/oauth2/v2.0/authorize") {
+        params.entry("scope".to_string()).or_insert_with(|| "openid email profile".to_string());
+    }
+
     let query = match serde_urlencoded::to_string(&params) {
         Ok(q) => q,
         Err(_) => return None,
@@ -1063,6 +1069,29 @@ mod tests {
         assert!(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_office365"));
         assert!(url.contains("response_type=code"));
         assert!(url.contains("scope=openid"));
+        assert!(url.contains("state="));
+    }
+
+    #[test]
+    fn test_build_authorize_url_for_microsoft_entra_v2_defaults_scope() {
+        let provider = SocialLoginProvider {
+            name: "microsoft".to_string(),
+            provider_name: "Microsoft".to_string(),
+            client_id: "test-client-id".to_string(),
+            authorize_url: "https://login.microsoftonline.com/1d6f2f1f-694e-4308-a2ba-bb00bb00fa46/oauth2/v2.0/authorize".to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_microsoft".to_string(),
+            auth_url_data: Some(json!({"response_type": "code"})),
+            custom_base_url: false,
+            base_url: None,
+            icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
+        };
+
+        let url = build_authorize_url(&provider, "https://compliance-system.sebrus.dev", Some("/desk")).unwrap();
+        assert!(url.starts_with("https://login.microsoftonline.com/1d6f2f1f-694e-4308-a2ba-bb00bb00fa46/oauth2/v2.0/authorize?"));
+        assert!(url.contains("client_id=test-client-id"));
+        assert!(url.contains("redirect_uri=https%3A%2F%2Fcompliance-system.sebrus.dev%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_microsoft"));
+        assert!(url.contains("response_type=code"));
+        assert!(url.contains("scope=openid+email+profile"));
         assert!(url.contains("state="));
     }
 
