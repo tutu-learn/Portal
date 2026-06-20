@@ -569,6 +569,71 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # Patch OAuth token exchange so Microsoft Entra ID receives a scope in the
+    # token request body. The scope is taken from the provider's auth_url_data.
+    try:
+        import frappe.utils.oauth as _oauth_mod
+        if not getattr(_oauth_mod, "_kiff_patched", False):
+            _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
+
+            def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
+                import json as _json
+                import jwt
+
+                flow = _oauth_mod.get_oauth2_flow(provider)
+                oauth2_providers = _oauth_mod.get_oauth2_providers()
+
+                args = {
+                    "data": {
+                        "code": code,
+                        "redirect_uri": _oauth_mod.get_redirect_uri(provider),
+                        "grant_type": "authorization_code",
+                    }
+                }
+
+                access_token_url = oauth2_providers[provider]["flow_params"].get(
+                    "access_token_url", ""
+                )
+                if "login.microsoftonline.com" in access_token_url:
+                    auth_url_data = oauth2_providers[provider].get("auth_url_data") or {}
+                    if isinstance(auth_url_data, str):
+                        auth_url_data = _json.loads(auth_url_data)
+                    if scope := auth_url_data.get("scope"):
+                        args["data"]["scope"] = scope
+
+                if decoder:
+                    args["decoder"] = decoder
+
+                session = flow.get_auth_session(**args)
+
+                if id_token:
+                    parsed_access = _json.loads(session.access_token_response.text)
+                    token = parsed_access["id_token"]
+                    info = jwt.decode(
+                        token, flow.client_secret, options={"verify_signature": False}
+                    )
+                else:
+                    api_endpoint = oauth2_providers[provider].get("api_endpoint")
+                    api_endpoint_args = oauth2_providers[provider].get("api_endpoint_args")
+                    info = session.get(api_endpoint, params=api_endpoint_args).json()
+
+                    if provider == "github" and not info.get("email"):
+                        emails = session.get("/user/emails", params=api_endpoint_args).json()
+                        email_dict = next(filter(lambda x: x.get("primary"), emails))
+                        info["email"] = email_dict.get("email")
+
+                if not (info.get("email_verified") or _oauth_mod.get_email(info)):
+                    from frappe import throw, _
+
+                    throw(_("Email not verified with {0}").format(provider.title()))
+
+                return info
+
+            _oauth_mod.get_info_via_oauth = _kiff_get_info_via_oauth
+            _oauth_mod._kiff_patched = True
+    except Exception:
+        pass
+
     # Provide lightweight shim replacements for functions that real frappe
     # implements with heavy dependencies (query builder, MariaDB, Redis, etc.)
     # so bootinfo can run without a full real-frappe runtime.
