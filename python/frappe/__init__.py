@@ -574,6 +574,43 @@ def _patch_real_module(mod):
     try:
         import frappe.utils.oauth as _oauth_mod
         if not getattr(_oauth_mod, "_kiff_patched", False):
+
+            def _resolve_oauth_provider(provider):
+                """Map a provider slug to the actual Social Login Key document name.
+
+                Frappe's provider-specific login endpoints (login_via_office365,
+                etc.) pass a hard-coded slug like "office_365".  If the user's
+                Social Login Key uses a custom Provider Name, resolve it by
+                matching social_login_provider instead.
+                """
+                if frappe.db.exists("Social Login Key", provider):
+                    return provider
+                for key in frappe.get_all(
+                    "Social Login Key",
+                    fields=["name", "social_login_provider"],
+                ):
+                    if key.social_login_provider and frappe.scrub(
+                        key.social_login_provider
+                    ) == provider:
+                        return key.name
+                return provider
+
+            _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
+            _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
+
+            def _kiff_login_via_oauth2(provider, code, state, decoder=None):
+                return _orig_login_via_oauth2(
+                    _resolve_oauth_provider(provider), code, state, decoder
+                )
+
+            def _kiff_login_via_oauth2_id_token(provider, code, state, decoder=None):
+                return _orig_login_via_oauth2_id_token(
+                    _resolve_oauth_provider(provider), code, state, decoder
+                )
+
+            _oauth_mod.login_via_oauth2 = _kiff_login_via_oauth2
+            _oauth_mod.login_via_oauth2_id_token = _kiff_login_via_oauth2_id_token
+
             _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
 
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
@@ -631,6 +668,56 @@ def _patch_real_module(mod):
 
             _oauth_mod.get_info_via_oauth = _kiff_get_info_via_oauth
             _oauth_mod._kiff_patched = True
+    except Exception:
+        pass
+
+    # Patch password removal to use a direct SQL DELETE on the __auth table.
+    # The shim's generic db.delete() path can struggle with the composite-key
+    # __auth table, leaving orphaned secrets when a document is deleted.
+    try:
+        import frappe.utils.password as _password_mod
+        if not getattr(_password_mod, "_kiff_patched", False):
+            _orig_remove_encrypted_password = _password_mod.remove_encrypted_password
+
+            def _kiff_remove_encrypted_password(doctype, name, fieldname="password"):
+                try:
+                    frappe.db.sql(
+                        'DELETE FROM "__auth" WHERE doctype = ? AND name = ? AND fieldname = ?',
+                        (doctype, name, fieldname),
+                    )
+                except Exception:
+                    # Fall back to the original implementation if direct SQL fails.
+                    _orig_remove_encrypted_password(doctype, name, fieldname)
+
+            _password_mod.remove_encrypted_password = _kiff_remove_encrypted_password
+            _password_mod._kiff_patched = True
+    except Exception:
+        pass
+
+    # Patch Social Login Key validation so empty/placeholder Code field values
+    # (e.g. "", "None", "undefined") don't crash json.loads().
+    try:
+        from frappe.integrations.doctype.social_login_key.social_login_key import (
+            SocialLoginKey as _SocialLoginKey,
+        )
+        if not getattr(_SocialLoginKey, "_kiff_patched", False):
+            _orig_slk_validate = _SocialLoginKey.validate
+
+            def _normalize_json_code_field(value):
+                if not isinstance(value, str):
+                    return value
+                value = value.strip()
+                if not value or value in ("None", "undefined", "null"):
+                    return None
+                return value
+
+            def _patched_slk_validate(self):
+                self.auth_url_data = _normalize_json_code_field(self.auth_url_data)
+                self.api_endpoint_args = _normalize_json_code_field(self.api_endpoint_args)
+                return _orig_slk_validate(self)
+
+            _SocialLoginKey.validate = _patched_slk_validate
+            _SocialLoginKey._kiff_patched = True
     except Exception:
         pass
 

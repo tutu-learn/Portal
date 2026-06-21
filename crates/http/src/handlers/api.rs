@@ -111,7 +111,25 @@ pub async fn update_doc(
 pub async fn delete_doc(
     State(state): State<AppState>,
     Path((doctype, name)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
+    // Try real Frappe Document.delete() first so Password fields are cleaned
+    // up from __auth and document hooks run. Fall back to the native ORM
+    // delete if Python is unavailable.
+    let mut params = std::collections::HashMap::new();
+    params.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    params.insert("name".to_string(), serde_json::Value::String(name.clone()));
+
+    match call_rust_or_python_method(&state, "frappe.client.delete", params, &headers).await {
+        Ok(_) => return (StatusCode::OK, Json(serde_json::json!({ "message": "deleted" }))),
+        Err(error::RuntimeError::Python(_)) => {
+            // Python failed; fall through to native delete rather than returning
+            // the error immediately. Some DocType controllers may not yet load
+            // cleanly under the shim, but the row should still be removable.
+        }
+        Err(e) => return frappe_error_response(e),
+    }
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.delete_doc(&doctype, &name).await {
