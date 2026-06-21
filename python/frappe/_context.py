@@ -1,8 +1,10 @@
 """Request-local context state: _local, _session, proxies, conf, response."""
 
+import json
 import os
 
 from collections import defaultdict
+from pathlib import Path
 from ._types import _dict
 
 
@@ -196,11 +198,35 @@ session = _LocalProxy(_local, "session")
 _session = _local["session"]
 
 
+def _load_site_encryption_key(site: str = None, sites_path: str = None) -> str:
+    """Return the encryption key for the site.
+
+    Order of precedence:
+      1. FRAPPE_ENCRYPTION_KEY environment variable.
+      2. encryption_key field in the site's site_config.json.
+      3. Empty string (Frappe will generate one and persist it).
+    """
+    env_key = os.environ.get("FRAPPE_ENCRYPTION_KEY", "")
+    if env_key:
+        return env_key
+
+    site = site or _local.get("site") or "localhost"
+    sites_path = sites_path or _local.get("sites_path") or "sites"
+    config_path = Path(sites_path) / site / "site_config.json"
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        return config.get("encryption_key", "")
+    except Exception:
+        return ""
+
+
 # Module-level config / response (mutable dicts shared by reference)
 conf = _dict(
     developer_mode=True,
     db_type="sqlite",
     db_name="site.db",
+    encryption_key=_load_site_encryption_key(),
 )
 response = _LocalProxy(_local, "response")
 

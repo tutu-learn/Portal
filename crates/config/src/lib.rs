@@ -159,6 +159,29 @@ impl SiteManager {
             let mut config: SiteConfig = serde_json::from_str(&content)
                 .map_err(|e| RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e)))?;
 
+            // Allow operators to pin a stable encryption key from a cluster
+            // secret / environment variable. This is essential for stateless
+            // deployments where site_config.json may be rebuilt from the image.
+            if let Ok(env_key) = std::env::var("FRAPPE_ENCRYPTION_KEY") {
+                if !env_key.is_empty() {
+                    if is_valid_fernet_key(&env_key) {
+                        if config.encryption_key != env_key {
+                            info!("using FRAPPE_ENCRYPTION_KEY for site {}", name);
+                            config.encryption_key = env_key;
+                            let config_json = serde_json::to_string_pretty(&config)
+                                .map_err(|e| RuntimeError::Config(format!("failed to serialize site_config.json for {}: {}", name, e)))?;
+                            tokio::fs::write(&config_path, config_json).await
+                                .map_err(RuntimeError::Io)?;
+                        }
+                    } else {
+                        warn!(
+                            "FRAPPE_ENCRYPTION_KEY is set but is not a valid Fernet key; ignoring for site {}",
+                            name
+                        );
+                    }
+                }
+            }
+
             // Older sites were created with a UUID-hex encryption_key that is not a
             // valid Fernet key. Regenerate it if invalid; there cannot be any
             // decryptable encrypted data tied to an invalid key.

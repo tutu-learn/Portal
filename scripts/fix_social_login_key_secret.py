@@ -55,6 +55,25 @@ def load_or_fix_site_config(site_path: str) -> dict:
     with open(config_path) as f:
         config = json.load(f)
 
+    # In clustered / stateless deployments the encryption key should be pinned
+    # via the FRAPPE_ENCRYPTION_KEY environment variable so it survives
+    # redeploys. If set and valid, prefer it and persist it to site_config.json.
+    env_key = os.environ.get("FRAPPE_ENCRYPTION_KEY", "")
+    if env_key:
+        if is_valid_fernet_key(env_key):
+            if config.get("encryption_key") != env_key:
+                print("[+] Using FRAPPE_ENCRYPTION_KEY from environment")
+                config["encryption_key"] = env_key
+                with open(config_path, "w") as f:
+                    json.dump(config, f, indent=2)
+                    f.write("\n")
+                print(f"[+] encryption_key written to {config_path}")
+            else:
+                print(f"[+] encryption_key matches FRAPPE_ENCRYPTION_KEY")
+            return config
+        else:
+            print(f"[!] FRAPPE_ENCRYPTION_KEY is invalid; falling back to site_config.json")
+
     key = config.get("encryption_key", "")
     if not is_valid_fernet_key(key):
         print(f"[!] encryption_key is invalid ({key!r}); regenerating...")
