@@ -858,6 +858,46 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # Document.save() calls load_doc_before_save(), which iterates child-table
+    # fields with ``for row in self.get(fieldname)``. In the minimal SQLite
+    # runtime child tables can be None, causing a TypeError. Treat None as an
+    # empty list.
+    try:
+        from frappe.model.document import Document as _Document
+        if not getattr(_Document, "_kiff_patched_load_doc_before_save", False):
+            _orig_load_doc_before_save = _Document.load_doc_before_save
+
+            def _patched_load_doc_before_save(self, raise_exception=True):
+                import frappe as _frappe
+
+                if self.is_new():
+                    return
+
+                try:
+                    self._doc_before_save = _frappe.get_doc(
+                        self.doctype, self.name, for_update=True
+                    )
+                except _frappe.DoesNotExistError:
+                    if raise_exception:
+                        raise
+                    return _frappe.clear_last_message()
+
+                for fieldname in self._non_computed_table_fieldnames:
+                    for row in self.get(fieldname) or []:
+                        row._doc_before_save = next(
+                            (
+                                d
+                                for d in (self._doc_before_save.get(fieldname) or [])
+                                if d.name == row.name
+                            ),
+                            None,
+                        )
+
+            _Document.load_doc_before_save = _patched_load_doc_before_save
+            _Document._kiff_patched_load_doc_before_save = True
+    except Exception:
+        pass
+
     # Desk settings are read from the User doc; seeded Administrator often has
     # all desk_properties set to 0, which hides the sidebar/search/notifications.
     # Ensure sensible defaults while still respecting real values if present.
