@@ -1,11 +1,30 @@
 pub mod site;
 
 use crate::site::{Site, SiteConfig};
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use error::{Result, RuntimeError};
+use rand::RngCore;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tracing::info;
+use tracing::{info, warn};
+
+/// Generate a Fernet-compatible encryption key.
+///
+/// Frappe expects `encryption_key` to be a base64-url-safe encoded 32-byte
+/// value (the same format `cryptography.fernet.Fernet.generate_key()` emits).
+/// The previous UUID-hex string was not accepted by Fernet, which broke
+/// `get_decrypted_password` / `set_encrypted_password` for all Password fields.
+pub fn generate_fernet_key() -> String {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    URL_SAFE.encode(bytes)
+}
+
+/// Returns true if `key` is a valid Fernet key (decodes to 32 bytes).
+pub fn is_valid_fernet_key(key: &str) -> bool {
+    URL_SAFE.decode(key).map(|b| b.len() == 32).unwrap_or(false)
+}
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct DatabaseConfig {
@@ -137,8 +156,23 @@ impl SiteManager {
             }
             let content = tokio::fs::read_to_string(&config_path).await
                 .map_err(RuntimeError::Io)?;
-            let config = serde_json::from_str(&content)
+            let mut config: SiteConfig = serde_json::from_str(&content)
                 .map_err(|e| RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e)))?;
+
+            // Older sites were created with a UUID-hex encryption_key that is not a
+            // valid Fernet key. Regenerate it if invalid; there cannot be any
+            // decryptable encrypted data tied to an invalid key.
+            if !config.encryption_key.is_empty() && !is_valid_fernet_key(&config.encryption_key) {
+                warn!(
+                    "site {} has an invalid encryption_key (not Fernet format); regenerating",
+                    name
+                );
+                config.encryption_key = generate_fernet_key();
+                let config_json = serde_json::to_string_pretty(&config)
+                    .map_err(|e| RuntimeError::Config(format!("failed to serialize site_config.json for {}: {}", name, e)))?;
+                tokio::fs::write(&config_path, config_json).await
+                    .map_err(RuntimeError::Io)?;
+            }
 
             let site = Site::new(name.clone(), path, config);
             sites.insert(name, site);
@@ -175,7 +209,7 @@ impl SiteManager {
         let config = SiteConfig {
             db_driver: "sqlite".into(),
             db_url: format!("./sites/{}/site.db", name),
-            encryption_key: uuid::Uuid::new_v4().to_string().replace("-", ""),
+            encryption_key: generate_fernet_key(),
             secret_key: uuid::Uuid::new_v4().to_string().replace("-", ""),
             ..Default::default()
         };
@@ -186,5 +220,31 @@ impl SiteManager {
         let site = Site::new(name.to_string(), site_path, config);
         self.sites.insert(name.to_string(), site.clone());
         Ok(site)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_fernet_key_is_valid() {
+        let key = generate_fernet_key();
+        assert!(is_valid_fernet_key(&key));
+        assert_eq!(URL_SAFE.decode(&key).unwrap().len(), 32);
+    }
+
+    #[test]
+    fn uuid_hex_key_is_invalid() {
+        // Old sites used a 32-char hex UUID as the encryption key.
+        let bad = "ce934cd03e9548828adee38f67d860da";
+        assert!(!is_valid_fernet_key(bad));
+    }
+
+    #[test]
+    fn real_fernet_key_is_valid() {
+        // Example produced by Python's Fernet.generate_key().decode().
+        let good = "Xf5A9gGQB4qPoaZP_9V4aD3rYrCVAOv1wBD5Dtjln-c=";
+        assert!(is_valid_fernet_key(good));
     }
 }
