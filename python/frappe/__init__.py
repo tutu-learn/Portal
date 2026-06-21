@@ -870,6 +870,7 @@ def _patch_real_module(mod):
             def _patched_load_doc_before_save(self, raise_exception=True):
                 import frappe as _frappe
 
+                self._doc_before_save = None
                 if self.is_new():
                     return
 
