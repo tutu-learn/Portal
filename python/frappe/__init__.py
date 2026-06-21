@@ -583,6 +583,8 @@ def _patch_real_module(mod):
                 Social Login Key uses a custom Provider Name, resolve it by
                 matching social_login_provider instead.
                 """
+                import frappe
+
                 if frappe.db.exists("Social Login Key", provider):
                     return provider
                 for key in frappe.get_all(
@@ -680,6 +682,8 @@ def _patch_real_module(mod):
             _orig_remove_encrypted_password = _password_mod.remove_encrypted_password
 
             def _kiff_remove_encrypted_password(doctype, name, fieldname="password"):
+                import frappe
+
                 try:
                     frappe.db.sql(
                         'DELETE FROM "__auth" WHERE doctype = ? AND name = ? AND fieldname = ?',
