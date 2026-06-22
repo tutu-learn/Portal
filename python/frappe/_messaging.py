@@ -41,8 +41,11 @@ def msgprint(
     print(f"[MSG] {msg}")
 
 
-def log_error(title, message=None):
-    print(f"[ERROR: {title}] {message or ''}")
+def log_error(title=None, message=None, reference_doctype=None, reference_name=None, defer_insert=False):
+    """Log an error. Real Frappe accepts title as first positional arg or keyword."""
+    label = title or message or "Error"
+    body = message or title or ""
+    print(f"[ERROR: {label}] {body}")
 
 
 def enqueue(method, queue="default", **kwargs):

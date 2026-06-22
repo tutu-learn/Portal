@@ -170,10 +170,10 @@ from ._utils import (
 )
 from ._context import (
     _local, _session,
-    _LocalProxy, _SessionProxy, _RequestProxy,
+    _LocalProxy, _SessionProxy, _RequestProxy, _LoginManager, _CookieManager, _SessionObj,
     local, session,
     conf, response,
-    _build_module_app, _set_context,
+    _build_module_app, _set_context, _generate_hash, _generate_sid, _load_site_config,
 )
 from ._db import _sqlite_query, _Database, db
 from ._meta import _doctype_json_cache, _load_doctype_json, get_meta
@@ -257,6 +257,12 @@ message_log = _LocalProxy(_local, "message_log")
 user = _LocalProxy(_local, "user")
 _optimizations = None
 
+# Common module-level globals used by real Frappe code.
+STANDARD_USERS = ("Guest", "Administrator")
+in_test = False
+controllers = {}
+lazy_controllers = {}
+
 # ------------------------------------------------------------------
 # Attributes we explicitly override — never delegate to real frappe.
 # ------------------------------------------------------------------
@@ -268,7 +274,7 @@ _SHIM_OVERRIDES = {
     "_local", "_session", "_system_settings_cache", "_rust",
     "local", "session", "db", "conf", "response", "form_dict",
     "get_list", "get_all", "get_value", "set_value", "new_doc",
-    "delete", "save_doc", "insert_doc", "db_sql", "db_set_values",
+    "delete_doc", "save_doc", "insert_doc", "db_sql", "db_set_values",
     "db_exists", "db_count", "get_roles", "has_permission",
     "enqueue", "publish_realtime", "whitelist", "whitelisted",
     "guest_methods", "xss_safe_methods", "throw", "msgprint",
@@ -288,6 +294,7 @@ _SHIM_OVERRIDES = {
     "_optimizations",
     "is_setup_complete", "get_single", "logger", "call", "respond_as_web_page",
     "is_whitelisted",
+    "generate_hash", "STANDARD_USERS", "in_test", "controllers", "lazy_controllers",
 }
 
 
@@ -389,6 +396,11 @@ def is_whitelisted(method=None):
     return True
 
 
+def generate_hash(txt=None, length=56):
+    """Return a hash/random string matching Frappe's generate_hash signature."""
+    return _generate_hash(txt, length)
+
+
 # ------------------------------------------------------------------
 # Request context reset (updates module-level names that can be rebound)
 # ------------------------------------------------------------------
@@ -414,16 +426,22 @@ def _set_request_context(
 
     # Session is a real dict-like object shared by frappe.session and
     # frappe.local.session.
+    sid = _generate_sid()
     _local["session"] = _SessionProxy(
         user=user,
+        sid=sid,
         data=_dict(
+            user=user,
             user_type="System User",
             csrf_token="",
             full_name=user,
             ipinfo=None,
+            session_ip=request_ip or "127.0.0.1",
+            sid=sid,
         ),
     )
-
+    _local["session_obj"] = _SessionObj(user=user, sid=sid)
+    _local["cookie_manager"] = _CookieManager()
     _local["user"] = user
     _local["request_ip"] = request_ip
     _local["user_perms"] = None
@@ -475,6 +493,7 @@ def _set_request_context(
     _local["valid_columns"] = {}
     _local["conf"] = conf
     _local["db"] = db
+    _local["login_manager"] = _LoginManager(user)
     _local["request_cache"] = defaultdict(dict)
     _local["jenv_restricted"] = None
     _local["jenv_unrestricted"] = None
