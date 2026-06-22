@@ -106,3 +106,4 @@ dashmap        = { workspace = true }
 [dev-dependencies]
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
+audit_ready = { path = "rust_apps/audit_ready" }
