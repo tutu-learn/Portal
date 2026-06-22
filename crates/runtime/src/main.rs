@@ -1,4 +1,6 @@
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{error, info, warn};
 
 mod hooks;
@@ -57,6 +59,11 @@ async fn main() -> error::Result<()> {
                 if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures).await {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }
+                // Always ensure the core users and default roles exist, even if
+                // the broader doctype sync failed or roles were deleted.
+                if let Err(e) = orm::doctype_sync::ensure_core_users_and_roles(&p).await {
+                    error!("failed to ensure core users and roles for site {}: {}", name, e);
+                }
                 pools.insert(name.clone(), p);
             }
             Err(e) => {
@@ -108,7 +115,14 @@ async fn main() -> error::Result<()> {
         pubsub,
         translator: Arc::new(sql_translator::SqlTranslator::default()),
         rust_apps: rust_app_registry.clone(),
+        logger: Arc::new(std::sync::OnceLock::new()),
     };
+
+    // Initialize the shared log engine and start the sink consumer. This used
+    // to live in the kiff_logger app; it is now handled by the runtime so
+    // that kiff_logger can remain empty while the core crate provides the
+    // reusable logging primitives.
+    init_log_engine(&config, &app_state).await;
 
     // Register Rust app hooks with the ORM so document lifecycle events invoke them.
     orm::set_hook_runner(Some(Arc::new(rust_app_registry.clone())));
@@ -155,4 +169,60 @@ async fn main() -> error::Result<()> {
     }
 
     Ok(())
+}
+
+async fn init_log_engine(
+    _config: &config::RuntimeConfig,
+    app_state: &rust_apps_core::AppState,
+) {
+    // Store the log engine data inside the default site's directory, next to
+    // the SQLite database file.
+    let data_dir = app_state
+        .site_manager
+        .sites()
+        .iter()
+        .next()
+        .map(|(_, site)| site.path.join("logengine-data"))
+        .unwrap_or_else(|| PathBuf::from("./logengine-data"));
+
+    let commit_interval = Duration::from_secs(30);
+
+    match log_engine::LogService::open_or_create(&data_dir) {
+        Ok((service, mut alerts)) => {
+            service.spawn_commit_loop(commit_interval);
+
+            // Start the central log sink consumer. Tracing events and document
+            // hooks send records to this sink; we forward them into the async
+            // log engine here.
+            let log_rx = rust_apps_core::logging::init_log_sink();
+            rust_apps_core::logging::spawn_log_sink_consumer(service.clone(), log_rx);
+
+            // Forward trigger alerts to tracing for now.
+            tokio::spawn(async move {
+                while let Some(alert) = alerts.recv().await {
+                    tracing::warn!(
+                        target: "kiff_logger.alert",
+                        trigger = %alert.trigger,
+                        service = %alert.record.service,
+                        message = %alert.record.message,
+                        "trigger fired"
+                    );
+                }
+            });
+
+            // Make the log engine reachable from the Python shim so that
+            // virtual DocTypes like Kiff Log Entry can bypass SQL and query
+            // logs directly from the Tantivy index.
+            kiff_core::init_log_service(service.clone());
+
+            if let Err(_) = app_state.logger.set(service) {
+                warn!("log engine already initialized by another task");
+            } else {
+                info!("log engine ready at {}", data_dir.display());
+            }
+        }
+        Err(e) => {
+            warn!("failed to open log engine: {}", e);
+        }
+    }
 }

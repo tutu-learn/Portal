@@ -4,5 +4,6 @@
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/apps/frappe" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/rust_apps/audit_ready" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/crates/kiff_logger" vcs="Git" />
   </component>
 </project>

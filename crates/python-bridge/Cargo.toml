@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 error       = { workspace = true }
 orm         = { workspace = true }
+log_engine  = { path = "../log_engine" }
 serde       = { workspace = true }
 serde_json  = { workspace = true }
 pyo3        = { workspace = true }

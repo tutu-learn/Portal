@@ -386,6 +386,52 @@ def _filters_to_sql(filters, params):
     return " AND ".join(conditions) if conditions else "1=1"
 
 
+def _build_log_query(normalized):
+    """Convert simple equality filters into a Tantivy query string."""
+    if not normalized:
+        return "*"
+    parts = []
+    for field, condition in normalized.items():
+        if field in ("doctype", "name"):
+            continue
+        if isinstance(condition, str):
+            parts.append(f'{field}:"{condition}"')
+        elif isinstance(condition, (list, tuple)) and len(condition) == 2:
+            operator, value = condition
+            if operator == "=":
+                parts.append(f'{field}:"{value}"')
+    if not parts:
+        return "*"
+    return " AND ".join(parts)
+
+
+def _query_log_engine(q, limit, fields=None):
+    """Fetch Kiff Log Entry records from the log engine HTTP API.
+
+    The Python-shim .so has its own kiff_core statics, so the Rust log service
+    initialized by the runtime is not directly reachable.  We call the local
+    kiff_logger query endpoint instead, which is served by the same process.
+    """
+    import json as _json
+    import urllib.request
+    import urllib.parse
+
+    base = os.environ.get("KIFF_SERVER_URL", "http://127.0.0.1:8000")
+    params = urllib.parse.urlencode({"q": q, "limit": limit})
+    url = f"{base}/kiff_logger/query?{params}"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return []
+
+    records = body.get("records", [])
+    if fields:
+        field_set = set(fields)
+        records = [{k: v for k, v in rec.items() if k in field_set or k == "name"} for rec in records]
+    return records
+
+
 def get_list(
     doctype,
     filters=None,
@@ -399,6 +445,25 @@ def get_list(
 ):
     if _rust is None:
         return []
+
+    # Kiff Log Entry records live in the log engine, not the SQL database.
+    # Bypass the ORM and query the kiff_logger HTTP endpoint directly.
+    if doctype == "Kiff Log Entry":
+        normalized = _normalize_filters(filters)
+        q = _build_log_query(normalized)
+        page_length = limit or kwargs.pop("limit_page_length", None) or 100
+        limit_start = limit_start or kwargs.pop("start", None) or 0
+        rows = _query_log_engine(q, page_length + limit_start, fields=fields)
+        rows = rows[limit_start:limit_start + page_length]
+        if as_list:
+            keys = _field_keys(fields, rows)
+            return [[r.get(k) for k in keys] for r in rows]
+        result = []
+        for r in rows:
+            d = _dict(r)
+            d.setdefault("doctype", doctype)
+            result.append(d)
+        return result
 
     normalized = _normalize_filters(filters)
     or_normalized = _normalize_filters(or_filters)

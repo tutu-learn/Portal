@@ -3,6 +3,9 @@
 //! Apps are compiled in via `registered_apps.rs`, but which ones are actually
 //! enabled is controlled by `rust_apps/apps.json`. This lets operators install
 //! and activate Rust apps without editing source code.
+//!
+//! `kiff_logger` is always loaded because it provides the core logging
+//! DocTypes and is not an optional user-installed app.
 
 use rust_apps_core::{RustApp, RustAppRegistry};
 use serde::Deserialize;
@@ -41,7 +44,7 @@ pub fn load_registry() -> RustAppRegistry {
         return RustAppRegistry::new(registered);
     }
 
-    let filtered: Vec<Box<dyn RustApp>> = registered
+    let mut filtered: Vec<Box<dyn RustApp>> = registered
         .into_iter()
         .filter(|app| enabled_names.contains(app.name()))
         .collect();
@@ -52,6 +55,10 @@ pub fn load_registry() -> RustAppRegistry {
             APPS_CONFIG_PATH
         );
     }
+
+    // Kiff logger is always enabled; it provides the core logging DocTypes and
+    // is not configurable via rust_apps/apps.json.
+    filtered.push(Box::new(kiff_logger::KiffLoggerApp));
 
     RustAppRegistry::new(filtered)
 }

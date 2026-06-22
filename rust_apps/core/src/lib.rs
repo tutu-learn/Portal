@@ -13,6 +13,13 @@ use axum::Router;
 use dashmap::DashMap;
 use serde_json::Value;
 
+pub mod hooks;
+pub mod layer;
+pub mod logging;
+
+pub use layer::SebrusLoggerLayer;
+pub use logging::{log_app_event, log_document_event};
+
 /// Shared runtime state passed to HTTP handlers and Rust apps.
 #[derive(Clone)]
 pub struct AppState {
@@ -25,6 +32,9 @@ pub struct AppState {
     pub pubsub: Arc<queue::PubSub>,
     pub translator: Arc<sql_translator::SqlTranslator>,
     pub rust_apps: RustAppRegistry,
+    /// Lazy-initialized crash-durable log engine. Apps that provide logging
+    /// can set this during `on_startup`; handlers retrieve it with `get()`.
+    pub logger: Arc<std::sync::OnceLock<log_engine::LogService>>,
 }
 
 /// Context passed to every Rust app during registration and lifecycle hooks.
@@ -320,6 +330,7 @@ impl orm::DocHookRunner for RustAppRegistry {
                         pubsub: Arc::new(queue::PubSub::new()),
                         translator: Arc::new(sql_translator::SqlTranslator::default()),
                         rust_apps: RustAppRegistry::default(),
+                        logger: Arc::new(std::sync::OnceLock::new()),
                     });
                     (hook.handler)(&ctx, doc)?;
                 }

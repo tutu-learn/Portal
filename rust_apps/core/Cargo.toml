@@ -12,11 +12,14 @@ permissions    = { path = "../../crates/permissions" }
 queue          = { path = "../../crates/queue" }
 session        = { path = "../../crates/session" }
 sql-translator = { path = "../../crates/sql-translator" }
+log_engine     = { path = "../../crates/log_engine" }
 
-axum           = { workspace = true }
-dashmap        = { workspace = true }
-tokio          = { workspace = true }
-async-trait    = "0.1"
-serde          = { workspace = true }
-serde_json     = { workspace = true }
-chrono         = { workspace = true }
+axum               = { workspace = true }
+dashmap            = { workspace = true }
+tokio              = { workspace = true }
+async-trait        = "0.1"
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+chrono             = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }

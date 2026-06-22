@@ -1,3 +1,4 @@
+use rust_apps_core::SebrusLoggerLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub fn init_tracing() {
@@ -11,6 +12,7 @@ pub fn init_tracing() {
                 .with_thread_ids(true)
                 .with_line_number(true),
         )
+        .with(SebrusLoggerLayer::new())
         .with(env_filter)
         .init();
 }

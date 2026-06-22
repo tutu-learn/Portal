@@ -11,6 +11,7 @@ pub mod utils;
 static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 static POOL: OnceLock<orm::DatabasePool> = OnceLock::new();
 static PUBSUB: OnceLock<std::sync::Arc<::queue::PubSub>> = OnceLock::new();
+static LOG_SERVICE: OnceLock<log_engine::LogService> = OnceLock::new();
 
 pub fn init(runtime: tokio::runtime::Runtime, pool: orm::DatabasePool) {
     let _ = RUNTIME.set(runtime);
@@ -19,6 +20,14 @@ pub fn init(runtime: tokio::runtime::Runtime, pool: orm::DatabasePool) {
 
 pub fn init_pubsub(pubsub: std::sync::Arc<::queue::PubSub>) {
     let _ = PUBSUB.set(pubsub);
+}
+
+pub fn init_log_service(service: log_engine::LogService) {
+    let _ = LOG_SERVICE.set(service);
+}
+
+pub(crate) fn log_service() -> Option<&'static log_engine::LogService> {
+    LOG_SERVICE.get()
 }
 
 pub(crate) fn rt() -> &'static tokio::runtime::Runtime {
@@ -361,6 +370,63 @@ pub(crate) fn values_from_py(obj: Option<Bound<'_, PyAny>>) -> PyResult<Vec<serd
     }
 }
 
+/// Query the log engine for Kiff Log Entry records.
+///
+/// This bypasses the SQL database and returns records directly from the
+/// Tantivy-backed log engine so the Desk list view can display them.
+#[pyfunction]
+fn log_query(q: &str, limit: usize) -> PyResult<PyObject> {
+    let Some(service) = log_service() else {
+        return Err(pyo3::exceptions::PyRuntimeError::new_err("log engine not initialized"));
+    };
+
+    let records = rt().block_on(async {
+        service.query(q, limit).await
+    }).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("log query failed: {}", e)))?;
+
+    Python::with_gil(|py| {
+        let list = pyo3::types::PyList::empty(py);
+        for (idx, rec) in records.into_iter().enumerate() {
+            let dict = pyo3::types::PyDict::new(py);
+            let ts_secs = rec.timestamp / 1000;
+            let dt = chrono::DateTime::from_timestamp(ts_secs, 0)
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| rec.timestamp.to_string());
+            let name = format!("KLE-{}-{}", rec.timestamp, idx);
+
+            dict.set_item("name", name)?;
+            dict.set_item("doctype", "Kiff Log Entry")?;
+            dict.set_item("timestamp", dt)?;
+            dict.set_item("level", rec.level)?;
+            dict.set_item("service", rec.service)?;
+            dict.set_item("message", rec.message)?;
+            if let Some(doctype) = rec.fields.get("doctype").and_then(|v| v.as_str()) {
+                dict.set_item("doctype_field", doctype)?;
+            }
+            if let Some(docname) = rec.fields.get("docname").and_then(|v| v.as_str()) {
+                dict.set_item("docname", docname)?;
+            }
+            if let Some(event) = rec.fields.get("event").and_then(|v| v.as_str()) {
+                dict.set_item("event", event)?;
+            }
+            if let Some(status) = rec.fields.get("status").and_then(|v| v.as_str()) {
+                dict.set_item("status", status)?;
+            }
+            if let Some(severity) = rec.fields.get("severity").and_then(|v| v.as_str()) {
+                dict.set_item("severity", severity)?;
+            }
+            if !rec.fields.is_empty() {
+                let raw = serde_json::to_string(&rec.fields)
+                    .unwrap_or_else(|_| "{}".to_string());
+                dict.set_item("raw_fields", raw)?;
+            }
+
+            list.append(dict)?;
+        }
+        Ok(list.into_pyobject(py)?.to_owned().unbind().into())
+    })
+}
+
 /// Python-callable init: creates a Tokio runtime and DB pool from a URL.
 /// This is used by the embedded Python (.so) instance to initialize itself
 /// independently of the binary's statically-linked instance.
@@ -409,6 +475,8 @@ fn kiff_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(queue::enqueue, m)?)?;
     m.add_function(wrap_pyfunction!(realtime::publish_realtime, m)?)?;
+
+    m.add_function(wrap_pyfunction!(log_query, m)?)?;
 
     Ok(())
 }

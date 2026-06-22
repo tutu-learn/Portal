@@ -12,9 +12,11 @@ members = [
     "crates/metadata",
     "crates/http",
     "crates/runtime",
+    "crates/log_engine",
     "cli",
     "rust_apps/core",
     "rust_apps/audit_ready",
+    "crates/kiff_logger",
 ]
 
 [workspace.dependencies]

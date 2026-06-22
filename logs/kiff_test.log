@@ -1,4 +1,0 @@
-error: no bin target named `kiff-runtime` in default-run packages
-help: available bin in `runtime` package:
-    kiff-runtime
-Error: Io(Custom { kind: Other, error: "runtime exited with error" })

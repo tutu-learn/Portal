@@ -445,7 +445,8 @@ async fn load_doctype_from_json(
     let content = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| format!("read error: {}", e))?;
-    load_doctype_from_content(doctype, &content, cached_timestamp)
+    let (js, css) = read_doctype_assets(&path).await?;
+    load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
 }
 
 fn find_doctype_json_path(doctype: &str) -> Option<PathBuf> {
@@ -467,52 +468,127 @@ fn find_doctype_json_path(doctype: &str) -> Option<PathBuf> {
     }
 
     // 2. Search in Rust app doctype fixtures by JSON name.
-    let rust_apps_base = PathBuf::from("rust_apps");
-    if let Ok(app_entries) = std::fs::read_dir(&rust_apps_base) {
-        for app_entry in app_entries.flatten() {
-            let doctypes_dir = app_entry.path().join("src").join("doctypes");
-            if !doctypes_dir.exists() {
+    if let Some(path) = find_doctype_in_apps_dir("rust_apps", doctype) {
+        return Some(path);
+    }
+
+    // 3. Search in crates/* rust apps (e.g. kiff_logger).
+    if let Some(path) = find_doctype_in_apps_dir("crates", doctype) {
+        return Some(path);
+    }
+
+    None
+}
+
+fn find_doctype_in_apps_dir(apps_dir: &str, doctype: &str) -> Option<PathBuf> {
+    let base = PathBuf::from(apps_dir);
+    let Ok(app_entries) = std::fs::read_dir(&base) else {
+        return None;
+    };
+    for app_entry in app_entries.flatten() {
+        let doctypes_dir = app_entry.path().join("src").join("doctypes");
+        if !doctypes_dir.exists() {
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&doctypes_dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
                 continue;
             }
-            let Ok(entries) = std::fs::read_dir(&doctypes_dir) else {
+            let Ok(files) = std::fs::read_dir(&path) else {
                 continue;
             };
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
+            for file in files.flatten() {
+                let file_path = file.path();
+                if file_path.extension().and_then(|e| e.to_str()) != Some("json") {
                     continue;
                 }
-                let Ok(files) = std::fs::read_dir(&path) else {
-                    continue;
-                };
-                for file in files.flatten() {
-                    let file_path = file.path();
-                    if file_path.extension().and_then(|e| e.to_str()) != Some("json") {
-                        continue;
-                    }
-                    if let Ok(content) = std::fs::read_to_string(&file_path) {
-                        if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&content) {
-                            if doc.get("name")
-                                .and_then(|v| v.as_str())
-                                .map(|n| n == doctype)
-                                .unwrap_or(false)
-                            {
-                                return Some(file_path);
-                            }
+                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if doc.get("name")
+                            .and_then(|v| v.as_str())
+                            .map(|n| n == doctype)
+                            .unwrap_or(false)
+                        {
+                            return Some(file_path);
                         }
                     }
                 }
             }
         }
     }
-
     None
+}
+
+fn doctype_asset_paths(
+    path: &std::path::Path,
+) -> (Option<std::path::PathBuf>, Option<std::path::PathBuf>) {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
+    let dir = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+    let js_path = dir.join(format!("{}.js", stem));
+    let css_path = dir.join(format!("{}.css", stem));
+    (
+        if js_path.exists() { Some(js_path) } else { None },
+        if css_path.exists() { Some(css_path) } else { None },
+    )
+}
+
+async fn read_doctype_assets(
+    path: &std::path::Path,
+) -> Result<(Option<String>, Option<String>), String> {
+    let (js_path, css_path) = doctype_asset_paths(path);
+    let js = match js_path {
+        Some(p) => Some(
+            tokio::fs::read_to_string(&p)
+                .await
+                .map_err(|e| format!("read doctype js error: {}", e))?,
+        ),
+        None => None,
+    };
+    let css = match css_path {
+        Some(p) => Some(
+            tokio::fs::read_to_string(&p)
+                .await
+                .map_err(|e| format!("read doctype css error: {}", e))?,
+        ),
+        None => None,
+    };
+    Ok((js, css))
+}
+
+fn read_doctype_assets_sync(
+    path: &std::path::Path,
+) -> Result<(Option<String>, Option<String>), String> {
+    let (js_path, css_path) = doctype_asset_paths(path);
+    let js = match js_path {
+        Some(p) => Some(
+            std::fs::read_to_string(&p)
+                .map_err(|e| format!("read doctype js error: {}", e))?,
+        ),
+        None => None,
+    };
+    let css = match css_path {
+        Some(p) => Some(
+            std::fs::read_to_string(&p)
+                .map_err(|e| format!("read doctype css error: {}", e))?,
+        ),
+        None => None,
+    };
+    Ok((js, css))
 }
 
 fn load_doctype_from_content(
     doctype: &str,
     content: &str,
     cached_timestamp: &str,
+    js: Option<String>,
+    css: Option<String>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let mut doc: serde_json::Value =
         serde_json::from_str(content).map_err(|e| format!("parse error: {}", e))?;
@@ -527,6 +603,17 @@ fn load_doctype_from_content(
     }
 
     let doctype_name = doc.get("name").and_then(|v| v.as_str()).unwrap_or(doctype).to_string();
+
+    // Inject client-side controller script and stylesheet so form-level
+    // behaviour (e.g. the User RoleEditor) runs in the desk.
+    if let serde_json::Value::Object(ref mut map) = doc {
+        if let Some(js_code) = js {
+            map.insert("__js".to_string(), serde_json::Value::String(js_code));
+        }
+        if let Some(css_code) = css {
+            map.insert("__css".to_string(), serde_json::Value::String(css_code));
+        }
+    }
 
     // Ensure child fields have doctype/parent/parentfield/idx set
     if let Some(fields) = doc.get_mut("fields").and_then(|f| f.as_array_mut()) {
@@ -596,7 +683,8 @@ fn load_child_doctype_from_json(
         .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("read error: {}", e))?;
-    load_doctype_from_content(doctype, &content, cached_timestamp)
+    let (js, css) = read_doctype_assets_sync(&path)?;
+    load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
 }
 
 fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
@@ -693,7 +781,8 @@ async fn call_rust_or_python_method(
 ) -> error::Result<MethodResponse> {
     // Try Rust apps first.
     if let Some(result) = state.rust_apps.call_method(method, state.clone(), params.clone()).await? {
-        return Ok(MethodResponse::Json(result));
+        // Frappe clients expect { "message": <value> } for /api/method/* calls.
+        return Ok(MethodResponse::Json(serde_json::json!({ "message": result })));
     }
 
     // Fall back to Python method dispatcher.

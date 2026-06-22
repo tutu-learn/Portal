@@ -467,11 +467,7 @@ async fn create_data_table(
 ) -> Result<()> {
     let table = data_table_name(doctype_name);
 
-    let name_col = if istable {
-        "name TEXT".to_string()
-    } else {
-        "name TEXT PRIMARY KEY".to_string()
-    };
+    let name_col = "name TEXT PRIMARY KEY".to_string();
 
     let mut expected_cols: Vec<(String, String)> = vec![
         ("name".into(), name_col),
@@ -687,7 +683,7 @@ async fn insert_seed_data(
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
 ) -> Result<()> {
-    insert_core_users_and_roles(pool).await?;
+    ensure_core_users_and_roles(pool).await?;
     insert_module_defs(pool, fixtures, workspace_fixtures.clone()).await?;
     insert_user_types(pool).await?;
     insert_workflow_defaults(pool).await?;
@@ -699,7 +695,11 @@ async fn insert_seed_data(
     Ok(())
 }
 
-async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
+/// Ensure the core users, roles, and Administrator role links exist.
+///
+/// This is safe to call on every startup: it upserts the default records and
+/// leaves manually changed data untouched.
+pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     // Create __auth table for password storage (matches Frappe's architecture)
     // Older databases were created without the encrypted column; migrate them.
     add_column_if_missing(pool, "__auth", "encrypted", "encrypted INTEGER NOT NULL DEFAULT 0").await?;
@@ -715,32 +715,53 @@ async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         vec![],
     ).await?;
 
+    let now_fn = match pool.dialect() {
+        "postgres" => "NOW()",
+        _ => "datetime('now')",
+    };
+
     // Users
-    for (name, first_name, email, enabled) in [
-        ("Administrator", "Administrator", "admin@example.com", 1),
-        ("Guest", "Guest", "guest@example.com", 1),
+    for (name, first_name, email, enabled, user_type) in [
+        ("Administrator", "Administrator", "admin@example.com", 1, "System User"),
+        ("Guest", "Guest", "guest@example.com", 1, "Website User"),
     ] {
-        let _ = pool.execute_sql(
-            r#"INSERT OR REPLACE INTO "user" (name, creation, modified, modified_by, owner, docstatus, first_name, email, enabled)
-               VALUES (?, datetime('now'), datetime('now'), 'Administrator', 'Administrator', 0, ?, ?, ?)"#,
+        pool.execute_sql(
+            &format!(
+                r#"INSERT INTO "user" (name, creation, modified, modified_by, owner, docstatus, first_name, email, enabled, user_type)
+                   VALUES ({}, {now_fn}, {now_fn}, 'Administrator', 'Administrator', 0, {}, {}, {}, {})
+                   ON CONFLICT(name) DO UPDATE SET
+                       creation=EXCLUDED.creation, modified=EXCLUDED.modified, modified_by=EXCLUDED.modified_by,
+                       owner=EXCLUDED.owner, docstatus=EXCLUDED.docstatus, first_name=EXCLUDED.first_name,
+                       email=EXCLUDED.email, enabled=EXCLUDED.enabled, user_type=EXCLUDED.user_type"#,
+                pool.placeholder(1),
+                pool.placeholder(2),
+                pool.placeholder(3),
+                pool.placeholder(4),
+                pool.placeholder(5),
+            ),
             vec![
                 serde_json::Value::String(name.into()),
                 serde_json::Value::String(first_name.into()),
                 serde_json::Value::String(email.into()),
                 serde_json::Value::Number(enabled.into()),
+                serde_json::Value::String(user_type.into()),
             ],
-        ).await;
+        ).await?;
     }
 
     // Administrator password hash for "admin".
     // Generated with: argon2 hash of "admin".
     // Use INSERT OR IGNORE so a user-changed password survives restarts.
     let admin_hash = "$argon2id$v=19$m=19456,t=2,p=1$UEWqTMicBrdEJXqPMhP4oA$bR1RecCR37Rw+Spup2ULPNKAZ7H6vZTX4VeqNAfvdkY";
-    let _ = pool.execute_sql(
-        r#"INSERT OR IGNORE INTO "__auth" (name, doctype, fieldname, password, encrypted)
-           VALUES ('Administrator', 'User', 'password', ?, 0)"#,
+    pool.execute_sql(
+        &format!(
+            r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
+               VALUES ('Administrator', 'User', 'password', {}, 0)
+               ON CONFLICT(name, doctype, fieldname) DO NOTHING"#,
+            pool.placeholder(1)
+        ),
         vec![serde_json::Value::String(admin_hash.into())],
-    ).await;
+    ).await?;
 
     // Roles
     for (role, desk_access) in [
@@ -751,30 +772,64 @@ async fn insert_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Report Manager", 1),
         ("Translator", 1),
     ] {
-        let _ = pool.execute_sql(
-            r#"INSERT OR REPLACE INTO "role" (name, creation, modified, modified_by, owner, docstatus, role_name, desk_access)
-               VALUES (?, datetime('now'), datetime('now'), 'Administrator', 'Administrator', 0, ?, ?)"#,
+        pool.execute_sql(
+            &format!(
+                r#"INSERT INTO "role" (name, creation, modified, modified_by, owner, docstatus, role_name, desk_access)
+                   VALUES ({}, {now_fn}, {now_fn}, 'Administrator', 'Administrator', 0, {}, {})
+                   ON CONFLICT(name) DO UPDATE SET
+                       creation=EXCLUDED.creation, modified=EXCLUDED.modified, modified_by=EXCLUDED.modified_by,
+                       owner=EXCLUDED.owner, docstatus=EXCLUDED.docstatus, role_name=EXCLUDED.role_name,
+                       desk_access=EXCLUDED.desk_access"#,
+                pool.placeholder(1),
+                pool.placeholder(2),
+                pool.placeholder(3),
+            ),
             vec![
                 serde_json::Value::String(role.into()),
                 serde_json::Value::String(role.into()),
                 serde_json::Value::Number(desk_access.into()),
             ],
-        ).await;
+        ).await?;
     }
 
-    // Has Role links for Administrator
-    for role in ["Administrator", "System Manager", "All", "Report Manager", "Translator"] {
+    // Has Role links for Administrator.
+    // Remove any stale default links first so this stays idempotent even on
+    // databases where the has_role table lacks a unique constraint on `name`.
+    let admin_roles = ["Administrator", "System Manager", "All", "Report Manager", "Translator"];
+    let placeholders: Vec<String> = (1..=admin_roles.len())
+        .map(|i| pool.placeholder(i))
+        .collect();
+    let mut delete_params: Vec<serde_json::Value> = admin_roles
+        .iter()
+        .map(|r| serde_json::Value::String((*r).into()))
+        .collect();
+    delete_params.push(serde_json::Value::String("Administrator".into()));
+    pool.execute_sql(
+        &format!(
+            r#"DELETE FROM "has_role" WHERE role IN ({}) AND parent = {} AND parenttype = 'User'"#,
+            placeholders.join(", "),
+            pool.placeholder(admin_roles.len() + 1),
+        ),
+        delete_params,
+    ).await?;
+
+    for role in admin_roles {
         let name = format!("administrator-{}", role.to_lowercase().replace(" ", "-"));
-        let _ = pool.execute_sql(
-            r#"INSERT OR REPLACE INTO "has_role" (name, creation, modified, modified_by, owner, docstatus, parent, parentfield, parenttype, role)
-               VALUES (?, datetime('now'), datetime('now'), 'Administrator', 'Administrator', 0, 'Administrator', 'roles', 'User', ?)"#,
+        pool.execute_sql(
+            &format!(
+                r#"INSERT INTO "has_role" (name, creation, modified, modified_by, owner, docstatus, parent, parentfield, parenttype, role)
+                   VALUES ({}, {now_fn}, {now_fn}, 'Administrator', 'Administrator', 0, 'Administrator', 'roles', 'User', {})"#,
+                pool.placeholder(1),
+                pool.placeholder(2),
+            ),
             vec![
                 serde_json::Value::String(name),
                 serde_json::Value::String(role.into()),
             ],
-        ).await;
+        ).await?;
     }
 
+    info!("core users and roles seeded");
     Ok(())
 }
 

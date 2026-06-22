@@ -416,7 +416,7 @@ async fn build_boot_info(
     let roles: Value = if is_guest {
         json!([])
     } else {
-        json!([{"role": "Administrator"}])
+        json!(["Administrator"])
     };
 
     // Administrator gets full permissions on core doctypes
