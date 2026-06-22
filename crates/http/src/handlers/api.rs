@@ -1,11 +1,11 @@
 use crate::AppState;
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{Json, IntoResponse},
+    http::{HeaderValue, StatusCode, header::SET_COOKIE},
+    response::{IntoResponse, Json, Redirect},
 };
 use orm::FilterCondition;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -633,10 +633,7 @@ pub async fn call_method_get(
         .map(|(k, v)| (k, Value::String(v)))
         .collect();
 
-    match call_rust_or_python_method(&state, &method, params, &headers).await {
-        Ok(result) => (StatusCode::OK, Json(result)),
-        Err(e) => frappe_error_response(e),
-    }
+    method_response(&state, &method, params, &headers).await
 }
 
 pub async fn call_method(
@@ -650,9 +647,41 @@ pub async fn call_method(
         _ => HashMap::new(),
     };
 
-    match call_rust_or_python_method(&state, &method, params, &headers).await {
-        Ok(result) => (StatusCode::OK, Json(result)),
-        Err(e) => frappe_error_response(e),
+    method_response(&state, &method, params, &headers).await
+}
+
+/// Output of a method call: either a normal JSON payload or an HTTP redirect.
+enum MethodResponse {
+    Json(serde_json::Value),
+    Redirect { location: String, cookie: Option<String> },
+}
+
+impl IntoResponse for MethodResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            MethodResponse::Json(value) => (StatusCode::OK, Json(value)).into_response(),
+            MethodResponse::Redirect { location, cookie } => {
+                let mut res = Redirect::temporary(&location).into_response();
+                if let Some(cookie) = cookie {
+                    if let Ok(value) = HeaderValue::from_str(&cookie) {
+                        res.headers_mut().insert(SET_COOKIE, value);
+                    }
+                }
+                res
+            }
+        }
+    }
+}
+
+async fn method_response(
+    state: &AppState,
+    method: &str,
+    params: HashMap<String, Value>,
+    headers: &axum::http::HeaderMap,
+) -> axum::response::Response {
+    match call_rust_or_python_method(state, method, params, headers).await {
+        Ok(result) => result.into_response(),
+        Err(e) => frappe_error_response(e).into_response(),
     }
 }
 
@@ -661,16 +690,58 @@ async fn call_rust_or_python_method(
     method: &str,
     params: HashMap<String, Value>,
     headers: &axum::http::HeaderMap,
-) -> error::Result<Value> {
+) -> error::Result<MethodResponse> {
     // Try Rust apps first.
     if let Some(result) = state.rust_apps.call_method(method, state.clone(), params.clone()).await? {
-        return Ok(result);
+        return Ok(MethodResponse::Json(result));
     }
 
     // Fall back to Python method dispatcher.
     let user = session_user_from_request(state, headers).await;
     let body = serde_json::to_value(params).unwrap_or(Value::Object(Default::default()));
-    kiff_core::call_method_with_user(method, &body, user.as_deref())
+    let result = kiff_core::call_method_with_user(method, &body, user.as_deref())?;
+
+    // Frappe login/OAuth flows signal a redirect by setting
+    // frappe.local.response["type"] == "redirect" with a "location" URL.
+    // Detect that and return a real HTTP redirect (with a session cookie when
+    // the Python flow just authenticated a user).
+    if let Some(map) = result.as_object() {
+        if map.get("type").and_then(|v| v.as_str()) == Some("redirect") {
+            if let Some(location) = map.get("location").and_then(|v| v.as_str()) {
+                let cookie = session_cookie_after_py_login(state, user.as_deref()).await;
+                return Ok(MethodResponse::Redirect {
+                    location: location.to_string(),
+                    cookie,
+                });
+            }
+        }
+    }
+
+    Ok(MethodResponse::Json(result))
+}
+
+/// If the Python method just authenticated a user (request had no session but
+/// frappe.session is now a real user), create a persisted Rust session and
+/// return a formatted Set-Cookie header.
+async fn session_cookie_after_py_login(
+    state: &AppState,
+    existing_user: Option<&str>,
+) -> Option<String> {
+    // Don't create a new session if the request already carried a valid one.
+    if existing_user.is_some() {
+        return None;
+    }
+    let pool = state.pools.iter().next()?.value().clone();
+    let py_user = kiff_core::current_py_session_user()?;
+    if py_user == "Guest" {
+        return None;
+    }
+    let store = session::SessionStore::new();
+    let session = store.create(&pool, py_user, "localhost".into()).await.ok()?;
+    Some(format!(
+        "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
+        session.id
+    ))
 }
 
 fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json::Value>) {
@@ -693,5 +764,43 @@ fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn method_response_redirect_sets_location_and_cookie() {
+        let response = MethodResponse::Redirect {
+            location: "/desk".to_string(),
+            cookie: Some("sid=abc123; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400".to_string()),
+        }
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            response.headers().get("location").unwrap().to_str().unwrap(),
+            "/desk"
+        );
+        assert!(
+            response
+                .headers()
+                .get_all("set-cookie")
+                .iter()
+                .any(|c| c.to_str().unwrap().starts_with("sid=abc123")),
+            "redirect should set sid cookie"
+        );
+    }
+
+    #[tokio::test]
+    async fn method_response_json_returns_ok() {
+        let response = MethodResponse::Json(serde_json::json!({ "message": "ok" })).into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["message"], "ok");
     }
 }

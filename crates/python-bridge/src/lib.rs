@@ -145,6 +145,17 @@ pub fn call_method(method_path: &str, kwargs: &serde_json::Value) -> error::Resu
     call_method_with_user(method_path, kwargs, None)
 }
 
+/// Return the user stored in the current Python request context.
+///
+/// This is useful after a Python login flow (e.g. OAuth) has run inside the
+/// shim; the Rust layer can then create a persisted session for that user.
+pub fn current_py_session_user() -> Option<String> {
+    Python::with_gil(|py| {
+        let session = py.import("frappe").ok()?.getattr("session").ok()?;
+        session.getattr("user").ok()?.extract::<String>().ok()
+    })
+}
+
 pub fn call_method_with_user(
     method_path: &str,
     kwargs: &serde_json::Value,

@@ -83,18 +83,58 @@ impl PermissionEngine {
         Ok(false)
     }
 
-    pub async fn get_roles(&self, _pool: &DatabasePool, user: &str) -> Result<Vec<String>> {
+    pub async fn get_roles(&self, pool: &DatabasePool, user: &str) -> Result<Vec<String>> {
         if let Some(entry) = self.roles_cache.get(user) {
             return Ok(entry.clone());
         }
-        // TODO: fetch from database User record
-        let roles = if user == "Administrator" {
+
+        let mut roles = if user == "Administrator" {
             vec!["Administrator".into(), "System Manager".into(), "All".into()]
         } else if user == "Guest" {
             vec!["Guest".into(), "All".into()]
         } else {
-            vec!["All".into()]
+            let mut roles = vec![];
+
+            // Read assigned roles from the User child table.
+            let sql = format!(
+                r#"SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = {}"#,
+                pool.placeholder(1)
+            );
+            if let Ok(rows) = pool.execute_sql(&sql, vec![serde_json::Value::String(user.into())]).await {
+                for mut row in rows {
+                    if let Some(role) = row.remove("role").and_then(|v| v.as_str().map(String::from)) {
+                        roles.push(role);
+                    }
+                }
+            }
+
+            // Automatic roles.
+            for auto in ["All", "Guest"] {
+                if !roles.iter().any(|r| r == auto) {
+                    roles.push(auto.into());
+                }
+            }
+
+            // System users implicitly get Desk User.
+            let user_type_sql = format!(
+                r#"SELECT user_type FROM "user" WHERE name = {}"#,
+                pool.placeholder(1)
+            );
+            if let Ok(rows) = pool.execute_sql(&user_type_sql, vec![serde_json::Value::String(user.into())]).await {
+                if let Some(row) = rows.into_iter().next() {
+                    if row.get("user_type").and_then(|v| v.as_str()) == Some("System User") {
+                        if !roles.iter().any(|r| r == "Desk User") {
+                            roles.push("Desk User".into());
+                        }
+                    }
+                }
+            }
+
+            roles
         };
+
+        roles.sort_unstable();
+        roles.dedup();
         self.roles_cache.insert(user.into(), roles.clone());
         Ok(roles)
     }

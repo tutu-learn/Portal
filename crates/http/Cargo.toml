@@ -3,6 +3,9 @@ name = "http"
 version = "0.1.0"
 edition = "2021"
 
+[dev-dependencies]
+http-body-util = "0.1"
+
 [dependencies]
 error          = { workspace = true }
 config         = { workspace = true }

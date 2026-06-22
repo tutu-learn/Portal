@@ -9,9 +9,41 @@ except ImportError:
 
 
 def get_roles(user=None):
+    user = user or session.user
+    if user == "Administrator":
+        return ["Administrator", "System Manager", "All"]
+    if user == "Guest":
+        return ["Guest", "All"]
     if _rust is None:
         return ["Guest"]
-    return _rust.get_roles(user or session.user)
+
+    import frappe
+
+    roles = []
+    try:
+        rows = frappe.get_all(
+            "Has Role",
+            filters={"parenttype": "User", "parent": user},
+            fields=["role"],
+        )
+        roles = [r["role"] for r in rows if r.get("role")]
+    except Exception:
+        pass
+
+    # Add automatic roles.
+    for auto in ("All", "Guest"):
+        if auto not in roles:
+            roles.append(auto)
+
+    # System users also get the implicit Desk User role.
+    try:
+        user_type = frappe.db.get_value("User", user, "user_type")
+        if user_type == "System User" and "Desk User" not in roles:
+            roles.append("Desk User")
+    except Exception:
+        pass
+
+    return roles
 
 
 def has_permission(doctype, ptype="read", doc=None, user=None, throw=False, **kwargs):

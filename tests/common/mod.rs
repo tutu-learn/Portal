@@ -12,7 +12,7 @@ pub async fn setup_test_db() -> error::Result<orm::DatabasePool> {
     let _ = std::fs::remove_file(&path);
     let pool = orm::DatabasePool::connect_sqlite(&path).await?;
     orm::migrations::Migrator::run(&pool).await?;
-    orm::doctype_sync::sync_all(&pool, vec![]).await?;
+    orm::doctype_sync::sync_all(&pool, vec![], vec![]).await?;
     Ok(pool)
 }
 

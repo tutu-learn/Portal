@@ -1091,6 +1091,41 @@ def _patch_modules():
     except Exception:
         pass
 
+    try:
+        import frappe.utils.oauth as _oauth
+
+        _orig_update_oauth_user = _oauth.update_oauth_user
+
+        def _patched_update_oauth_user(user, data, provider):
+            # Detect whether this is a brand-new OAuth sign-up before the
+            # original function creates the User document.
+            try:
+                frappe.get_doc("User", user)
+                is_new = False
+            except frappe.DoesNotExistError:
+                is_new = True
+
+            result = _orig_update_oauth_user(user, data, provider)
+
+            # New OAuth users are created as Website User with no roles by
+            # default. Give them the standard "All" role so they become System
+            # Users and can access the desk / have roles assigned.
+            if is_new and result is not False:
+                try:
+                    user_doc = frappe.get_doc("User", user)
+                    if not any(r.role == "All" for r in user_doc.get("roles", [])):
+                        user_doc.append("roles", {"role": "All"})
+                        user_doc.flags.ignore_permissions = True
+                        user_doc.save()
+                except Exception:
+                    pass
+
+            return result
+
+        _oauth.update_oauth_user = _patched_update_oauth_user
+    except Exception:
+        pass
+
 
 # ------------------------------------------------------------------
 # Catch-all: delegate to real frappe, then fall back to stub
