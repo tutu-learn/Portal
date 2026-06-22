@@ -1100,9 +1100,9 @@ def _patch_modules():
             # Detect whether this is a brand-new OAuth sign-up before the
             # original function creates the User document.
             try:
-                frappe.get_doc("User", user)
+                get_doc("User", user)
                 is_new = False
-            except frappe.DoesNotExistError:
+            except DoesNotExistError:
                 is_new = True
 
             result = _orig_update_oauth_user(user, data, provider)
@@ -1112,7 +1112,7 @@ def _patch_modules():
             # Users and can access the desk / have roles assigned.
             if is_new and result is not False:
                 try:
-                    user_doc = frappe.get_doc("User", user)
+                    user_doc = get_doc("User", user)
                     if not any(r.role == "All" for r in user_doc.get("roles", [])):
                         user_doc.append("roles", {"role": "All"})
                         user_doc.flags.ignore_permissions = True
