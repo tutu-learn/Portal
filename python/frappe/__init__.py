@@ -938,6 +938,54 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # Document.queue_action enqueues background jobs through Redis/RQ, which is
+    # not available in the minimal SQLite runtime. Run the requested action
+    # synchronously instead (e.g. RoleProfile.on_update -> update_all_users).
+    try:
+        from frappe.model.document import Document as _Document
+        if not getattr(_Document, "_kiff_patched_queue_action", False):
+            _orig_queue_action = _Document.queue_action
+
+            def _patched_queue_action(self, action, **kwargs):
+                if hasattr(self, f"_{action}"):
+                    action = f"_{action}"
+                method = getattr(self, action, None)
+                if method is None:
+                    raise AttributeError(f"No action '{action}' on {self.doctype}")
+                return method()
+
+            _Document.queue_action = _patched_queue_action
+            _Document._kiff_patched_queue_action = True
+    except Exception:
+        pass
+
+    # The deprecated User.role_profile_name field is cleared when role_profiles
+    # is empty, breaking API assignments. Convert a lone role_profile_name into
+    # a role_profiles child row so populate_role_profile_roles() can run.
+    try:
+        from frappe.core.doctype.user.user import User as _User
+        if not getattr(_User, "_kiff_patched_move_role_profile", False):
+            _orig_move_role_profile = _User.move_role_profile_name_to_role_profiles
+
+            def _patched_move_role_profile_name_to_role_profiles(self):
+                if not self.role_profile_name:
+                    return _orig_move_role_profile(self)
+
+                current_role_profiles = {r.role_profile for r in (self.role_profiles or [])}
+                if self.role_profile_name in current_role_profiles:
+                    self.role_profile_name = None
+                    return
+
+                if not self.role_profiles:
+                    self.role_profiles = []
+                self.append("role_profiles", {"role_profile": self.role_profile_name})
+                self.role_profile_name = None
+
+            _User.move_role_profile_name_to_role_profiles = _patched_move_role_profile_name_to_role_profiles
+            _User._kiff_patched_move_role_profile = True
+    except Exception:
+        pass
+
     # Navbar / website settings helpers hit the DB and the bench hooks tree.
     # Provide safe fallbacks so bootinfo can finish.
     try:

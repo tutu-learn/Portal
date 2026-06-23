@@ -833,19 +833,62 @@ async fn session_cookie_after_py_login(
     ))
 }
 
+fn parse_python_exception(msg: &str) -> (String, String) {
+    // Traceback ends with lines like:
+    //   _frappe_exceptions_real.InvalidEmailAddressError: ddd is not a valid Email Address
+    //   _frappe_exceptions_real.PermissionError
+    // Extract the short exception type and the human-readable message.
+    let last_line = msg.lines().last().unwrap_or(msg).trim();
+    let (type_part, message_part) = match last_line.split_once(": ") {
+        Some((ty, message)) => (ty, Some(message)),
+        None => (last_line, None),
+    };
+
+    let exc_type = type_part
+        .split('.')
+        .last()
+        .filter(|s| s.ends_with("Error") || s.ends_with("Exception") || s.ends_with("Warning"))
+        .unwrap_or("RuntimeError")
+        .to_string();
+
+    let exc_msg = message_part
+        .map(|m| m.to_string())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| exc_type.clone());
+
+    (exc_type, exc_msg)
+}
+
 fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json::Value>) {
     match e {
         error::RuntimeError::Python(msg) => {
+            let (exc_type, exc_msg) = parse_python_exception(&msg);
+
             // Frappe JS (request.js) calls JSON.parse(r.exc), so exc must be a
             // JSON-encoded array string e.g. '["Traceback..."]', not a raw string.
             let exc_json = serde_json::to_string(&serde_json::json!([msg]))
                 .unwrap_or_else(|_| "[]".to_string());
+
+            // Make validation/error messages visible in the desk UI.
+            let server_message = serde_json::json!({
+                "message": exc_msg,
+                "title": exc_type.clone(),
+                "indicator": "red",
+            });
+            let server_messages_json = serde_json::to_string(&serde_json::json!([
+                serde_json::to_string(&server_message).unwrap_or_default()
+            ]))
+            .unwrap_or_else(|_| "[]".to_string());
+
             (
-                StatusCode::OK,
+                // Frappe's JS client routes HTTP 417 to the error callback and
+                // shows _server_messages; returning 200 caused it to treat the
+                // exception as a successful save, leading to TypeErrors.
+                StatusCode::EXPECTATION_FAILED,
                 Json(serde_json::json!({
                     "exc": exc_json,
-                    "exc_type": "RuntimeError",
-                    "_server_messages": "[]"
+                    "exc_type": exc_type,
+                    "_server_messages": server_messages_json,
                 })),
             )
         }

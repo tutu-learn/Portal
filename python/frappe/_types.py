@@ -485,11 +485,21 @@ class _MetaProxy(_dict):
     def get_valid_fields(self):
         # Match real Frappe: only fields that have database columns.
         from frappe.model import data_fieldtypes
-        return list(self._default_columns) + [
+
+        fields = list(self._default_columns) + [
             f.get("fieldname")
             for f in (self.get("fields") or [])
             if f.get("fieldname") and f.get("fieldtype") in data_fieldtypes
         ]
+
+        # Child-table rows store their parent linkage in these implicit columns.
+        # Real Frappe includes them in get_valid_fields/get_valid_columns for table Doctypes.
+        if self.get("istable"):
+            for col in ("parent", "parenttype", "parentfield"):
+                if col not in fields:
+                    fields.append(col)
+
+        return fields
 
     def get_valid_columns(self):
         return self.get_valid_fields()
