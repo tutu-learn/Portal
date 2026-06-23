@@ -1,0 +1,70 @@
+{
+    "name": "Kiff Log Query",
+    "doctype": "DocType",
+    "module": "KiffLogger",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "track_changes": 1,
+    "fields": [
+        {
+            "fieldname": "title",
+            "fieldtype": "Data",
+            "label": "Title",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "query_string",
+            "fieldtype": "Code",
+            "label": "Query String",
+            "reqd": 1,
+            "description": "Tantivy query, e.g. service:frappe.doc_event AND level:ERROR"
+        },
+        {
+            "fieldname": "result_limit",
+            "fieldtype": "Int",
+            "label": "Result Limit",
+            "default": "100"
+        },
+        {
+            "fieldname": "refresh_interval",
+            "fieldtype": "Int",
+            "label": "Refresh Interval (seconds)",
+            "default": "60"
+        },
+        {
+            "fieldname": "chart_type",
+            "fieldtype": "Select",
+            "label": "Chart Type",
+            "options": "Table\nBar\nLine\nPie\nCount",
+            "default": "Table"
+        },
+        {
+            "fieldname": "group_by",
+            "fieldtype": "Data",
+            "label": "Group By Field",
+            "description": "Optional field name to aggregate on, e.g. level or service"
+        },
+        {
+            "fieldname": "enabled",
+            "fieldtype": "Check",
+            "label": "Enabled",
+            "default": "1"
+        },
+        {
+            "fieldname": "description",
+            "fieldtype": "Text",
+            "label": "Description"
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}

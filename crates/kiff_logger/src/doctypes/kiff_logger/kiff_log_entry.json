@@ -1,0 +1,85 @@
+{
+    "name": "Kiff Log Entry",
+    "doctype": "DocType",
+    "module": "KiffLogger",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "track_changes": 0,
+    "fields": [
+        {
+            "fieldname": "timestamp",
+            "fieldtype": "Data",
+            "label": "Timestamp",
+            "read_only": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "level",
+            "fieldtype": "Select",
+            "label": "Level",
+            "options": "TRACE\nDEBUG\nINFO\nWARN\nERROR",
+            "read_only": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "service",
+            "fieldtype": "Data",
+            "label": "Service",
+            "read_only": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "message",
+            "fieldtype": "Text",
+            "label": "Message",
+            "read_only": 1
+        },
+        {
+            "fieldname": "doctype",
+            "fieldtype": "Data",
+            "label": "DocType",
+            "read_only": 1
+        },
+        {
+            "fieldname": "docname",
+            "fieldtype": "Data",
+            "label": "Document Name",
+            "read_only": 1
+        },
+        {
+            "fieldname": "event",
+            "fieldtype": "Data",
+            "label": "Event",
+            "read_only": 1
+        },
+        {
+            "fieldname": "status",
+            "fieldtype": "Data",
+            "label": "Status",
+            "read_only": 1
+        },
+        {
+            "fieldname": "severity",
+            "fieldtype": "Data",
+            "label": "Severity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "raw_fields",
+            "fieldtype": "Code",
+            "label": "Raw Fields",
+            "options": "JSON",
+            "read_only": 1
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 0,
+            "create": 0,
+            "delete": 0
+        }
+    ]
+}

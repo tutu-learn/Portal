@@ -1,0 +1,81 @@
+{
+    "name": "S3 Backup Configuration",
+    "doctype": "DocType",
+    "module": "KiffLogger",
+    "istable": 0,
+    "issingle": 1,
+    "is_submittable": 0,
+    "track_changes": 1,
+    "fields": [
+        {
+            "fieldname": "enabled",
+            "fieldtype": "Check",
+            "label": "Enabled",
+            "default": "0"
+        },
+        {
+            "fieldname": "provider",
+            "fieldtype": "Select",
+            "label": "Provider",
+            "options": "AWS S3\nMinIO\nWasabi\nDigitalOcean Spaces\nOther S3-compatible",
+            "default": "AWS S3"
+        },
+        {
+            "fieldname": "endpoint_url",
+            "fieldtype": "Data",
+            "label": "Endpoint URL",
+            "description": "Leave empty for AWS S3; required for MinIO/compatible stores"
+        },
+        {
+            "fieldname": "region",
+            "fieldtype": "Data",
+            "label": "Region",
+            "default": "us-east-1"
+        },
+        {
+            "fieldname": "bucket",
+            "fieldtype": "Data",
+            "label": "Bucket Name",
+            "reqd": 1
+        },
+        {
+            "fieldname": "prefix",
+            "fieldtype": "Data",
+            "label": "Object Prefix",
+            "description": "Optional path prefix for uploaded objects, e.g. kiff-logs/"
+        },
+        {
+            "fieldname": "access_key",
+            "fieldtype": "Password",
+            "label": "Access Key ID",
+            "reqd": 1
+        },
+        {
+            "fieldname": "secret_key",
+            "fieldtype": "Password",
+            "label": "Secret Access Key",
+            "reqd": 1
+        },
+        {
+            "fieldname": "upload_interval_hours",
+            "fieldtype": "Int",
+            "label": "Upload Interval (hours)",
+            "default": "24"
+        },
+        {
+            "fieldname": "retain_local_days",
+            "fieldtype": "Int",
+            "label": "Retain Local Logs (days)",
+            "default": "7"
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}

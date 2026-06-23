@@ -1,0 +1,89 @@
+{
+    "name": "Kiff Logger",
+    "doctype": "Workspace",
+    "label": "Kiff Logger",
+    "title": "Kiff Logger",
+    "module": "KiffLogger",
+    "app": "kiff_logger",
+    "icon": "log",
+    "public": 1,
+    "is_hidden": 0,
+    "restrict_to_domain": null,
+    "sequence_id": 200.0,
+    "content": "[{\"id\":\"kiff-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Kiff Logger</span>\",\"col\":12}},{\"id\":\"kiff-sub\",\"type\":\"paragraph\",\"data\":{\"text\":\"System logs, saved queries, and log backup configuration.\",\"col\":12}},{\"id\":\"kiff-shortcut-1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Entries\",\"col\":4}},{\"id\":\"kiff-shortcut-2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Queries\",\"col\":4}},{\"id\":\"kiff-shortcut-3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"S3 Backup Configuration\",\"col\":4}},{\"id\":\"kiff-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"kiff-card-logs\",\"type\":\"card\",\"data\":{\"card_name\":\"Logs & Queries\",\"col\":6}},{\"id\":\"kiff-card-config\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":6}}]",
+    "links": [
+        {
+            "type": "Link",
+            "label": "Log Entries",
+            "link_type": "DocType",
+            "link_to": "Kiff Log Entry",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Link",
+            "label": "Log Queries",
+            "link_type": "DocType",
+            "link_to": "Kiff Log Query",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Card Break",
+            "label": "Logs & Queries",
+            "link_type": "DocType",
+            "link_count": 2,
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Link",
+            "label": "Kiff Log Entry",
+            "link_type": "DocType",
+            "link_to": "Kiff Log Entry",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Link",
+            "label": "Kiff Log Query",
+            "link_type": "DocType",
+            "link_to": "Kiff Log Query",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Card Break",
+            "label": "Configuration",
+            "link_type": "DocType",
+            "link_count": 1,
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Link",
+            "label": "S3 Backup Configuration",
+            "link_type": "DocType",
+            "link_to": "S3 Backup Configuration",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        }
+    ],
+    "charts": [],
+    "number_cards": [],
+    "shortcuts": [],
+    "quick_lists": [],
+    "roles": [],
+    "owner": "Administrator",
+    "modified_by": "Administrator",
+    "creation": "2026-06-22 14:00:00",
+    "modified": "2026-06-22 14:00:00",
+    "docstatus": 0
+}

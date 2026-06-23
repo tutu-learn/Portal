@@ -1,0 +1,16 @@
+[package]
+name = "kiff_logger"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rust_apps_core = { path = "../../rust_apps/core" }
+log_engine     = { path = "../log_engine" }
+config         = { workspace = true }
+error          = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+axum           = { workspace = true }
+tokio          = { workspace = true }
+tracing        = { workspace = true }
+async-trait    = "0.1"
