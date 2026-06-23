@@ -986,6 +986,52 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # ModuleProfile.update_all_users() unpacks QB results as tuples, but the
+    # SQLite query builder in this runtime returns dict rows. Handle both so
+    # module-profile changes propagate to linked users.
+    try:
+        from frappe.core.doctype.module_profile.module_profile import ModuleProfile as _ModuleProfile
+        if not getattr(_ModuleProfile, "_kiff_patched_update_all_users", False):
+            _orig_mp_update_all_users = _ModuleProfile.update_all_users
+
+            def _patched_mp_update_all_users(self):
+                from collections import defaultdict
+
+                import frappe as _frappe
+
+                block_module = _frappe.qb.DocType("Block Module")
+                user = _frappe.qb.DocType("User")
+
+                all_current_modules = (
+                    _frappe.qb.from_(user)
+                    .join(block_module)
+                    .on(user.name == block_module.parent)
+                    .where(user.module_profile == self.name)
+                    .select(user.name, block_module.module)
+                ).run()
+
+                user_modules = defaultdict(set)
+                for row in all_current_modules:
+                    if isinstance(row, dict):
+                        user_modules[row["name"]].add(row["module"])
+                    else:
+                        user_modules[row[0]].add(row[1])
+
+                module_profile_modules = {module.module for module in self.block_modules}
+
+                for user_name, modules in user_modules.items():
+                    if modules != module_profile_modules:
+                        user = _frappe.get_doc("User", user_name)
+                        user.block_modules = []
+                        for module in module_profile_modules:
+                            user.append("block_modules", {"module": module})
+                        user.save()
+
+            _ModuleProfile.update_all_users = _patched_mp_update_all_users
+            _ModuleProfile._kiff_patched_update_all_users = True
+    except Exception:
+        pass
+
     # Navbar / website settings helpers hit the DB and the bench hooks tree.
     # Provide safe fallbacks so bootinfo can finish.
     try:
