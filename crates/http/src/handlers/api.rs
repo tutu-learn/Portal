@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tracing::warn;
 
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
@@ -67,12 +68,33 @@ pub struct InsertBody {
 pub async fn insert_doc(
     State(state): State<AppState>,
     Path(doctype): Path<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<InsertBody>,
 ) -> impl IntoResponse {
+    // Prefer the real Frappe Document.insert() path so DocType controllers,
+    // validation hooks and child-table handling run. Fall back to the native
+    // ORM insert when Python cannot handle the DocType yet.
+    let mut py_doc = body.fields.clone();
+    py_doc.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    let mut params = std::collections::HashMap::new();
+    params.insert("doc".to_string(), serde_json::Value::Object(py_doc.into_iter().collect()));
+
+    match call_rust_or_python_method(&state, "frappe.client.insert", params, &headers).await {
+        Ok(MethodResponse::Json(value)) => {
+            let payload = value.get("message").cloned().unwrap_or(value);
+            return (StatusCode::CREATED, Json(serde_json::json!({ "data": payload })))
+        }
+        Ok(_) => return (StatusCode::CREATED, Json(serde_json::json!({ "message": "created" }))),
+        Err(error::RuntimeError::Python(e)) => {
+            warn!(doctype = %doctype, error = %e, "Python frappe.client.insert failed, falling back to native ORM insert");
+        }
+        Err(e) => return frappe_error_response(e),
+    }
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => {
-            let mut doc = orm::Document::new(doctype.clone(), uuid::Uuid::new_v4().to_string());
+            let mut doc = orm::Document::new(doctype, uuid::Uuid::new_v4().to_string());
             for (k, v) in body.fields {
                 doc.set_field(k, v);
             }
@@ -88,13 +110,56 @@ pub async fn insert_doc(
 pub async fn update_doc(
     State(state): State<AppState>,
     Path((doctype, name)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<HashMap<String, Value>>,
 ) -> impl IntoResponse {
+    // Keep a copy for the native ORM fallback path.
+    let body_for_fallback = body.clone();
+
+    // Prefer the real Frappe Document.save() path so DocType controllers and
+    // validation hooks run (e.g. User.validate_allowed_modules).
+    // Load the full document (including child tables and mandatory fields)
+    // from Python first, then overlay the request body before saving.
+    let mut get_params = std::collections::HashMap::new();
+    get_params.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    get_params.insert("name".to_string(), serde_json::Value::String(name.clone()));
+
+    let mut full_doc = match call_rust_or_python_method(&state, "frappe.client.get", get_params, &headers).await {
+        Ok(MethodResponse::Json(value)) => {
+            value.get("message").cloned().unwrap_or(value)
+        }
+        Ok(_) => serde_json::Value::Object(Default::default()),
+        Err(error::RuntimeError::Python(_)) => serde_json::Value::Object(Default::default()),
+        Err(e) => return frappe_error_response(e),
+    };
+
+    if let serde_json::Value::Object(ref mut map) = full_doc {
+        for (k, v) in body {
+            map.insert(k, v);
+        }
+    }
+
+    let mut save_params = std::collections::HashMap::new();
+    save_params.insert("doc".to_string(), full_doc);
+
+    match call_rust_or_python_method(&state, "frappe.client.save", save_params, &headers).await {
+        Ok(MethodResponse::Json(value)) => {
+            let payload = value.get("message").cloned().unwrap_or(value);
+            return (StatusCode::OK, Json(serde_json::json!({ "data": payload })))
+        }
+        Ok(_) => return (StatusCode::OK, Json(serde_json::json!({ "message": "updated" }))),
+        Err(error::RuntimeError::Python(e)) => {
+            warn!(doctype = %doctype, name = %name, error = %e, "Python frappe.client.save failed, falling back to native ORM update");
+        }
+        Err(e) => return frappe_error_response(e),
+    }
+
+    // Fall back to the native ORM update when Python cannot handle the DocType yet.
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
             Ok(mut doc) => {
-                for (k, v) in body {
+                for (k, v) in body_for_fallback {
                     doc.set_field(k, v);
                 }
                 match pool.save_doc(&doc).await {

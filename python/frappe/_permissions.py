@@ -109,6 +109,16 @@ class _SimpleUserPermissions:
         self.can_search = list(self.can_read)
         self.all_read = list(self.can_read)
 
+        # Respect per-user and Module Profile block lists.
+        try:
+            import frappe as _frappe
+            user_doc = _frappe.get_doc("User", self.name)
+            blocked = set(user_doc.get_blocked_modules() or [])
+            if blocked:
+                self.allow_modules = [m for m in self.allow_modules if m not in blocked]
+        except Exception:
+            pass
+
     def build_doctype_map(self):
         pass
 

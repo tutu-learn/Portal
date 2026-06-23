@@ -7,7 +7,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 #[derive(Serialize)]
@@ -119,8 +119,25 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Load the modules blocked for a user (direct user rows or Module Profile).
+async fn get_blocked_modules(
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<HashSet<String>> {
+    let rows = pool.execute_sql(
+        r#"SELECT module FROM "block_module" WHERE parent = ? AND parenttype = 'User'"#,
+        vec![Value::String(user.into())],
+    ).await?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| r.get("module").and_then(|v| v.as_str()).map(String::from))
+        .collect())
+}
+
 async fn query_boot_data(
     pool: &orm::DatabasePool,
+    blocked_modules: &HashSet<String>,
 ) -> error::Result<(Vec<Value>, Map<String, Value>, Vec<String>, Map<String, Value>, Option<String>)> {
     // Query workspaces
     let ws_rows = pool.execute_sql(
@@ -145,6 +162,9 @@ async fn query_boot_data(
         let title = row.get("title").and_then(|v| v.as_str()).unwrap_or(&label).to_string();
         let icon = row.get("icon").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let module = row.get("module").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if !module.is_empty() && blocked_modules.contains(&module) {
+            continue;
+        }
         let parent_page = row.get("parent_page").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
         let public = row.get("public")
@@ -233,6 +253,9 @@ async fn query_boot_data(
     for row in mod_rows {
         let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
         if name.is_empty() {
+            continue;
+        }
+        if blocked_modules.contains(&name) {
             continue;
         }
         let module_name = row.get("module_name").and_then(|v| v.as_str()).unwrap_or(&name).to_string();
@@ -345,10 +368,21 @@ async fn build_boot_info(
     // Python bootinfo overlay and for the fallback bootinfo.
     let pool = state.pools.iter().next().map(|e| e.value().clone());
 
+    // Load the user's blocked module list so we can hide those workspaces/modules.
+    let blocked_modules: HashSet<String> = if let Some(ref pool) = pool {
+        if is_guest {
+            HashSet::new()
+        } else {
+            get_blocked_modules(pool, user_name).await.unwrap_or_default()
+        }
+    } else {
+        HashSet::new()
+    };
+
     // Query workspaces and modules from DB
     let (workspaces, modules_map, module_list, module_wise_workspaces, _default_ws) =
         if let Some(ref pool) = pool {
-            match query_boot_data(pool).await {
+            match query_boot_data(pool, &blocked_modules).await {
                 Ok(data) => data,
                 Err(_) => (vec![], Map::new(), vec![], Map::new(), None),
             }
@@ -398,15 +432,18 @@ async fn build_boot_info(
             boot.insert("disable_async".to_string(), json!(false));
             boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
             boot.insert("metadata_version".to_string(), json!("1"));
-            // Replace Python-generated workspace data with the Rust-built version so
-            // Rust-app workspaces (Audit Ready, Policies, Procedures, ISO 27001) show
-            // up in the desk sidebar and a valid default workspace is set.
+            // Replace Python-generated workspace/module data with the Rust-built
+            // version so Rust-app workspaces show up and blocked modules are hidden.
             boot.insert("workspaces".to_string(), workspaces_value);
             boot.insert("allowed_workspaces".to_string(), json!(workspaces));
             boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
             boot.insert("workspace_sidebar_item".to_string(), workspace_sidebar_item_value);
+            boot.insert("modules".to_string(), Value::Object(modules_map.clone()));
+            boot.insert("module_list".to_string(), json!(module_list.clone()));
             if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
                 user_obj.insert("default_workspace".to_string(), default_workspace_obj);
+                // Keep the Python user permissions in sync with the filtered module list.
+                user_obj.insert("allow_modules".to_string(), json!(module_list.clone()));
             }
             sanitize_bootinfo(&mut boot);
             return Value::Object(boot);

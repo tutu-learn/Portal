@@ -46,6 +46,120 @@ impl DatabasePool {
         name.strip_prefix("tab").unwrap_or(&name).to_string()
     }
 
+    /// Return child-table fields for a DocType as (fieldname, child_doctype).
+    async fn get_table_fields(&self, doctype: &str) -> Result<Vec<(String, String)>> {
+        let meta_table = self.table_name("DocField");
+        let sql = format!(
+            r#"SELECT fieldname, options FROM "{}" WHERE parent = {} AND fieldtype IN ('Table', 'Table MultiSelect')"#,
+            meta_table,
+            self.placeholder(1)
+        );
+        let rows = self.query_raw(&sql, vec![Value::String(doctype.into())]).await?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|mut r| {
+                let fieldname = r.remove("fieldname")?.as_str()?.to_string();
+                let child_doctype = r.remove("options")?.as_str()?.to_string();
+                Some((fieldname, child_doctype))
+            })
+            .collect())
+    }
+
+    /// Persist child-table rows for `doc`. Only fields present in `doc.fields`
+    /// are processed, matching real Frappe's update_children behaviour.
+    async fn save_child_tables(&self, doc: &Document) -> Result<()> {
+        let table_fields = self.get_table_fields(&doc.doctype).await?;
+        if table_fields.is_empty() {
+            return Ok(());
+        }
+
+        let now = Utc::now().to_rfc3339();
+        let zero = serde_json::Number::from(0i32);
+
+        for (fieldname, child_doctype) in table_fields {
+            let Some(value) = doc.fields.get(&fieldname) else {
+                continue;
+            };
+            let rows = match value {
+                Value::Array(arr) => arr.clone(),
+                _ => continue,
+            };
+
+            let child_table = self.table_name(&child_doctype);
+            let delete_sql = format!(
+                r#"DELETE FROM "{}" WHERE parent = {} AND parentfield = {} AND parenttype = {}"#,
+                child_table,
+                self.placeholder(1),
+                self.placeholder(2),
+                self.placeholder(3)
+            );
+            self.execute_raw(
+                &delete_sql,
+                vec![
+                    Value::String(doc.name.clone()),
+                    Value::String(fieldname.clone()),
+                    Value::String(doc.doctype.clone()),
+                ],
+            )
+            .await?;
+
+            for (idx, row) in rows.iter().enumerate() {
+                let mut obj = match row {
+                    Value::Object(o) => o.clone(),
+                    _ => continue,
+                };
+
+                let mut cols = vec![
+                    "name".to_string(),
+                    "owner".to_string(),
+                    "creation".to_string(),
+                    "modified".to_string(),
+                    "docstatus".to_string(),
+                    "idx".to_string(),
+                    "parent".to_string(),
+                    "parentfield".to_string(),
+                    "parenttype".to_string(),
+                ];
+                let mut params: Vec<Value> = vec![
+                    Value::String(
+                        obj.remove("name")
+                            .and_then(|v| v.as_str().map(String::from))
+                            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                    ),
+                    Value::String(doc.owner.clone()),
+                    Value::String(now.clone()),
+                    Value::String(now.clone()),
+                    Value::Number(zero.clone()),
+                    Value::Number(serde_json::Number::from((idx + 1) as i64)),
+                    Value::String(doc.name.clone()),
+                    Value::String(fieldname.clone()),
+                    Value::String(doc.doctype.clone()),
+                ];
+
+                for (k, v) in obj {
+                    if k == "doctype" {
+                        continue;
+                    }
+                    cols.push(k);
+                    params.push(v);
+                }
+
+                let placeholders: Vec<String> = (1..=params.len())
+                    .map(|i| self.placeholder(i))
+                    .collect();
+                let insert_sql = format!(
+                    r#"INSERT INTO "{}" ({}) VALUES ({})"#,
+                    child_table,
+                    cols.join(", "),
+                    placeholders.join(", ")
+                );
+                self.execute_raw(&insert_sql, params).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn get_doc(&self, doctype: &str, name: &str) -> Result<Document> {
         let table = self.table_name(doctype);
         let sql = format!("SELECT * FROM \"{}\" WHERE name = {}", table, self.placeholder(1));
@@ -139,10 +253,17 @@ impl DatabasePool {
         crate::hooks::run_hook("before_save", &doc.doctype, doc).await?;
 
         let table = self.table_name(&doc.doctype);
+        let table_fields = self.get_table_fields(&doc.doctype).await?;
+        let table_field_names: std::collections::HashSet<String> =
+            table_fields.iter().map(|(k, _)| k.clone()).collect();
+
         let mut sets = Vec::new();
         let mut params: Vec<Value> = Vec::new();
 
         for (k, v) in &doc.fields {
+            if table_field_names.contains(k) {
+                continue;
+            }
             sets.push(format!("{} = {}", k, self.placeholder(params.len() + 1)));
             params.push(v.clone());
         }
@@ -159,6 +280,7 @@ impl DatabasePool {
 
         debug!("save_doc sql: {}", sql);
         self.execute_raw(&sql, params).await?;
+        self.save_child_tables(doc).await?;
 
         crate::hooks::run_hook("on_update", &doc.doctype, doc).await?;
         Ok(())
@@ -168,6 +290,10 @@ impl DatabasePool {
         crate::hooks::run_hook("before_insert", &doc.doctype, doc).await?;
 
         let table = self.table_name(&doc.doctype);
+        let table_fields = self.get_table_fields(&doc.doctype).await?;
+        let table_field_names: std::collections::HashSet<String> =
+            table_fields.iter().map(|(k, _)| k.clone()).collect();
+
         let mut cols = vec!["name".to_string(), "owner".to_string(), "creation".to_string(), "modified".to_string(), "docstatus".to_string()];
         let mut params: Vec<Value> = vec![
             Value::String(doc.name.clone()),
@@ -178,6 +304,9 @@ impl DatabasePool {
         ];
 
         for (k, v) in &doc.fields {
+            if table_field_names.contains(k) {
+                continue;
+            }
             cols.push(k.clone());
             params.push(v.clone());
         }
@@ -195,6 +324,7 @@ impl DatabasePool {
 
         debug!("insert_doc sql: {}", sql);
         self.execute_raw(&sql, params).await?;
+        self.save_child_tables(doc).await?;
 
         crate::hooks::run_hook("after_insert", &doc.doctype, doc).await?;
         Ok(doc.name.clone())

@@ -56,6 +56,12 @@ impl AppContext {
 /// type.
 pub use orm::doctype_sync::DoctypeFixture;
 
+/// A Module fixture contributed by a Rust app.
+///
+/// Re-exported from `orm::doctype_sync` so the runtime and apps use the same
+/// type.
+pub use orm::doctype_sync::ModuleFixture;
+
 /// A Workspace fixture contributed by a Rust app.
 #[derive(Debug, Clone)]
 pub struct WorkspaceFixture {
@@ -215,6 +221,12 @@ pub trait RustApp: Send + Sync + 'static {
         vec![]
     }
 
+    /// Return Module fixtures to guarantee modules exist in `module_def`
+    /// even when the app has no DocType or workspace for them yet.
+    fn modules(&self) -> Vec<ModuleFixture> {
+        vec![]
+    }
+
     /// Register Rust handlers for document lifecycle events.
     fn doc_hooks(&self) -> Vec<DocHook> {
         vec![]
@@ -285,6 +297,21 @@ impl RustAppRegistry {
                 app.workspaces().into_iter().map(move |mut f| {
                     if f.app.is_empty() {
                         f.app = app_name;
+                    }
+                    f
+                })
+            })
+            .collect()
+    }
+
+    pub fn all_modules(&self) -> Vec<ModuleFixture> {
+        self.apps
+            .iter()
+            .flat_map(|app| {
+                let app_name = app.name();
+                app.modules().into_iter().map(move |mut f| {
+                    if f.app.is_empty() {
+                        f.app = app_name.to_string();
                     }
                     f
                 })

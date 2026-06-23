@@ -42712,7 +42712,7 @@ Component that was made reactive: `,
       return (_b = (_a = frappe.perm.doctype_perm)[doctype]) != null ? _b : _a[doctype] = frappe.perm._get_perm(doctype);
     },
     _get_perm: (doctype, doc2) => {
-      let perm = [{ read: 0, permlevel: 0 }];
+      let perm = [{ read: 0, permlevel: 0, rights_without_if_owner: /* @__PURE__ */ new Set() }];
       let meta = frappe.get_meta(doctype);
       const user = frappe.session.user;
       if (user === "Administrator" || frappe.user_roles.includes("Administrator")) {
@@ -42761,7 +42761,7 @@ Component that was made reactive: `,
       return perm;
     },
     get_role_permissions: (meta) => {
-      let perm = [{ read: 0, permlevel: 0 }];
+      let perm = [{ read: 0, permlevel: 0, rights_without_if_owner: /* @__PURE__ */ new Set() }];
       (meta.permissions || []).forEach((p2) => {
         var _a, _b;
         const permlevel = cint(p2.permlevel);

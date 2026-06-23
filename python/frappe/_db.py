@@ -255,6 +255,13 @@ class _Database:
 
         translated = self._translate_query(query)
 
+        # PRAGMA introspection is handled directly by sqlite3; the Rust SQL
+        # pool may return empty results or raise for these statements.
+        stripped = translated.strip().upper()
+        if stripped.startswith("PRAGMA"):
+            rows = _sqlite_query(translated, values or [])
+            return self._wrap_rows(rows, as_dict, as_list)
+
         # Convert Frappe %(name)s dict params to positional values in the
         # same order as the remaining ? placeholders.
         if isinstance(values, dict):
@@ -263,7 +270,6 @@ class _Database:
         try:
             rows = _rust.db_sql(translated, values or [])
         except Exception as e:
-            stripped = translated.strip().upper()
             if stripped.startswith("SELECT") or stripped.startswith("SHOW"):
                 try:
                     rows = _sqlite_query(translated, values or [])
@@ -576,7 +582,9 @@ class _Database:
             if "doctype" in dn:
                 dn = dict(dn)
                 dn.pop("doctype", None)
-            table = dt.lower().replace(" ", "_").lstrip("tab")
+            table = dt.lower().replace(" ", "_")
+            if table.startswith("tab"):
+                table = table[3:]
             if not self.table_exists(dt):
                 return None
             params = []
@@ -611,7 +619,9 @@ class _Database:
         else:
             where = str(filters)
 
-        table = doctype.lower().replace(" ", "_").lstrip("tab")
+        table = doctype.lower().replace(" ", "_")
+        if table.startswith("tab"):
+            table = table[3:]
         rows = self.sql(
             f'SELECT COUNT(*) as c FROM "{table}" WHERE {where}',
             as_dict=True,
@@ -679,7 +689,9 @@ class _Database:
     # DDL / schema helpers
     # ------------------------------------------------------------------
     def table_exists(self, doctype, cached=True, **kwargs):
-        table = doctype.lower().replace(" ", "_").lstrip("tab")
+        table = doctype.lower().replace(" ", "_")
+        if table.startswith("tab"):
+            table = table[3:]
         try:
             rows = self.sql("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table])
             return len(rows) > 0
@@ -688,7 +700,9 @@ class _Database:
 
     def get_table_columns(self, doctype):
         """Return list of column names for a doctype."""
-        table = doctype.lower().replace(" ", "_").lstrip("tab")
+        table = doctype.lower().replace(" ", "_")
+        if table.startswith("tab"):
+            table = table[3:]
         try:
             rows = self.sql(f'PRAGMA table_info("{table}")', as_dict=True)
             columns = [r.get("name") for r in rows if r.get("name")]
@@ -724,7 +738,9 @@ class _Database:
         return " ".join(p.capitalize() for p in parts)
 
     def a_row_exists(self, doctype, **kwargs):
-        table = doctype.lower().replace(" ", "_").lstrip("tab")
+        table = doctype.lower().replace(" ", "_")
+        if table.startswith("tab"):
+            table = table[3:]
         try:
             rows = self.sql(f'SELECT 1 FROM "{table}" LIMIT 1')
             return len(rows) > 0

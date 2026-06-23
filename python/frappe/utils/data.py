@@ -76,7 +76,7 @@ def format_datetime(value, format_string=None):
     return str(value)
 
 
-def get_url(uri=None):
+def get_url(uri=None, **kwargs):
     return uri or "/"
 
 

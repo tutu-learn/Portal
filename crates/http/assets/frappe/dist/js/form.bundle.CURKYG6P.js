@@ -8897,3 +8897,5 @@ ${this.frm.doctype_layout.client_script}`;
   };
 })();
 //# sourceMappingURL=form.bundle.CURKYG6P.js.map
+
+frappe.ui.form.on('Block Module',{onload:function(frm){if(frm.doc.__islocal){frappe.set_route('List','User');return}if(frm.doc.parent&&frm.doc.parenttype){frappe.set_route('Form',frm.doc.parenttype,frm.doc.parent)}}});

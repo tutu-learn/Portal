@@ -12,6 +12,7 @@ Strategy:
 
 import datetime
 import importlib.util
+import json
 import logging
 import os
 import pkgutil
@@ -331,6 +332,29 @@ def is_setup_complete():
     except BaseException:
         pass
     return True
+
+
+def get_installed_apps(*, _ensure_on_bench=False):
+    """Return installed Frappe apps plus Rust apps declared in rust_apps/apps.json.
+
+    The real frappe function relies on a global ``installed_apps`` value that the
+    Kiff runtime does not maintain, so we start with the core "frappe" app and
+    append any Rust apps declared in ``rust_apps/apps.json``.
+    """
+    installed = ["frappe"]
+    try:
+        rust_apps_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "rust_apps", "apps.json"
+        )
+        if os.path.isfile(rust_apps_path):
+            with open(rust_apps_path, encoding="utf-8") as f:
+                rust_apps = json.loads(f.read())
+            for app in rust_apps.get("apps", []):
+                if app not in installed:
+                    installed.append(app)
+    except BaseException:
+        pass
+    return installed
 
 
 def get_single(doctype):
@@ -1032,6 +1056,73 @@ def _patch_real_module(mod):
     except Exception:
         pass
 
+    # User.has_desk_access() uses frappe.db.count() with a QueryBuilder
+    # expression. The SQLite bridge in this runtime returns 0 for that query
+    # even when matching roles exist, so users with System Manager etc. are
+    # forced to Website User and the module editor stays hidden. Use a plain
+    # get_all() filter instead.
+    try:
+        from frappe.core.doctype.user.user import User as _User
+        if not getattr(_User, "_kiff_patched_has_desk_access", False):
+
+            def _patched_has_desk_access(self):
+                if not self.roles:
+                    return False
+                role_names = [d.role for d in self.roles if getattr(d, "role", None)]
+                if not role_names:
+                    return False
+                import frappe as _frappe
+                return bool(
+                    _frappe.get_all(
+                        "Role",
+                        filters={"desk_access": 1, "name": ["in", role_names]},
+                        limit=1,
+                    )
+                )
+
+            _User.has_desk_access = _patched_has_desk_access
+            _User._kiff_patched_has_desk_access = True
+    except Exception:
+        pass
+
+    # frappe.utils.user.get_user_fullname() builds a QueryBuilder expression
+    # (Concat_ws) and passes a DocType object to frappe.get_value(). The shim's
+    # Rust bridge only accepts string doctypes/fieldnames. Use a plain get_doc
+    # fallback instead.
+    try:
+        from frappe.utils import user as _user_utils
+        if not getattr(_user_utils, "_kiff_patched_get_user_fullname", False):
+            _orig_get_user_fullname = _user_utils.get_user_fullname
+
+            def _patched_get_user_fullname(user):
+                import frappe as _frappe
+                try:
+                    doc = _frappe.get_doc("User", user)
+                    full = " ".join(filter(None, [doc.first_name, doc.last_name])).strip()
+                    return full or user
+                except Exception:
+                    return _orig_get_user_fullname(user)
+
+            _user_utils.get_user_fullname = _patched_get_user_fullname
+            _user_utils._kiff_patched_get_user_fullname = True
+    except Exception:
+        pass
+
+    # There is no email server / Jinja template loader configured in this
+    # minimal runtime, so welcome/reset emails would otherwise block User insert.
+    # Make frappe.sendmail a no-op.
+    try:
+        if not getattr(_real_frappe, "_kiff_patched_sendmail", False):
+            _real_frappe._kiff_sendmail = _real_frappe.sendmail
+
+            def _patched_sendmail(*args, **kwargs):
+                return None
+
+            _real_frappe.sendmail = _patched_sendmail
+            _real_frappe._kiff_patched_sendmail = True
+    except Exception:
+        pass
+
     # Navbar / website settings helpers hit the DB and the bench hooks tree.
     # Provide safe fallbacks so bootinfo can finish.
     try:
@@ -1112,6 +1203,39 @@ def _patch_modules():
             def get_list_view_counts(doctype):
                 return {}
             _listview.get_list_view_counts = get_list_view_counts
+    except Exception:
+        pass
+
+    # Make module discovery aware of Rust apps so custom Rust modules show up
+    # in the User form's "Allow Modules" list and anywhere else Frappe enumerates
+    # modules per installed app.
+    try:
+        import frappe.utils.modules as _modules
+
+        def _patched_get_modules_from_all_apps():
+            apps = set(get_installed_apps())
+            rows = get_all("Module Def", fields=["module_name", "app_name as app"])
+            return [r for r in rows if r.get("app") in apps]
+
+        _modules.get_modules_from_all_apps = _patched_get_modules_from_all_apps
+    except Exception:
+        pass
+
+    # The User form's "Allow Modules" section loads __onload.all_modules via a
+    # direct import of get_modules_from_all_apps, so patching the module above
+    # is not enough. Patch User.onload to build the list directly from Module Def
+    # using a raw SQL query to avoid metadata recursion.
+    try:
+        from frappe.core.doctype.user.user import User as _User
+
+        def _patched_user_onload(self):
+            rows = db.sql('SELECT module_name FROM "module_def"', as_dict=True)
+            self.set_onload(
+                "all_modules",
+                sorted(r.get("module_name") for r in rows if r.get("module_name")),
+            )
+
+        _User.onload = _patched_user_onload
     except Exception:
         pass
 

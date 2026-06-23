@@ -56,7 +56,8 @@ async fn main() -> error::Result<()> {
                     .into_iter()
                     .map(|w| (w.name.to_string(), w.json.to_string(), w.app.to_string()))
                     .collect();
-                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures).await {
+                let module_fixtures = rust_app_registry.all_modules();
+                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures, module_fixtures).await {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }
                 // Always ensure the core users and default roles exist, even if

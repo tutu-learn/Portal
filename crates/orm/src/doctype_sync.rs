@@ -27,16 +27,41 @@ impl DoctypeFixture {
     }
 }
 
+/// A Module fixture contributed by a Rust app.
+///
+/// Guarantees that the module exists in `module_def` even if the app has no
+/// DocType or workspace fixtures for it yet.
+#[derive(Debug, Clone)]
+pub struct ModuleFixture {
+    pub name: String,
+    pub app: String,
+}
+
+impl ModuleFixture {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            app: String::new(),
+        }
+    }
+
+    pub fn with_app(mut self, app: impl Into<String>) -> Self {
+        self.app = app.into();
+        self
+    }
+}
+
 /// Main entry point: sync metadata tables, create all data tables, insert seed data.
 pub async fn sync_all(
     pool: &DatabasePool,
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
+    module_fixtures: Vec<ModuleFixture>,
 ) -> Result<()> {
     info!("syncing frappe doctypes");
     sync_metadata(pool, fixtures.clone()).await?;
     sync_data_tables(pool).await?;
-    insert_seed_data(pool, fixtures, workspace_fixtures.clone()).await?;
+    insert_seed_data(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
     info!("doctype sync complete");
     Ok(())
 }
@@ -682,9 +707,10 @@ async fn insert_seed_data(
     pool: &DatabasePool,
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
+    module_fixtures: Vec<ModuleFixture>,
 ) -> Result<()> {
     ensure_core_users_and_roles(pool).await?;
-    insert_module_defs(pool, fixtures, workspace_fixtures.clone()).await?;
+    insert_module_defs(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
     insert_user_types(pool).await?;
     insert_workflow_defaults(pool).await?;
     insert_genders_and_salutations(pool).await?;
@@ -837,6 +863,7 @@ async fn insert_module_defs(
     pool: &DatabasePool,
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
+    module_fixtures: Vec<ModuleFixture>,
 ) -> Result<()> {
     // Ensure the module_def data table has the app_name column.
     // This handles upgrades from databases created before Rust apps contributed modules.
@@ -863,6 +890,14 @@ async fn insert_module_defs(
             module_apps
                 .entry(fixture.module)
                 .or_insert_with(|| fixture.app.clone());
+        }
+    }
+
+    for module_fixture in module_fixtures {
+        if !module_fixture.name.is_empty() {
+            module_apps
+                .entry(module_fixture.name)
+                .or_insert_with(|| module_fixture.app.clone());
         }
     }
 
