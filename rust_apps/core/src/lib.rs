@@ -72,7 +72,11 @@ pub struct WorkspaceFixture {
 
 impl WorkspaceFixture {
     pub fn new(name: &'static str, json: &'static str) -> Self {
-        Self { name, json, app: "" }
+        Self {
+            name,
+            json,
+            app: "",
+        }
     }
 
     pub fn with_app(mut self, app: &'static str) -> Self {
@@ -149,9 +153,8 @@ pub struct ApiMethod {
     pub handler: BoxApiMethod,
 }
 
-pub type BoxApiMethod = Box<
-    dyn Fn(AppContext, HashMap<String, Value>) -> MethodResult + Send + Sync + 'static,
->;
+pub type BoxApiMethod =
+    Box<dyn Fn(AppContext, HashMap<String, Value>) -> MethodResult + Send + Sync + 'static>;
 
 pub type MethodResult = Pin<Box<dyn Future<Output = error::Result<Value>> + Send + 'static>>;
 
@@ -176,8 +179,12 @@ pub struct ScheduledJob {
     pub handler: BoxScheduledJob,
 }
 
-pub type BoxScheduledJob =
-    Box<dyn Fn(&AppContext) -> Pin<Box<dyn Future<Output = error::Result<()>> + Send>> + Send + Sync + 'static>;
+pub type BoxScheduledJob = Box<
+    dyn Fn(&AppContext) -> Pin<Box<dyn Future<Output = error::Result<()>> + Send>>
+        + Send
+        + Sync
+        + 'static,
+>;
 
 impl ScheduledJob {
     pub fn new<F, Fut>(name: &'static str, cron: &'static str, handler: F) -> Self
@@ -320,17 +327,11 @@ impl RustAppRegistry {
     }
 
     pub fn all_doc_hooks(&self) -> Vec<DocHook> {
-        self.apps
-            .iter()
-            .flat_map(|app| app.doc_hooks())
-            .collect()
+        self.apps.iter().flat_map(|app| app.doc_hooks()).collect()
     }
 
     pub fn all_api_methods(&self) -> Vec<ApiMethod> {
-        self.apps
-            .iter()
-            .flat_map(|app| app.api_methods())
-            .collect()
+        self.apps.iter().flat_map(|app| app.api_methods()).collect()
     }
 
     pub fn all_scheduled_jobs(&self) -> Vec<ScheduledJob> {
@@ -347,18 +348,21 @@ impl orm::DocHookRunner for RustAppRegistry {
         for app in self.apps.iter() {
             for hook in app.doc_hooks() {
                 if hook.event.as_str() == event && hook.doctype == doctype {
-                    let ctx = AppContext::new(app.name(), AppState {
-                        config: Arc::new(config::RuntimeConfig::default()),
-                        site_manager: Arc::new(config::SiteManager::default()),
-                        pools: Arc::new(DashMap::new()),
-                        sessions: Arc::new(session::SessionStore::new()),
-                        permissions: Arc::new(permissions::PermissionEngine::new()),
-                        metadata: Arc::new(metadata::Meta::new()),
-                        pubsub: Arc::new(queue::PubSub::new()),
-                        translator: Arc::new(sql_translator::SqlTranslator::default()),
-                        rust_apps: RustAppRegistry::default(),
-                        logger: Arc::new(std::sync::OnceLock::new()),
-                    });
+                    let ctx = AppContext::new(
+                        app.name(),
+                        AppState {
+                            config: Arc::new(config::RuntimeConfig::default()),
+                            site_manager: Arc::new(config::SiteManager::default()),
+                            pools: Arc::new(DashMap::new()),
+                            sessions: Arc::new(session::SessionStore::new()),
+                            permissions: Arc::new(permissions::PermissionEngine::new()),
+                            metadata: Arc::new(metadata::Meta::new()),
+                            pubsub: Arc::new(queue::PubSub::new()),
+                            translator: Arc::new(sql_translator::SqlTranslator::default()),
+                            rust_apps: RustAppRegistry::default(),
+                            logger: Arc::new(std::sync::OnceLock::new()),
+                        },
+                    );
                     (hook.handler)(&ctx, doc)?;
                 }
             }

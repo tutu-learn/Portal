@@ -34,8 +34,12 @@ pub struct DatabaseConfig {
     pub url: String,
 }
 
-fn default_driver() -> String { "sqlite".into() }
-fn default_url() -> String { "./sites/{site}/site.db".into() }
+fn default_driver() -> String {
+    "sqlite".into()
+}
+fn default_url() -> String {
+    "./sites/{site}/site.db".into()
+}
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ServerConfig {
@@ -47,9 +51,15 @@ pub struct ServerConfig {
     pub workers: usize,
 }
 
-fn default_host() -> String { "0.0.0.0".into() }
-fn default_port() -> u16 { 8000 }
-fn default_workers() -> usize { 4 }
+fn default_host() -> String {
+    "0.0.0.0".into()
+}
+fn default_port() -> u16 {
+    8000
+}
+fn default_workers() -> usize {
+    4
+}
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct QueueConfig {
@@ -61,9 +71,15 @@ pub struct QueueConfig {
     pub long_workers: usize,
 }
 
-fn default_short() -> usize { 2 }
-fn default_default() -> usize { 2 }
-fn default_long() -> usize { 1 }
+fn default_short() -> usize {
+    2
+}
+fn default_default() -> usize {
+    2
+}
+fn default_long() -> usize {
+    1
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeSection {
@@ -135,7 +151,8 @@ impl SiteManager {
             std::fs::create_dir_all(&sites_path)?;
         }
 
-        let mut entries = tokio::fs::read_dir(&sites_path).await
+        let mut entries = tokio::fs::read_dir(&sites_path)
+            .await
             .map_err(RuntimeError::Io)?;
 
         while let Some(entry) = entries.next_entry().await.map_err(RuntimeError::Io)? {
@@ -154,10 +171,12 @@ impl SiteManager {
                 // Only treat directories with an explicit site_config.json as sites.
                 continue;
             }
-            let content = tokio::fs::read_to_string(&config_path).await
+            let content = tokio::fs::read_to_string(&config_path)
+                .await
                 .map_err(RuntimeError::Io)?;
-            let mut config: SiteConfig = serde_json::from_str(&content)
-                .map_err(|e| RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e)))?;
+            let mut config: SiteConfig = serde_json::from_str(&content).map_err(|e| {
+                RuntimeError::Config(format!("invalid site_config.json for {}: {}", name, e))
+            })?;
 
             // Allow operators to pin a stable encryption key from a cluster
             // secret / environment variable. This is essential for stateless
@@ -168,9 +187,15 @@ impl SiteManager {
                         if config.encryption_key != env_key {
                             info!("using FRAPPE_ENCRYPTION_KEY for site {}", name);
                             config.encryption_key = env_key;
-                            let config_json = serde_json::to_string_pretty(&config)
-                                .map_err(|e| RuntimeError::Config(format!("failed to serialize site_config.json for {}: {}", name, e)))?;
-                            tokio::fs::write(&config_path, config_json).await
+                            let config_json =
+                                serde_json::to_string_pretty(&config).map_err(|e| {
+                                    RuntimeError::Config(format!(
+                                        "failed to serialize site_config.json for {}: {}",
+                                        name, e
+                                    ))
+                                })?;
+                            tokio::fs::write(&config_path, config_json)
+                                .await
                                 .map_err(RuntimeError::Io)?;
                         }
                     } else {
@@ -191,9 +216,14 @@ impl SiteManager {
                     name
                 );
                 config.encryption_key = generate_fernet_key();
-                let config_json = serde_json::to_string_pretty(&config)
-                    .map_err(|e| RuntimeError::Config(format!("failed to serialize site_config.json for {}: {}", name, e)))?;
-                tokio::fs::write(&config_path, config_json).await
+                let config_json = serde_json::to_string_pretty(&config).map_err(|e| {
+                    RuntimeError::Config(format!(
+                        "failed to serialize site_config.json for {}: {}",
+                        name, e
+                    ))
+                })?;
+                tokio::fs::write(&config_path, config_json)
+                    .await
                     .map_err(RuntimeError::Io)?;
             }
 
@@ -220,7 +250,10 @@ impl SiteManager {
     pub fn create_site(&mut self, name: &str) -> Result<Site> {
         let site_path = self.sites_path.join(name);
         if site_path.exists() {
-            return Err(RuntimeError::Validation(format!("site {} already exists", name)));
+            return Err(RuntimeError::Validation(format!(
+                "site {} already exists",
+                name
+            )));
         }
 
         std::fs::create_dir_all(&site_path)?;

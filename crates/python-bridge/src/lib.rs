@@ -72,7 +72,9 @@ pub(crate) fn py_to_json(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> 
         return Ok(Value::Number(i.into()));
     }
     if let Ok(f) = obj.extract::<f64>() {
-        return Ok(Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into())));
+        return Ok(Value::Number(
+            serde_json::Number::from_f64(f).unwrap_or(0.into()),
+        ));
     }
     if let Ok(s) = obj.extract::<String>() {
         return Ok(Value::String(s));
@@ -127,10 +129,16 @@ pub fn json_to_py(py: Python<'_>, val: &serde_json::Value) -> PyResult<PyObject>
     match val {
         serde_json::Value::Null => Ok(py.None()),
         serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.to_owned().unbind().into()),
-        serde_json::Value::Number(n) if n.is_i64() => Ok(n.as_i64().unwrap().into_pyobject(py)?.unbind().into()),
-        serde_json::Value::Number(n) if n.is_f64() => Ok(n.as_f64().unwrap().into_pyobject(py)?.unbind().into()),
+        serde_json::Value::Number(n) if n.is_i64() => {
+            Ok(n.as_i64().unwrap().into_pyobject(py)?.unbind().into())
+        }
+        serde_json::Value::Number(n) if n.is_f64() => {
+            Ok(n.as_f64().unwrap().into_pyobject(py)?.unbind().into())
+        }
         serde_json::Value::Number(n) => Ok(n.as_u64().unwrap().into_pyobject(py)?.unbind().into()),
-        serde_json::Value::String(s) => Ok(s.as_str().into_pyobject(py)?.to_owned().unbind().into()),
+        serde_json::Value::String(s) => {
+            Ok(s.as_str().into_pyobject(py)?.to_owned().unbind().into())
+        }
         serde_json::Value::Array(arr) => {
             let list = pyo3::types::PyList::empty(py);
             for item in arr {
@@ -150,7 +158,10 @@ pub fn json_to_py(py: Python<'_>, val: &serde_json::Value) -> PyResult<PyObject>
 
 /// Dynamically call a Python method by dotted path (e.g. "frappe.desk.doctype.get_list")
 /// with kwargs parsed from JSON.
-pub fn call_method(method_path: &str, kwargs: &serde_json::Value) -> error::Result<serde_json::Value> {
+pub fn call_method(
+    method_path: &str,
+    kwargs: &serde_json::Value,
+) -> error::Result<serde_json::Value> {
     call_method_with_user(method_path, kwargs, None)
 }
 
@@ -193,8 +204,9 @@ pub fn call_method_with_user(
                 if SKIP_KEYS.contains(&k.as_str()) {
                     continue;
                 }
-                let py_val = json_to_py(py, v)
-                    .map_err(|e| error::RuntimeError::Python(format!("arg {} convert: {}", k, e)))?;
+                let py_val = json_to_py(py, v).map_err(|e| {
+                    error::RuntimeError::Python(format!("arg {} convert: {}", k, e))
+                })?;
                 dict.set_item(k, py_val)
                     .map_err(|e| error::RuntimeError::Python(format!("arg {} set: {}", k, e)))?;
             }
@@ -207,30 +219,35 @@ pub fn call_method_with_user(
         // before dispatching so Python functions see a clean per-request context.
         if let Ok(frappe_mod) = py.import("frappe") {
             if let Ok(set_ctx) = frappe_mod.getattr("_set_request_context") {
-                let ctx_dict = py_kwargs.as_ref()
+                let ctx_dict = py_kwargs
+                    .as_ref()
                     .map(|d| d.as_any().clone())
                     .unwrap_or_else(|| pyo3::types::PyDict::new(py).into_any());
                 let _ = set_ctx.call1((ctx_dict, user.unwrap_or("Guest")));
             }
         }
 
-        let module = py.import(module_path.as_str())
+        let module = py
+            .import(module_path.as_str())
             .map_err(|e| error::RuntimeError::Python(format!("import {}: {}", module_path, e)))?;
 
-        let func = module.getattr(*func_name)
+        let func = module
+            .getattr(*func_name)
             .map_err(|e| error::RuntimeError::Python(format!("getattr {}: {}", func_name, e)))?;
 
         // Filter kwargs to only parameters the function actually accepts,
         // unless the function declares **kwargs (VAR_KEYWORD parameter).
         let filtered_kwargs = if let Some(ref kw) = py_kwargs {
-            let inspect = py.import("inspect")
+            let inspect = py
+                .import("inspect")
                 .ok()
                 .and_then(|m| m.getattr("signature").ok())
                 .and_then(|sig_fn| sig_fn.call1((&func,)).ok());
 
             if let Some(sig) = inspect {
                 let accepts_var_keyword = sig
-                    .getattr("parameters").ok()
+                    .getattr("parameters")
+                    .ok()
                     .and_then(|params| {
                         // Check if any parameter has kind == VAR_KEYWORD (4)
                         let values = params.call_method0("values").ok()?;
@@ -253,7 +270,8 @@ pub fn call_method_with_user(
                 } else {
                     // Build a filtered dict with only accepted parameter names.
                     let param_names: std::collections::HashSet<String> = sig
-                        .getattr("parameters").ok()
+                        .getattr("parameters")
+                        .ok()
                         .and_then(|params| params.call_method0("keys").ok())
                         .and_then(|keys| {
                             keys.try_iter().ok().map(|iter| {
@@ -284,24 +302,27 @@ pub fn call_method_with_user(
             func.call((), Some(kw))
         } else {
             func.call0()
-        }.map_err(|e| {
+        }
+        .map_err(|e| {
             // Extract a full Python traceback so the JS console / logs show the
             // real failure point instead of just the exception message.
             let detail = Python::with_gil(|py| {
-                let traceback = py.import("traceback").ok()
+                let traceback = py
+                    .import("traceback")
+                    .ok()
                     .and_then(|tb| tb.getattr("format_exception").ok())
                     .and_then(|fmt| {
                         // format_exception(exception_type, exception_value, traceback)
-                        let args = (
-                            e.get_type(py),
-                            e.clone_ref(py),
-                            e.traceback(py),
-                        );
+                        let args = (e.get_type(py), e.clone_ref(py), e.traceback(py));
                         fmt.call1(args).ok()
                     })
                     .and_then(|lines| py_to_json(&lines).ok())
                     .and_then(|v| v.as_array().cloned())
-                    .map(|arr| arr.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect::<String>())
+                    .map(|arr| {
+                        arr.iter()
+                            .map(|v| v.as_str().unwrap_or("").to_string())
+                            .collect::<String>()
+                    })
                     .unwrap_or_default();
                 if traceback.is_empty() {
                     e.to_string()
@@ -318,7 +339,8 @@ pub fn call_method_with_user(
         // If the Python function populated frappe.response.docs, return the full
         // response object (Frappe getdoc/getdoctype pattern).  Otherwise wrap the
         // return value in {"message": ...} as standard Frappe API does.
-        let response_json = py.import("frappe")
+        let response_json = py
+            .import("frappe")
             .ok()
             .and_then(|frappe| frappe.getattr("response").ok())
             .and_then(|resp| py_to_json(&resp).ok());
@@ -377,12 +399,16 @@ pub(crate) fn values_from_py(obj: Option<Bound<'_, PyAny>>) -> PyResult<Vec<serd
 #[pyfunction]
 fn log_query(q: &str, limit: usize) -> PyResult<PyObject> {
     let Some(service) = log_service() else {
-        return Err(pyo3::exceptions::PyRuntimeError::new_err("log engine not initialized"));
+        return Err(pyo3::exceptions::PyRuntimeError::new_err(
+            "log engine not initialized",
+        ));
     };
 
-    let records = rt().block_on(async {
-        service.query(q, limit).await
-    }).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("log query failed: {}", e)))?;
+    let records = rt()
+        .block_on(async { service.query(q, limit).await })
+        .map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("log query failed: {}", e))
+        })?;
 
     Python::with_gil(|py| {
         let list = pyo3::types::PyList::empty(py);
@@ -416,8 +442,7 @@ fn log_query(q: &str, limit: usize) -> PyResult<PyObject> {
                 dict.set_item("severity", severity)?;
             }
             if !rec.fields.is_empty() {
-                let raw = serde_json::to_string(&rec.fields)
-                    .unwrap_or_else(|_| "{}".to_string());
+                let raw = serde_json::to_string(&rec.fields).unwrap_or_else(|_| "{}".to_string());
                 dict.set_item("raw_fields", raw)?;
             }
 
@@ -442,12 +467,14 @@ fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
         .build()
         .map_err(|e| PyRuntimeError::new_err(format!("tokio: {}", e)))?;
 
-    let pool = rt.block_on(async {
-        match db_driver {
-            "postgres" => orm::DatabasePool::connect_postgres(db_url).await,
-            _ => orm::DatabasePool::connect_sqlite(db_url).await,
-        }
-    }).map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
+    let pool = rt
+        .block_on(async {
+            match db_driver {
+                "postgres" => orm::DatabasePool::connect_postgres(db_url).await,
+                _ => orm::DatabasePool::connect_sqlite(db_url).await,
+            }
+        })
+        .map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
 
     let _ = RUNTIME.set(rt);
     let _ = POOL.set(pool);

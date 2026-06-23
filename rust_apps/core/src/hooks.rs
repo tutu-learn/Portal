@@ -5,8 +5,8 @@
 //! only provides the reusable hook factory so that all audit-trail logic is
 //! centralized in one place.
 
-use crate::{DocEvent, DocHook};
 use crate::logging::log_document_event;
+use crate::{DocEvent, DocHook};
 
 /// Build a single audit hook that logs a document lifecycle event.
 pub fn audit_hook(event: DocEvent, doctype: &'static str) -> DocHook {

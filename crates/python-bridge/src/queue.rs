@@ -1,4 +1,4 @@
-use crate::{json_to_py, py_to_json, pool, rt};
+use crate::{json_to_py, pool, py_to_json, rt};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -9,16 +9,17 @@ pub fn enqueue(
     queue: String,
     kwargs: Bound<'_, PyAny>,
 ) -> PyResult<String> {
-    let kwargs_map: std::collections::HashMap<String, serde_json::Value> = if let Ok(dict) = kwargs.downcast::<PyDict>() {
-        let mut map = std::collections::HashMap::new();
-        for (k, v) in dict {
-            let key: String = k.extract()?;
-            map.insert(key, py_to_json(&v)?);
-        }
-        map
-    } else {
-        std::collections::HashMap::new()
-    };
+    let kwargs_map: std::collections::HashMap<String, serde_json::Value> =
+        if let Ok(dict) = kwargs.downcast::<PyDict>() {
+            let mut map = std::collections::HashMap::new();
+            for (k, v) in dict {
+                let key: String = k.extract()?;
+                map.insert(key, py_to_json(&v)?);
+            }
+            map
+        } else {
+            std::collections::HashMap::new()
+        };
 
     let job_id = uuid::Uuid::new_v4().to_string();
     let kwargs_json = serde_json::to_string(&kwargs_map)

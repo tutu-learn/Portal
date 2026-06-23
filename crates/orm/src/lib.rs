@@ -1,6 +1,6 @@
 pub mod backends;
-pub mod document;
 pub mod doctype_sync;
+pub mod document;
 pub mod filters;
 pub mod hooks;
 pub mod migrations;

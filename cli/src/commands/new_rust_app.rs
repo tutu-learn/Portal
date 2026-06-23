@@ -180,11 +180,7 @@ fn add_to_registry(name: &str, pascal_name: &str) -> error::Result<()> {
         return Ok(());
     }
 
-    let new_contents = contents.replacen(
-        "    vec![\n",
-        &format!("    vec![\n{app_line}\n"),
-        1,
-    );
+    let new_contents = contents.replacen("    vec![\n", &format!("    vec![\n{app_line}\n"), 1);
     fs::write(path, new_contents)?;
     Ok(())
 }
@@ -194,7 +190,9 @@ fn to_pascal_case(s: &str) -> String {
         .map(|word| {
             let mut chars = word.chars();
             match chars.next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+                Some(first) => {
+                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+                }
                 None => String::new(),
             }
         })

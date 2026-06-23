@@ -10,13 +10,13 @@ fn parse_filter_condition(val: serde_json::Value) -> FilterCondition {
             let op = arr[0].as_str().unwrap_or("").to_lowercase();
             let operand = arr[1].clone();
             return match op.as_str() {
-                "="        => FilterCondition::Eq(operand),
-                "!="       => FilterCondition::Ne(operand),
-                ">"        => FilterCondition::Gt(operand),
-                ">="       => FilterCondition::Gte(operand),
-                "<"        => FilterCondition::Lt(operand),
-                "<="       => FilterCondition::Lte(operand),
-                "like"     => FilterCondition::Like(operand.as_str().unwrap_or("").to_string()),
+                "=" => FilterCondition::Eq(operand),
+                "!=" => FilterCondition::Ne(operand),
+                ">" => FilterCondition::Gt(operand),
+                ">=" => FilterCondition::Gte(operand),
+                "<" => FilterCondition::Lt(operand),
+                "<=" => FilterCondition::Lte(operand),
+                "like" => FilterCondition::Like(operand.as_str().unwrap_or("").to_string()),
                 "not like" => FilterCondition::NotLike(operand.as_str().unwrap_or("").to_string()),
                 "in" => {
                     let items = operand.as_array().cloned().unwrap_or_default();
@@ -27,9 +27,9 @@ fn parse_filter_condition(val: serde_json::Value) -> FilterCondition {
                     FilterCondition::NotIn(items)
                 }
                 "is" => match operand.as_str().unwrap_or("").to_lowercase().as_str() {
-                    "set"     => FilterCondition::IsSet,
+                    "set" => FilterCondition::IsSet,
                     "not set" => FilterCondition::IsNotSet,
-                    _         => FilterCondition::Eq(operand),
+                    _ => FilterCondition::Eq(operand),
                 },
                 _ => FilterCondition::Eq(val),
             };
@@ -69,7 +69,8 @@ pub fn get_list(
 ) -> PyResult<PyObject> {
     let filters: Option<HashMap<String, FilterCondition>> = match filters {
         Some(f) if !f.is_none() => {
-            let dict = f.downcast::<PyDict>()
+            let dict = f
+                .downcast::<PyDict>()
                 .map_err(|_| pyo3::exceptions::PyTypeError::new_err("filters must be a dict"))?;
             let mut map = HashMap::new();
             for (k, v) in dict {
@@ -99,7 +100,9 @@ pub fn get_list(
 
     let docs = rt()
         .block_on(async {
-            pool().get_list(&doctype, filters, fields, order_by.as_deref(), limit).await
+            pool()
+                .get_list(&doctype, filters, fields, order_by.as_deref(), limit)
+                .await
         })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
@@ -127,23 +130,35 @@ pub fn get_value(
     filters: Bound<'_, PyAny>,
     fieldname: String,
 ) -> PyResult<PyObject> {
-    let filters_map: HashMap<String, FilterCondition> = if let Ok(dict) = filters.downcast::<PyDict>() {
-        let mut map = HashMap::new();
-        for (k, v) in dict {
-            let key: String = k.extract()?;
-            map.insert(key, FilterCondition::Eq(py_to_json(&v)?));
-        }
-        map
-    } else {
-        let mut map = HashMap::new();
-        let name: String = filters.extract()?;
-        map.insert("name".into(), FilterCondition::Eq(serde_json::Value::String(name)));
-        map
-    };
+    let filters_map: HashMap<String, FilterCondition> =
+        if let Ok(dict) = filters.downcast::<PyDict>() {
+            let mut map = HashMap::new();
+            for (k, v) in dict {
+                let key: String = k.extract()?;
+                map.insert(key, FilterCondition::Eq(py_to_json(&v)?));
+            }
+            map
+        } else {
+            let mut map = HashMap::new();
+            let name: String = filters.extract()?;
+            map.insert(
+                "name".into(),
+                FilterCondition::Eq(serde_json::Value::String(name)),
+            );
+            map
+        };
 
     let docs = rt()
         .block_on(async {
-            pool().get_list(&doctype, Some(filters_map), Some(vec![fieldname.clone()]), None, Some(1)).await
+            pool()
+                .get_list(
+                    &doctype,
+                    Some(filters_map),
+                    Some(vec![fieldname.clone()]),
+                    None,
+                    Some(1),
+                )
+                .await
         })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
@@ -194,8 +209,7 @@ pub fn db_set_values(
         doc.set_field(key, val);
     }
 
-    rt()
-        .block_on(async { pool().save_doc(&doc).await })
+    rt().block_on(async { pool().save_doc(&doc).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
     Ok(())
@@ -203,8 +217,7 @@ pub fn db_set_values(
 
 #[pyfunction]
 pub fn db_exists(_py: Python<'_>, doctype: String, name: String) -> PyResult<bool> {
-    rt()
-        .block_on(async { pool().exists(&doctype, &name).await })
+    rt().block_on(async { pool().exists(&doctype, &name).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))
 }
 
@@ -216,7 +229,8 @@ pub fn db_count(
 ) -> PyResult<usize> {
     let filters_map: Option<HashMap<String, serde_json::Value>> = match filters {
         Some(f) if !f.is_none() => {
-            let dict = f.downcast::<PyDict>()
+            let dict = f
+                .downcast::<PyDict>()
                 .map_err(|_| pyo3::exceptions::PyTypeError::new_err("filters must be a dict"))?;
             let mut map = HashMap::new();
             for (k, v) in dict {
@@ -245,7 +259,11 @@ pub fn db_count(
                 vals.push(v.clone());
             }
             (
-                format!("SELECT COUNT(*) as c FROM \"{}\" WHERE {}", tbl, conditions.join(" AND ")),
+                format!(
+                    "SELECT COUNT(*) as c FROM \"{}\" WHERE {}",
+                    tbl,
+                    conditions.join(" AND ")
+                ),
                 vals,
             )
         }
@@ -267,7 +285,12 @@ pub fn db_count(
 }
 
 #[pyfunction]
-pub fn save_doc(_py: Python<'_>, doctype: String, name: String, values: Bound<'_, PyDict>) -> PyResult<()> {
+pub fn save_doc(
+    _py: Python<'_>,
+    doctype: String,
+    name: String,
+    values: Bound<'_, PyDict>,
+) -> PyResult<()> {
     let mut doc = rt()
         .block_on(async { pool().get_doc(&doctype, &name).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
@@ -278,8 +301,7 @@ pub fn save_doc(_py: Python<'_>, doctype: String, name: String, values: Bound<'_
         doc.set_field(key, val);
     }
 
-    rt()
-        .block_on(async { pool().save_doc(&doc).await })
+    rt().block_on(async { pool().save_doc(&doc).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
     Ok(())
@@ -304,24 +326,21 @@ pub fn insert_doc(_py: Python<'_>, doctype: String, values: Bound<'_, PyDict>) -
 
 #[pyfunction]
 pub fn delete_doc(_py: Python<'_>, doctype: String, name: String) -> PyResult<()> {
-    rt()
-        .block_on(async { pool().delete_doc(&doctype, &name).await })
+    rt().block_on(async { pool().delete_doc(&doctype, &name).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
     Ok(())
 }
 
 #[pyfunction]
 pub fn db_commit(_py: Python<'_>) -> PyResult<()> {
-    rt()
-        .block_on(async { pool().commit().await })
+    rt().block_on(async { pool().commit().await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
     Ok(())
 }
 
 #[pyfunction]
 pub fn db_rollback(_py: Python<'_>) -> PyResult<()> {
-    rt()
-        .block_on(async { pool().rollback().await })
+    rt().block_on(async { pool().rollback().await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
     Ok(())
 }

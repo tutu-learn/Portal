@@ -2,12 +2,12 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use rust_apps_core::{AppContext, AppState, RustApp};
-use tower::util::ServiceExt;
 use std::collections::HashMap;
+use tower::util::ServiceExt;
 
 fn build_state() -> AppState {
-    use std::sync::Arc;
     use dashmap::DashMap;
+    use std::sync::Arc;
 
     AppState {
         config: Arc::new(config::RuntimeConfig::default()),
@@ -17,7 +17,9 @@ fn build_state() -> AppState {
         permissions: Arc::new(permissions::PermissionEngine::new()),
         metadata: Arc::new(metadata::Meta::new()),
         pubsub: Arc::new(queue::PubSub::new()),
-        translator: Arc::new(sql_translator::SqlTranslator::new(sql_translator::TargetDialect::Sqlite)),
+        translator: Arc::new(sql_translator::SqlTranslator::new(
+            sql_translator::TargetDialect::Sqlite,
+        )),
         rust_apps: rust_apps_core::RustAppRegistry::default(),
         logger: Arc::new(std::sync::OnceLock::new()),
     }
@@ -28,7 +30,9 @@ async fn audit_ready_app_route_is_mounted() {
     let state = build_state();
     let app = audit_ready::AuditReadyApp;
     let ctx = AppContext::new(app.name(), state.clone());
-    let router = app.routes(&ctx, http::router::create_router()).with_state(state);
+    let router = app
+        .routes(&ctx, http::router::create_router())
+        .with_state(state);
 
     let response = router
         .oneshot(

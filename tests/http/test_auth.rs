@@ -5,7 +5,9 @@ async fn test_session_create_and_get() -> Result<()> {
     let pool = crate::common::setup_test_db().await?;
     let store = session::SessionStore::new();
 
-    let session = store.create(&pool, "testuser".into(), "test_site".into()).await?;
+    let session = store
+        .create(&pool, "testuser".into(), "test_site".into())
+        .await?;
     assert!(!session.id.is_empty());
     assert_eq!(session.user, "testuser");
     assert_eq!(session.site, "test_site");
@@ -24,7 +26,9 @@ async fn test_session_delete() -> Result<()> {
     let pool = crate::common::setup_test_db().await?;
     let store = session::SessionStore::new();
 
-    let session = store.create(&pool, "testuser".into(), "test_site".into()).await?;
+    let session = store
+        .create(&pool, "testuser".into(), "test_site".into())
+        .await?;
     let fetched_before = store.get(&pool, &session.id).await?;
     assert!(fetched_before.is_some());
 
@@ -41,7 +45,9 @@ async fn test_login_creates_session() -> Result<()> {
     let pool = crate::common::setup_test_db().await?;
     let auth = session::AuthService::new(session::SessionStore::new());
 
-    let session = auth.login(&pool, "Administrator", "admin", "test_site").await?;
+    let session = auth
+        .login(&pool, "Administrator", "admin", "test_site")
+        .await?;
     assert!(!session.id.is_empty());
     assert_eq!(session.user, "Administrator");
 

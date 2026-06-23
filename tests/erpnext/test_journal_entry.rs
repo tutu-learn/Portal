@@ -30,10 +30,18 @@ async fn test_create_journal_entry() -> Result<()> {
 
     let fetched = pool.get_doc("Journal Entry", "JE-2024-001").await?;
     assert_eq!(fetched.name, "JE-2024-001");
-    assert_eq!(fetched.get_field("title").and_then(|v| v.as_str()), Some("Test Journal Entry"));
-    assert_eq!(fetched.get_field("posting_date").and_then(|v| v.as_str()), Some("2024-01-15"));
+    assert_eq!(
+        fetched.get_field("title").and_then(|v| v.as_str()),
+        Some("Test Journal Entry")
+    );
+    assert_eq!(
+        fetched.get_field("posting_date").and_then(|v| v.as_str()),
+        Some("2024-01-15")
+    );
 
-    let list = pool.get_list("Journal Entry", None, None, None, None).await?;
+    let list = pool
+        .get_list("Journal Entry", None, None, None, None)
+        .await?;
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].name, "JE-2024-001");
 

@@ -1,4 +1,6 @@
-use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, ObjectName, Ident};
+use sqlparser::ast::{
+    Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName,
+};
 
 pub fn rewrite_expr(expr: &mut Expr) {
     match expr {
@@ -39,7 +41,9 @@ pub fn rewrite_expr(expr: &mut Expr) {
             rewrite_expr(expr);
             crate::rewriter::rewrite_query(subquery);
         }
-        Expr::Between { expr, low, high, .. } => {
+        Expr::Between {
+            expr, low, high, ..
+        } => {
             rewrite_expr(expr);
             rewrite_expr(low);
             rewrite_expr(high);
@@ -68,8 +72,7 @@ pub fn rewrite_expr(expr: &mut Expr) {
             rewrite_expr(expr);
             rewrite_expr(pattern);
         }
-        Expr::AnyOp { left, right, .. } |
-        Expr::AllOp { left, right, .. } => {
+        Expr::AnyOp { left, right, .. } | Expr::AllOp { left, right, .. } => {
             rewrite_expr(left);
             rewrite_expr(right);
         }
@@ -82,7 +85,10 @@ pub fn rewrite_expr(expr: &mut Expr) {
             rewrite_expr(expr);
             rewrite_expr(r#in);
         }
-        Expr::AtTimeZone { timestamp, time_zone } => {
+        Expr::AtTimeZone {
+            timestamp,
+            time_zone,
+        } => {
             rewrite_expr(timestamp);
             rewrite_expr(time_zone);
         }
@@ -143,7 +149,13 @@ pub fn rewrite_expr(expr: &mut Expr) {
 }
 
 fn rewrite_function(func: &mut Function) {
-    let name_upper = func.name.0.iter().map(|i| i.value.to_uppercase()).collect::<Vec<_>>().join(".");
+    let name_upper = func
+        .name
+        .0
+        .iter()
+        .map(|i| i.value.to_uppercase())
+        .collect::<Vec<_>>()
+        .join(".");
 
     match name_upper.as_str() {
         "IFNULL" => {

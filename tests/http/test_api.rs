@@ -48,7 +48,10 @@ async fn test_getpage_permission_manager() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let docs = json["docs"].as_array().unwrap();
     assert_eq!(docs[0]["name"], "permission-manager");
-    assert!(docs[0]["script"].as_str().unwrap().contains("permission_manager"));
+    assert!(docs[0]["script"]
+        .as_str()
+        .unwrap()
+        .contains("permission_manager"));
     assert!(docs[0]["script"]
         .as_str()
         .unwrap()
@@ -92,7 +95,9 @@ async fn test_getpage_post_permission_manager() {
                 .uri("/api/method/frappe.desk.desk_page.getpage")
                 .header("content-type", "application/x-www-form-urlencoded")
                 .header("cookie", cookie)
-                .body(Body::from("args=%7B%22name%22%3A%22permission-manager%22%7D"))
+                .body(Body::from(
+                    "args=%7B%22name%22%3A%22permission-manager%22%7D",
+                ))
                 .unwrap(),
         )
         .await
@@ -127,7 +132,9 @@ async fn test_api_get_doc_not_found() {
 #[tokio::test]
 async fn test_api_get_list_empty() {
     let pool = crate::common::setup_test_db().await.unwrap();
-    crate::common::create_doctype_table(&pool, "EmptyDoc").await.unwrap();
+    crate::common::create_doctype_table(&pool, "EmptyDoc")
+        .await
+        .unwrap();
 
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -153,7 +160,9 @@ async fn test_api_get_list_empty() {
 #[tokio::test]
 async fn test_api_insert_and_get_doc() {
     let pool = crate::common::setup_test_db().await.unwrap();
-    crate::common::create_doctype_table(&pool, "ApiDoc").await.unwrap();
+    crate::common::create_doctype_table(&pool, "ApiDoc")
+        .await
+        .unwrap();
 
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -174,7 +183,12 @@ async fn test_api_insert_and_get_doc() {
 
     assert_eq!(insert_response.status(), StatusCode::CREATED);
 
-    let body = insert_response.into_body().collect().await.unwrap().to_bytes();
+    let body = insert_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let name = json["data"]["name"].as_str().unwrap();
     assert!(!name.is_empty());
@@ -196,6 +210,38 @@ async fn test_api_insert_and_get_doc() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let title = json["data"]["title"].as_str().unwrap();
     assert_eq!(title, "API Test");
+}
+
+#[tokio::test]
+async fn test_getdoc_native_includes_onload_modules() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/method/frappe.desk.form.load.getdoc?doctype=User&name=Administrator")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let docs = json["docs"].as_array().expect("docs array expected");
+    assert_eq!(docs.len(), 1);
+    let all_modules = docs[0]["__onload"]["all_modules"]
+        .as_array()
+        .expect("__onload.all_modules expected");
+    assert!(!all_modules.is_empty());
+
+    let docinfo = json["docinfo"].as_object().expect("docinfo expected");
+    assert_eq!(docinfo["doctype"], "User");
+    assert_eq!(docinfo["name"], "Administrator");
+    assert!(docinfo["attachments"].as_array().is_some());
 }
 
 #[tokio::test]

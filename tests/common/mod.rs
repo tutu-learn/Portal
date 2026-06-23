@@ -41,8 +41,8 @@ pub async fn create_doctype_table(pool: &orm::DatabasePool, doctype: &str) -> er
 }
 
 pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
-    use std::sync::Arc;
     use dashmap::DashMap;
+    use std::sync::Arc;
 
     let pools = Arc::new(DashMap::new());
     pools.insert("test_site".into(), pool);
@@ -55,7 +55,9 @@ pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
         permissions: Arc::new(permissions::PermissionEngine::new()),
         metadata: Arc::new(metadata::Meta::new()),
         pubsub: Arc::new(queue::PubSub::new()),
-        translator: Arc::new(sql_translator::SqlTranslator::new(sql_translator::TargetDialect::Sqlite)),
+        translator: Arc::new(sql_translator::SqlTranslator::new(
+            sql_translator::TargetDialect::Sqlite,
+        )),
         rust_apps: rust_apps_core::RustAppRegistry::default(),
         logger: Arc::new(std::sync::OnceLock::new()),
     }

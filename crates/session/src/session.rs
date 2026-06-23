@@ -47,23 +47,31 @@ impl SessionStore {
 
         let data_json = serde_json::to_string(&session.data)?;
         let sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 INSERT INTO __kiff_sessions (id, "user", site, created_at, expires_at, data)
                 VALUES ($1, $2, $3, $4, $5, $6)
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 INSERT INTO __kiff_sessions (id, user, site, created_at, expires_at, data)
                 VALUES (?, ?, ?, ?, ?, ?)
-            "#,
+            "#
+            }
         };
-        pool.execute_sql(sql, vec![
-            serde_json::Value::String(session.id.clone()),
-            serde_json::Value::String(user),
-            serde_json::Value::String(site),
-            serde_json::Value::String(now.to_rfc3339()),
-            serde_json::Value::String(expires.to_rfc3339()),
-            serde_json::Value::String(data_json),
-        ]).await?;
+        pool.execute_sql(
+            sql,
+            vec![
+                serde_json::Value::String(session.id.clone()),
+                serde_json::Value::String(user),
+                serde_json::Value::String(site),
+                serde_json::Value::String(now.to_rfc3339()),
+                serde_json::Value::String(expires.to_rfc3339()),
+                serde_json::Value::String(data_json),
+            ],
+        )
+        .await?;
 
         Ok(session)
     }
@@ -73,16 +81,20 @@ impl SessionStore {
             "postgres" => "SELECT * FROM __kiff_sessions WHERE id = $1 LIMIT 1",
             _ => "SELECT * FROM __kiff_sessions WHERE id = ? LIMIT 1",
         };
-        let rows = pool.execute_sql(sql, vec![serde_json::Value::String(session_id.into())]).await?;
+        let rows = pool
+            .execute_sql(sql, vec![serde_json::Value::String(session_id.into())])
+            .await?;
         let mut row = match rows.into_iter().next() {
             Some(r) => r,
             None => return Ok(None),
         };
 
-        let expires_str = row.remove("expires_at")
+        let expires_str = row
+            .remove("expires_at")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
-        let expires: DateTime<Utc> = expires_str.parse()
+        let expires: DateTime<Utc> = expires_str
+            .parse()
             .map_err(|e| RuntimeError::Validation(format!("invalid expires_at: {}", e)))?;
 
         if Utc::now() > expires {
@@ -91,17 +103,28 @@ impl SessionStore {
             return Ok(None);
         }
 
-        let data_json = row.remove("data")
+        let data_json = row
+            .remove("data")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_else(|| "{}".into());
-        let data: HashMap<String, serde_json::Value> = serde_json::from_str(&data_json)
-            .unwrap_or_default();
+        let data: HashMap<String, serde_json::Value> =
+            serde_json::from_str(&data_json).unwrap_or_default();
 
         Ok(Some(Session {
-            id: row.remove("id").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-            user: row.remove("user").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-            site: row.remove("site").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-            created_at: row.remove("created_at")
+            id: row
+                .remove("id")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            user: row
+                .remove("user")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            site: row
+                .remove("site")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            created_at: row
+                .remove("created_at")
                 .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
                 .unwrap_or_else(Utc::now),
             expires_at: expires,
@@ -114,7 +137,8 @@ impl SessionStore {
             "postgres" => "DELETE FROM __kiff_sessions WHERE id = $1",
             _ => "DELETE FROM __kiff_sessions WHERE id = ?",
         };
-        pool.execute_sql(sql, vec![serde_json::Value::String(session_id.into())]).await?;
+        pool.execute_sql(sql, vec![serde_json::Value::String(session_id.into())])
+            .await?;
         Ok(())
     }
 
@@ -129,10 +153,14 @@ impl SessionStore {
             "postgres" => "UPDATE __kiff_sessions SET data = $1 WHERE id = $2",
             _ => "UPDATE __kiff_sessions SET data = ? WHERE id = ?",
         };
-        pool.execute_sql(sql, vec![
-            serde_json::Value::String(data_json),
-            serde_json::Value::String(session_id.into()),
-        ]).await?;
+        pool.execute_sql(
+            sql,
+            vec![
+                serde_json::Value::String(data_json),
+                serde_json::Value::String(session_id.into()),
+            ],
+        )
+        .await?;
         Ok(())
     }
 }

@@ -55,9 +55,10 @@ async fn serve_file(path: &PathBuf) -> Response {
     }
 }
 
-pub async fn upload_file(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn upload_file(State(_state): State<AppState>) -> impl IntoResponse {
     // TODO: handle multipart upload
-    (StatusCode::OK, Json(serde_json::json!({ "message": "uploaded" })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "message": "uploaded" })),
+    )
 }

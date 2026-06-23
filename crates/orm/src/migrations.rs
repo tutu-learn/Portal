@@ -10,26 +10,31 @@ impl Migrator {
 
         // Dialect-specific CREATE TABLE for migrations tracking
         let init_sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_migrations (
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE,
                     applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_migrations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
                     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
-            "#,
+            "#
+            }
         };
         pool.execute_sql(init_sql, vec![]).await?;
 
         // Session table
         let session_sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_sessions (
                     id TEXT PRIMARY KEY,
                     user TEXT NOT NULL,
@@ -38,8 +43,10 @@ impl Migrator {
                     expires_at TIMESTAMPTZ NOT NULL,
                     data JSONB NOT NULL DEFAULT '{}'
                 )
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_sessions (
                     id TEXT PRIMARY KEY,
                     user TEXT NOT NULL,
@@ -48,13 +55,15 @@ impl Migrator {
                     expires_at TEXT NOT NULL,
                     data TEXT NOT NULL DEFAULT '{}'
                 )
-            "#,
+            "#
+            }
         };
         pool.execute_sql(session_sql, vec![]).await?;
 
         // Queue table
         let queue_sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_queue (
                     id TEXT PRIMARY KEY,
                     method TEXT NOT NULL,
@@ -66,8 +75,10 @@ impl Migrator {
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     error TEXT
                 )
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_queue (
                     id TEXT PRIMARY KEY,
                     method TEXT NOT NULL,
@@ -79,7 +90,8 @@ impl Migrator {
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     error TEXT
                 )
-            "#,
+            "#
+            }
         };
         pool.execute_sql(queue_sql, vec![]).await?;
 
@@ -91,7 +103,8 @@ impl Migrator {
 
         // Permission table (simplified DocPerm)
         let perm_sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_docperm (
                     id SERIAL PRIMARY KEY,
                     parent TEXT NOT NULL,
@@ -105,8 +118,10 @@ impl Migrator {
                     "cancel" INTEGER NOT NULL DEFAULT 0,
                     if_owner INTEGER NOT NULL DEFAULT 0
                 )
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 CREATE TABLE IF NOT EXISTS __kiff_docperm (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     parent TEXT NOT NULL,
@@ -120,36 +135,36 @@ impl Migrator {
                     "cancel" INTEGER NOT NULL DEFAULT 0,
                     if_owner INTEGER NOT NULL DEFAULT 0
                 )
-            "#,
+            "#
+            }
         };
         pool.execute_sql(perm_sql, vec![]).await?;
 
-        // Default permissions for Administrator
-        let admin_perms = vec![
-            ("*", "Administrator", 1, 1, 1, 1, 1, 1, 0),
-            ("*", "System Manager", 1, 1, 1, 1, 1, 1, 0),
-            ("*", "All", 1, 0, 0, 0, 0, 0, 0),
-        ];
-        for (parent, role, r, w, c, d, s, cn, owner) in admin_perms {
-            let sql = r#"
-                INSERT OR IGNORE INTO __kiff_docperm ("parent", "role", "read", "write", "create", "delete", "submit", "cancel", "if_owner")
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#;
-            let _ = pool.execute_sql(sql, vec![
-                serde_json::Value::String(parent.into()),
-                serde_json::Value::String(role.into()),
-                serde_json::Value::Number(r.into()),
-                serde_json::Value::Number(w.into()),
-                serde_json::Value::Number(c.into()),
-                serde_json::Value::Number(d.into()),
-                serde_json::Value::Number(s.into()),
-                serde_json::Value::Number(cn.into()),
-                serde_json::Value::Number(owner.into()),
-            ]).await;
-        }
-
         let migrations = vec![
             ("001_baseline_schema", "SELECT 1"),
+            (
+                "002_docperm_extra_columns",
+                r#"
+                ALTER TABLE __kiff_docperm ADD COLUMN "select" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "report" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "export" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "import" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "share" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "print" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "email" INTEGER NOT NULL DEFAULT 0;
+                "#,
+            ),
+            (
+                "003_remove_wildcard_docperms",
+                r#"DELETE FROM __kiff_docperm WHERE parent = '*'"#,
+            ),
+            (
+                "004_docperm_mask_amend_columns",
+                r#"
+                ALTER TABLE __kiff_docperm ADD COLUMN "mask" INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE __kiff_docperm ADD COLUMN "amend" INTEGER NOT NULL DEFAULT 0;
+                "#,
+            ),
         ];
 
         for (name, sql) in migrations {
@@ -168,16 +183,21 @@ impl Migrator {
 
     async fn is_applied(pool: &DatabasePool, name: &str) -> Result<bool> {
         let sql = "SELECT 1 FROM __kiff_migrations WHERE name = ? LIMIT 1";
-        let rows = pool.execute_sql(sql, vec![serde_json::Value::String(name.into())]).await?;
+        let rows = pool
+            .execute_sql(sql, vec![serde_json::Value::String(name.into())])
+            .await?;
         Ok(!rows.is_empty())
     }
 
     async fn record(pool: &DatabasePool, name: &str) -> Result<()> {
         let sql = match pool.dialect() {
-            "postgres" => "INSERT INTO __kiff_migrations (name, applied_at) VALUES ($1, CURRENT_TIMESTAMP)",
+            "postgres" => {
+                "INSERT INTO __kiff_migrations (name, applied_at) VALUES ($1, CURRENT_TIMESTAMP)"
+            }
             _ => "INSERT INTO __kiff_migrations (name, applied_at) VALUES (?, datetime('now'))",
         };
-        pool.execute_sql(sql, vec![serde_json::Value::String(name.into())]).await?;
+        pool.execute_sql(sql, vec![serde_json::Value::String(name.into())])
+            .await?;
         Ok(())
     }
 }

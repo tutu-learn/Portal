@@ -21,10 +21,18 @@ pub struct SiteConfig {
     pub file_size_limit: u64,
 }
 
-fn default_db_driver() -> String { "sqlite".into() }
-fn default_db_url() -> String { "./sites/{site}/site.db".into() }
-fn default_mail_port() -> u16 { 587 }
-fn default_file_size_limit() -> u64 { 25 }
+fn default_db_driver() -> String {
+    "sqlite".into()
+}
+fn default_db_url() -> String {
+    "./sites/{site}/site.db".into()
+}
+fn default_mail_port() -> u16 {
+    587
+}
+fn default_file_size_limit() -> u64 {
+    25
+}
 
 impl Default for SiteConfig {
     fn default() -> Self {
@@ -54,7 +62,13 @@ impl Site {
     pub fn new(name: String, path: PathBuf, config: SiteConfig) -> Self {
         let private = path.join("private");
         let public = path.join("public");
-        Self { name, path, private, public, config }
+        Self {
+            name,
+            path,
+            private,
+            public,
+            config,
+        }
     }
 
     pub fn db_url(&self) -> String {

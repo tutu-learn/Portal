@@ -10,7 +10,9 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(queue: impl Into<String>) -> Self {
-        Self { queue: queue.into() }
+        Self {
+            queue: queue.into(),
+        }
     }
 
     pub async fn run(&self, pool: &DatabasePool) -> Result<()> {
@@ -37,26 +39,30 @@ impl Worker {
         let mut tx = pool.begin().await?;
 
         let sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 SELECT id, method, queue, kwargs, status, site, created_at, updated_at
                 FROM __kiff_queue
                 WHERE queue = $1 AND status = 'queued'
                 ORDER BY created_at
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 SELECT id, method, queue, kwargs, status, site, created_at, updated_at
                 FROM __kiff_queue
                 WHERE queue = ? AND status = 'queued'
                 ORDER BY created_at
                 LIMIT 1
-            "#,
+            "#
+            }
         };
 
-        let rows = tx.execute_sql(sql, vec![
-            serde_json::Value::String(self.queue.clone()),
-        ]).await?;
+        let rows = tx
+            .execute_sql(sql, vec![serde_json::Value::String(self.queue.clone())])
+            .await?;
 
         let row = match rows.into_iter().next() {
             Some(r) => r,
@@ -70,20 +76,23 @@ impl Worker {
 
         // Mark as running
         let update_sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'running', updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'running', updated_at = datetime('now')
                 WHERE id = ?
-            "#,
+            "#
+            }
         };
-        tx.execute_sql(update_sql, vec![
-            serde_json::Value::String(job.id.clone()),
-        ]).await?;
+        tx.execute_sql(update_sql, vec![serde_json::Value::String(job.id.clone())])
+            .await?;
 
         tx.commit().await?;
         Ok(Some(job))
@@ -93,7 +102,10 @@ impl Worker {
         info!("executing job {}: {}", job.id, job.method);
         let parts: Vec<&str> = job.method.rsplitn(2, '.').collect();
         if parts.len() != 2 {
-            return Err(error::RuntimeError::Validation(format!("invalid method: {}", job.method)));
+            return Err(error::RuntimeError::Validation(format!(
+                "invalid method: {}",
+                job.method
+            )));
         }
         let func = parts[0];
         let module = parts[1];
@@ -114,33 +126,42 @@ impl Worker {
 
     async fn mark_completed(&self, pool: &DatabasePool, job_id: &str) -> Result<()> {
         let sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'completed', updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'completed', updated_at = datetime('now')
                 WHERE id = ?
-            "#,
+            "#
+            }
         };
-        pool.execute_sql(sql, vec![serde_json::Value::String(job_id.into())]).await?;
+        pool.execute_sql(sql, vec![serde_json::Value::String(job_id.into())])
+            .await?;
         Ok(())
     }
 
     async fn mark_failed(&self, pool: &DatabasePool, job_id: &str, error_msg: &str) -> Result<()> {
         let sql = match pool.dialect() {
-            "postgres" => r#"
+            "postgres" => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'failed', updated_at = CURRENT_TIMESTAMP, error = $2
                 WHERE id = $1
-            "#,
-            _ => r#"
+            "#
+            }
+            _ => {
+                r#"
                 UPDATE __kiff_queue
                 SET status = 'failed', updated_at = datetime('now'), error = ?
                 WHERE id = ?
-            "#,
+            "#
+            }
         };
         let params = if pool.dialect() == "postgres" {
             vec![
@@ -159,28 +180,47 @@ impl Worker {
 }
 
 fn row_to_job(mut row: std::collections::HashMap<String, serde_json::Value>) -> Result<Job> {
-    let kwargs_json = row.remove("kwargs")
+    let kwargs_json = row
+        .remove("kwargs")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_else(|| "{}".into());
-    let kwargs: std::collections::HashMap<String, serde_json::Value> = serde_json::from_str(&kwargs_json)
-        .unwrap_or_default();
+    let kwargs: std::collections::HashMap<String, serde_json::Value> =
+        serde_json::from_str(&kwargs_json).unwrap_or_default();
 
     Ok(Job {
-        id: row.remove("id").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-        method: row.remove("method").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-        queue: row.remove("queue").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
+        id: row
+            .remove("id")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default(),
+        method: row
+            .remove("method")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default(),
+        queue: row
+            .remove("queue")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default(),
         kwargs,
-        status: match row.remove("status").and_then(|v| v.as_str().map(String::from)).as_deref() {
+        status: match row
+            .remove("status")
+            .and_then(|v| v.as_str().map(String::from))
+            .as_deref()
+        {
             Some("running") => JobStatus::Running,
             Some("completed") => JobStatus::Completed,
             Some("failed") => JobStatus::Failed,
             _ => JobStatus::Queued,
         },
-        site: row.remove("site").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-        created_at: row.remove("created_at")
+        site: row
+            .remove("site")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default(),
+        created_at: row
+            .remove("created_at")
             .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
             .unwrap_or_else(chrono::Utc::now),
-        updated_at: row.remove("updated_at")
+        updated_at: row
+            .remove("updated_at")
             .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
             .unwrap_or_else(chrono::Utc::now),
     })

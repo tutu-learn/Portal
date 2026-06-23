@@ -15,7 +15,10 @@ impl PubSub {
     }
 
     pub fn subscribe(&self, room: &str) -> broadcast::Receiver<String> {
-        let sender = self.channels.entry(room.into()).or_insert_with(|| broadcast::channel(256).0);
+        let sender = self
+            .channels
+            .entry(room.into())
+            .or_insert_with(|| broadcast::channel(256).0);
         sender.subscribe()
     }
 

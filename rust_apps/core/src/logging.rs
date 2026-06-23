@@ -36,10 +36,7 @@ pub fn log(rec: LogRecord) -> bool {
 
 /// Spawn a background task that forwards records from the sink receiver into
 /// the supplied async `LogService`.
-pub fn spawn_log_sink_consumer(
-    logger: log_engine::LogService,
-    log_rx: Receiver<LogRecord>,
-) {
+pub fn spawn_log_sink_consumer(logger: log_engine::LogService, log_rx: Receiver<LogRecord>) {
     let log_rx = std::sync::Arc::new(std::sync::Mutex::new(log_rx));
     tokio::spawn(async move {
         loop {
@@ -62,16 +59,15 @@ pub fn log_document_event(ctx: &AppContext, event: &str, doc: &orm::Document) {
     let mut rec = LogRecord::new("INFO", "frappe.doc_event", &message);
     rec.fields
         .insert("app".into(), ctx.app_name.to_string().into());
-    rec.fields.insert("doctype".into(), doc.doctype.clone().into());
+    rec.fields
+        .insert("doctype".into(), doc.doctype.clone().into());
     rec.fields.insert("docname".into(), doc.name.clone().into());
     rec.fields.insert("owner".into(), doc.owner.clone().into());
     rec.fields
         .insert("docstatus".into(), (doc.docstatus as i64).into());
     rec.fields.insert("event".into(), event.into());
-    rec.fields.insert(
-        "modified".into(),
-        doc.modified.to_rfc3339().into(),
-    );
+    rec.fields
+        .insert("modified".into(), doc.modified.to_rfc3339().into());
 
     // If the doctype has a meaningful status/title, include it for dashboards.
     if let Some(title) = doc.get_field("title").and_then(|v| v.as_str()) {

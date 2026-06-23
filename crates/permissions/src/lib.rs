@@ -27,6 +27,15 @@ pub struct DocPerm {
     pub submit: bool,
     pub cancel: bool,
     pub if_owner: bool,
+    pub select: bool,
+    pub report: bool,
+    pub export: bool,
+    pub import: bool,
+    pub share: bool,
+    pub print: bool,
+    pub email: bool,
+    pub mask: bool,
+    pub amend: bool,
 }
 
 impl PermissionEngine {
@@ -88,22 +97,56 @@ impl PermissionEngine {
             return Ok(entry.clone());
         }
 
-        let mut roles = if user == "Administrator" {
-            vec!["Administrator".into(), "System Manager".into(), "All".into()]
-        } else if user == "Guest" {
+        let mut roles = if user == "Guest" {
             vec!["Guest".into(), "All".into()]
         } else {
             let mut roles = vec![];
 
-            // Read assigned roles from the User child table.
-            let sql = format!(
-                r#"SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = {}"#,
-                pool.placeholder(1)
-            );
-            if let Ok(rows) = pool.execute_sql(&sql, vec![serde_json::Value::String(user.into())]).await {
-                for mut row in rows {
-                    if let Some(role) = row.remove("role").and_then(|v| v.as_str().map(String::from)) {
-                        roles.push(role);
+            // Administrator implicitly has every available role, matching Frappe.
+            if user == "Administrator" {
+                match pool
+                    .execute_sql(r#"SELECT name FROM "role" WHERE disabled = 0"#, vec![])
+                    .await
+                {
+                    Ok(rows) => {
+                        for mut row in rows {
+                            if let Some(role) = row
+                                .remove("name")
+                                .and_then(|v| v.as_str().map(String::from))
+                            {
+                                roles.push(role);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "failed to load roles for Administrator: {}, falling back",
+                            e
+                        );
+                        roles.extend([
+                            "Administrator".into(),
+                            "System Manager".into(),
+                            "All".into(),
+                        ]);
+                    }
+                }
+            } else {
+                // Read assigned roles from the User child table.
+                let sql = format!(
+                    r#"SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = {}"#,
+                    pool.placeholder(1)
+                );
+                if let Ok(rows) = pool
+                    .execute_sql(&sql, vec![serde_json::Value::String(user.into())])
+                    .await
+                {
+                    for mut row in rows {
+                        if let Some(role) = row
+                            .remove("role")
+                            .and_then(|v| v.as_str().map(String::from))
+                        {
+                            roles.push(role);
+                        }
                     }
                 }
             }
@@ -120,12 +163,15 @@ impl PermissionEngine {
                 r#"SELECT user_type FROM "user" WHERE name = {}"#,
                 pool.placeholder(1)
             );
-            if let Ok(rows) = pool.execute_sql(&user_type_sql, vec![serde_json::Value::String(user.into())]).await {
+            if let Ok(rows) = pool
+                .execute_sql(&user_type_sql, vec![serde_json::Value::String(user.into())])
+                .await
+            {
                 if let Some(row) = rows.into_iter().next() {
-                    if row.get("user_type").and_then(|v| v.as_str()) == Some("System User") {
-                        if !roles.iter().any(|r| r == "Desk User") {
-                            roles.push("Desk User".into());
-                        }
+                    if row.get("user_type").and_then(|v| v.as_str()) == Some("System User")
+                        && !roles.iter().any(|r| r == "Desk User")
+                    {
+                        roles.push("Desk User".into());
                     }
                 }
             }
@@ -194,7 +240,13 @@ impl PermissionEngine {
             return Ok(true);
         }
         // TODO: read field-level permissions from __kiff_fieldperm table
-        tracing::debug!("field permission: {} {}.{} {} — allowed", user, doctype, field, ptype);
+        tracing::debug!(
+            "field permission: {} {}.{} {} — allowed",
+            user,
+            doctype,
+            field,
+            ptype
+        );
         Ok(true)
     }
 
@@ -205,26 +257,102 @@ impl PermissionEngine {
         }
 
         let sql = r#"
-            SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel", if_owner
+            SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel",
+                   if_owner, "select", "report", "export", "import", "share", "print", "email", "mask", "amend"
             FROM __kiff_docperm
             WHERE parent = ? OR parent = '*'
         "#;
-        let rows = pool.execute_sql(sql, vec![serde_json::Value::String(doctype.into())]).await?;
-        let perms: Vec<DocPerm> = rows.into_iter().map(|mut row| DocPerm {
-            parent: row.remove("parent").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-            role: row.remove("role").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
-            permlevel: row.remove("permlevel").and_then(|v| v.as_i64().map(|i| i as i32)).unwrap_or(0),
-            read: row.remove("read").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            write: row.remove("write").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            create: row.remove("create").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            delete: row.remove("delete").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            submit: row.remove("submit").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            cancel: row.remove("cancel").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-            if_owner: row.remove("if_owner").and_then(|v| v.as_i64().map(|i| i != 0)).unwrap_or(false),
-        }).collect();
+        let rows = pool
+            .execute_sql(sql, vec![serde_json::Value::String(doctype.into())])
+            .await?;
+        let perms: Vec<DocPerm> = rows
+            .into_iter()
+            .map(|mut row| DocPerm {
+                parent: row
+                    .remove("parent")
+                    .and_then(|v| v.as_str().map(String::from))
+                    .unwrap_or_default(),
+                role: row
+                    .remove("role")
+                    .and_then(|v| v.as_str().map(String::from))
+                    .unwrap_or_default(),
+                permlevel: row
+                    .remove("permlevel")
+                    .and_then(|v| v.as_i64().map(|i| i as i32))
+                    .unwrap_or(0),
+                read: row
+                    .remove("read")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                write: row
+                    .remove("write")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                create: row
+                    .remove("create")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                delete: row
+                    .remove("delete")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                submit: row
+                    .remove("submit")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                cancel: row
+                    .remove("cancel")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                if_owner: row
+                    .remove("if_owner")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                select: row
+                    .remove("select")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                report: row
+                    .remove("report")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                export: row
+                    .remove("export")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                import: row
+                    .remove("import")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                share: row
+                    .remove("share")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                print: row
+                    .remove("print")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                email: row
+                    .remove("email")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                mask: row
+                    .remove("mask")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+                amend: row
+                    .remove("amend")
+                    .and_then(|v| v.as_i64().map(|i| i != 0))
+                    .unwrap_or(false),
+            })
+            .collect();
 
         self.perm_cache.insert(cache_key, perms.clone());
         Ok(perms)
+    }
+
+    pub fn clear_perm_cache(&self, doctype: &str) {
+        self.perm_cache.remove(doctype);
     }
 }
 

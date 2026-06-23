@@ -1,7 +1,7 @@
 use crate::AppState;
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode, header::SET_COOKIE},
+    http::{header::SET_COOKIE, HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
@@ -10,8 +10,16 @@ pub async fn login(
     State(state): State<AppState>,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
-    let usr = body.get("usr").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let pwd = body.get("pwd").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let usr = body
+        .get("usr")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let pwd = body
+        .get("pwd")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
@@ -27,12 +35,15 @@ pub async fn login(
                         "message": "Logged In",
                         "home_page": "/desk",
                         "full_name": usr,
-                    })).into_response();
-                    res.headers_mut().insert(SET_COOKIE, cookie.parse().unwrap());
+                    }))
+                    .into_response();
+                    res.headers_mut()
+                        .insert(SET_COOKIE, cookie.parse().unwrap());
                     res
                 }
                 Err(e) => {
-                    let mut res = Json(serde_json::json!({ "error": format!("{}", e) })).into_response();
+                    let mut res =
+                        Json(serde_json::json!({ "error": format!("{}", e) })).into_response();
                     *res.status_mut() = StatusCode::UNAUTHORIZED;
                     res
                 }
@@ -46,10 +57,7 @@ pub async fn login(
     }
 }
 
-pub async fn logout(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => {
@@ -62,7 +70,8 @@ pub async fn logout(
             }
             let cookie = "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
             let mut res = Json(serde_json::json!({ "message": "Logged Out" })).into_response();
-            res.headers_mut().insert(SET_COOKIE, cookie.parse().unwrap());
+            res.headers_mut()
+                .insert(SET_COOKIE, cookie.parse().unwrap());
             res
         }
         None => Json(serde_json::json!({ "message": "Logged Out" })).into_response(),

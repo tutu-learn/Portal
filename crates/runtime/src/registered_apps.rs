@@ -6,7 +6,5 @@
 use rust_apps_core::RustApp;
 
 pub fn registered_apps() -> Vec<Box<dyn RustApp>> {
-    vec![
-        Box::new(audit_ready::AuditReadyApp),
-    ]
+    vec![Box::new(audit_ready::AuditReadyApp)]
 }

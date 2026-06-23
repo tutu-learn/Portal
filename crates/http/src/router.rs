@@ -28,8 +28,20 @@ pub fn create_router() -> Router<AppState> {
         .route("/api/method/logout", post(auth::logout))
         .route("/api/method/upload_file", post(files::upload_file))
         .route(
+            "/api/method/frappe.desk.form.load.getdoc",
+            get(api::getdoc_native),
+        )
+        .route(
             "/api/method/frappe.desk.form.load.getdoctype",
             get(api::getdoctype_native),
+        )
+        .route(
+            "/api/method/frappe.desk.search.search_link",
+            get(api::search_link).post(api::search_link_post),
+        )
+        .route(
+            "/api/method/frappe.client.validate_link_and_fetch",
+            get(api::validate_link_and_fetch).post(api::validate_link_and_fetch_post),
         )
         .route(
             "/api/method/frappe.desk.desk_page.getpage",
@@ -42,6 +54,22 @@ pub fn create_router() -> Router<AppState> {
         .route(
             "/api/method/frappe.core.page.permission_manager.permission_manager.get_permissions",
             get(permissions::get_permissions_get).post(permissions::get_permissions_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.add",
+            post(permissions::add_permission_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.update",
+            post(permissions::update_permission_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.remove",
+            post(permissions::remove_permission_post),
+        )
+        .route(
+            "/api/method/frappe.core.page.permission_manager.permission_manager.get_users_with_role",
+            post(permissions::get_users_with_role_post),
         )
         .route(
             "/api/method/:method",

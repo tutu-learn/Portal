@@ -6,9 +6,9 @@ use tokio::sync::{mpsc, Mutex};
 use tokio::task::spawn_blocking;
 
 use crate::engine::LogEngine;
+use crate::error::LogResult;
 use crate::record::LogRecord;
 use crate::trigger::Alert;
-use crate::error::LogResult;
 
 /// Async handle to a crash-durable log engine.
 ///

@@ -26,10 +26,11 @@ impl HookRegistry {
         info!("loading hooks from {:?}", hooks_path);
         Python::with_gil(|py| -> error::Result<()> {
             let locals = PyDict::new(py);
-            let code = std::fs::read_to_string(&hooks_path)
-                .map_err(|e| error::RuntimeError::Io(e))?;
-            let code_c = std::ffi::CString::new(code)
-                .map_err(|e| error::RuntimeError::Python(format!("null byte in hooks.py: {}", e)))?;
+            let code =
+                std::fs::read_to_string(&hooks_path).map_err(|e| error::RuntimeError::Io(e))?;
+            let code_c = std::ffi::CString::new(code).map_err(|e| {
+                error::RuntimeError::Python(format!("null byte in hooks.py: {}", e))
+            })?;
             py.run(&code_c, None, Some(&locals))
                 .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
 
@@ -46,18 +47,22 @@ impl HookRegistry {
                     if let Some(v) = value {
                         if let Ok(dict) = v.downcast::<PyDict>() {
                             for (k, val) in dict {
-                                let key: String = k.extract()
+                                let key: String = k
+                                    .extract()
                                     .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
                                 if let Ok(hook_list) = val.downcast::<pyo3::types::PyList>() {
                                     for item in hook_list.iter() {
-                                        let hook: String = item.extract()
-                                            .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
-                                        self.hooks.entry(format!("{}:{}", event, key))
+                                        let hook: String = item.extract().map_err(|e| {
+                                            error::RuntimeError::Python(format!("{}", e))
+                                        })?;
+                                        self.hooks
+                                            .entry(format!("{}:{}", event, key))
                                             .or_default()
                                             .push(hook);
                                     }
                                 } else if let Ok(hook) = val.extract::<String>() {
-                                    self.hooks.entry(format!("{}:{}", event, key))
+                                    self.hooks
+                                        .entry(format!("{}:{}", event, key))
                                         .or_default()
                                         .push(hook);
                                 }
@@ -129,8 +134,14 @@ impl HookRegistry {
 
         let doc_dict = doc.map(|d| {
             let mut map = std::collections::HashMap::new();
-            map.insert("doctype".to_string(), serde_json::Value::String(d.doctype.clone()));
-            map.insert("name".to_string(), serde_json::Value::String(d.name.clone()));
+            map.insert(
+                "doctype".to_string(),
+                serde_json::Value::String(d.doctype.clone()),
+            );
+            map.insert(
+                "name".to_string(),
+                serde_json::Value::String(d.name.clone()),
+            );
             for (k, v) in &d.fields {
                 map.insert(k.clone(), v.clone());
             }
@@ -153,9 +164,11 @@ impl HookRegistry {
                 let doc_dict = doc_dict.clone();
                 move || {
                     Python::with_gil(|py| -> error::Result<()> {
-                        let module = py.import(module_name.as_str())
+                        let module = py
+                            .import(module_name.as_str())
                             .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
-                        let func = module.getattr(func_name.as_str())
+                        let func = module
+                            .getattr(func_name.as_str())
                             .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
 
                         if let Some(ref dict) = doc_dict {
@@ -163,7 +176,8 @@ impl HookRegistry {
                             for (k, v) in dict {
                                 let val = kiff_core::json_to_py(py, v)
                                     .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
-                                py_dict.set_item(k, val)
+                                py_dict
+                                    .set_item(k, val)
                                     .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
                             }
                             func.call1((py_dict,))
@@ -176,7 +190,8 @@ impl HookRegistry {
                         Ok(())
                     })
                 }
-            }).await;
+            })
+            .await;
 
             match result {
                 Ok(Ok(())) => {}

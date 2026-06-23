@@ -14,7 +14,10 @@ async fn test_insert_doc() -> Result<()> {
     assert!(exists);
 
     let fetched = pool.get_doc("TestDocType", "DOC-002").await?;
-    assert_eq!(fetched.get_field("title").and_then(|v| v.as_str()), Some("Inserted"));
+    assert_eq!(
+        fetched.get_field("title").and_then(|v| v.as_str()),
+        Some("Inserted")
+    );
 
     Ok(())
 }
@@ -33,7 +36,10 @@ async fn test_save_doc_update() -> Result<()> {
     pool.save_doc(&doc).await?;
 
     let fetched = pool.get_doc("TestDocType", "DOC-003").await?;
-    assert_eq!(fetched.get_field("title").and_then(|v| v.as_str()), Some("Updated"));
+    assert_eq!(
+        fetched.get_field("title").and_then(|v| v.as_str()),
+        Some("Updated")
+    );
 
     Ok(())
 }

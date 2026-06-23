@@ -9,7 +9,11 @@ pub async fn run() -> error::Result<()> {
 
         if site.config.db_driver == "sqlite" {
             let src = site.path.join("site.db");
-            let dst = backup_dir.join(format!("{}_{}.db", name, chrono::Utc::now().format("%Y%m%d_%H%M%S")));
+            let dst = backup_dir.join(format!(
+                "{}_{}.db",
+                name,
+                chrono::Utc::now().format("%Y%m%d_%H%M%S")
+            ));
             if src.exists() {
                 std::fs::copy(&src, &dst)?;
                 println!("backup created: {:?}", dst);

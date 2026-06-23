@@ -1,4 +1,4 @@
-use sqlparser::ast::{ObjectName, Ident};
+use sqlparser::ast::{Ident, ObjectName};
 
 pub fn rewrite_name(name: &mut ObjectName) {
     for ident in &mut name.0 {

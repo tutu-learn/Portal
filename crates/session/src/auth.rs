@@ -34,15 +34,17 @@ impl AuthService {
     async fn get_password_hash(&self, pool: &DatabasePool, username: &str) -> Result<String> {
         // Try to read from __auth table by username, falling back to email.
         for filter_col in ["name", "email"] {
-            let rows = pool.execute_sql(
-                &format!(
-                    r#"SELECT a.password FROM "__auth" a
+            let rows = pool
+                .execute_sql(
+                    &format!(
+                        r#"SELECT a.password FROM "__auth" a
                        JOIN "user" u ON u.name = a.name
                        WHERE u.{} = ? AND a.doctype = 'User' AND a.fieldname = 'password'"#,
-                    filter_col
-                ),
-                vec![serde_json::Value::String(username.into())],
-            ).await?;
+                        filter_col
+                    ),
+                    vec![serde_json::Value::String(username.into())],
+                )
+                .await?;
 
             if let Some(row) = rows.into_iter().next() {
                 if let Some(hash) = row.get("password").and_then(|v| v.as_str()) {
@@ -59,7 +61,9 @@ impl AuthService {
             let parsed_hash = PasswordHash::new(hash)
                 .map_err(|e| RuntimeError::Auth(format!("invalid hash: {}", e)))?;
             let argon2 = Argon2::default();
-            return Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok());
+            return Ok(argon2
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_ok());
         }
 
         if hash.starts_with("$pbkdf2-sha256$") {
@@ -70,17 +74,12 @@ impl AuthService {
     }
 
     pub async fn verify_totp(&self, secret: &str, token: &str) -> Result<bool> {
-        use totp_rs::{Algorithm, TOTP, Secret};
+        use totp_rs::{Algorithm, Secret, TOTP};
         let secret_bytes = Secret::Raw(secret.as_bytes().to_vec())
             .to_bytes()
             .map_err(|e| RuntimeError::Auth(format!("totp secret error: {}", e)))?;
-        let totp = TOTP::new(
-            Algorithm::SHA1,
-            6,
-            1,
-            30,
-            secret_bytes,
-        ).map_err(|e| RuntimeError::Auth(format!("totp init error: {}", e)))?;
+        let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret_bytes)
+            .map_err(|e| RuntimeError::Auth(format!("totp init error: {}", e)))?;
         Ok(totp.check_current(token).unwrap_or(false))
     }
 }

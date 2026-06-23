@@ -2,28 +2,55 @@ use pyo3::prelude::*;
 
 #[pyfunction]
 pub fn get_roles(_py: Python<'_>, user: String) -> PyResult<Vec<String>> {
-    if user == "Administrator" {
-        return Ok(vec!["Administrator".into(), "System Manager".into(), "All".into()]);
-    }
     if user == "Guest" {
         return Ok(vec!["Guest".into(), "All".into()]);
     }
 
     // If the python-bridge was initialized with a pool, read real roles from
-    // the has_role child table. Otherwise fall back to the automatic role.
+    // the database. Administrator gets every available role, mirroring Frappe's
+    // behaviour; other users read their has_role child table rows.
     if let Some(pool) = crate::POOL.get() {
         let runtime = crate::rt();
-        return runtime
-            .block_on(async {
-                let mut roles = vec![];
+        return runtime.block_on(async {
+            let mut roles = vec![];
 
+            if user == "Administrator" {
+                match pool
+                    .execute_sql(r#"SELECT name FROM "role" WHERE disabled = 0"#, vec![])
+                    .await
+                {
+                    Ok(rows) => {
+                        for mut row in rows {
+                            if let Some(role) = row
+                                .remove("name")
+                                .and_then(|v| v.as_str().map(String::from))
+                            {
+                                roles.push(role);
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        roles.extend([
+                            "Administrator".into(),
+                            "System Manager".into(),
+                            "All".into(),
+                        ]);
+                    }
+                }
+            } else {
                 let sql = format!(
                     r#"SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = {}"#,
                     pool.placeholder(1)
                 );
-                if let Ok(rows) = pool.execute_sql(&sql, vec![serde_json::Value::String(user.clone())]).await {
+                if let Ok(rows) = pool
+                    .execute_sql(&sql, vec![serde_json::Value::String(user.clone())])
+                    .await
+                {
                     for mut row in rows {
-                        if let Some(role) = row.remove("role").and_then(|v| v.as_str().map(String::from)) {
+                        if let Some(role) = row
+                            .remove("role")
+                            .and_then(|v| v.as_str().map(String::from))
+                        {
                             roles.push(role);
                         }
                     }
@@ -39,23 +66,39 @@ pub fn get_roles(_py: Python<'_>, user: String) -> PyResult<Vec<String>> {
                     r#"SELECT user_type FROM "user" WHERE name = {}"#,
                     pool.placeholder(1)
                 );
-                if let Ok(rows) = pool.execute_sql(&user_type_sql, vec![serde_json::Value::String(user)]).await {
+                if let Ok(rows) = pool
+                    .execute_sql(
+                        &user_type_sql,
+                        vec![serde_json::Value::String(user.clone())],
+                    )
+                    .await
+                {
                     if let Some(row) = rows.into_iter().next() {
-                        if row.get("user_type").and_then(|v| v.as_str()) == Some("System User") {
-                            if !roles.iter().any(|r| r == "Desk User") {
-                                roles.push("Desk User".into());
-                            }
+                        if row.get("user_type").and_then(|v| v.as_str()) == Some("System User")
+                            && !roles.iter().any(|r| r == "Desk User")
+                        {
+                            roles.push("Desk User".into());
                         }
                     }
                 }
+            }
 
-                roles.sort_unstable();
-                roles.dedup();
-                Ok(roles)
-            });
+            roles.sort_unstable();
+            roles.dedup();
+            Ok(roles)
+        });
     }
 
-    Ok(vec!["All".into()])
+    // Fallback when no pool is available.
+    if user == "Administrator" {
+        Ok(vec![
+            "Administrator".into(),
+            "System Manager".into(),
+            "All".into(),
+        ])
+    } else {
+        Ok(vec!["All".into()])
+    }
 }
 
 #[pyfunction]

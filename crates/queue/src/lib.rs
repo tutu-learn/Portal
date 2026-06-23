@@ -4,6 +4,6 @@ pub mod scheduler;
 pub mod worker;
 
 pub use job::{Job, JobStatus};
-pub use worker::Worker;
-pub use scheduler::Scheduler;
 pub use pubsub::PubSub;
+pub use scheduler::Scheduler;
+pub use worker::Worker;

@@ -26,8 +26,14 @@ async fn test_get_doc_found() -> Result<()> {
     let fetched = pool.get_doc("TestDocType", "DOC-001").await?;
     assert_eq!(fetched.name, "DOC-001");
     assert_eq!(fetched.doctype, "TestDocType");
-    assert_eq!(fetched.get_field("title").and_then(|v| v.as_str()), Some("Test Title"));
-    assert_eq!(fetched.get_field("description").and_then(|v| v.as_str()), Some("A description"));
+    assert_eq!(
+        fetched.get_field("title").and_then(|v| v.as_str()),
+        Some("Test Title")
+    );
+    assert_eq!(
+        fetched.get_field("description").and_then(|v| v.as_str()),
+        Some("A description")
+    );
 
     Ok(())
 }

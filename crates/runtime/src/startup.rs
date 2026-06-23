@@ -21,14 +21,11 @@ fn find_kiff_core_dylib() -> Option<std::path::PathBuf> {
 
     // Cargo places the cdylib artifact next to the executable in release builds,
     // but in dev builds it lives under target/<profile>/deps/. Check both.
-    let candidates: Vec<std::path::PathBuf> = [
-        "libkiff_core.dylib",
-        "libkiff_core.so",
-        "libkiff_core.dll",
-    ]
-    .iter()
-    .flat_map(|name| [exe_dir.join(name), exe_dir.join("deps").join(name)])
-    .collect();
+    let candidates: Vec<std::path::PathBuf> =
+        ["libkiff_core.dylib", "libkiff_core.so", "libkiff_core.dll"]
+            .iter()
+            .flat_map(|name| [exe_dir.join(name), exe_dir.join("deps").join(name)])
+            .collect();
 
     for candidate in candidates {
         if candidate.exists() {
@@ -55,7 +52,11 @@ fn install_kiff_core_symlink(site_packages: &str) {
 
     let _ = std::fs::remove_file(&dest);
     match std::os::unix::fs::symlink(&dylib, &dest) {
-        Ok(_) => info!("installed kiff_core symlink: {} → {}", dylib.display(), dest.display()),
+        Ok(_) => info!(
+            "installed kiff_core symlink: {} → {}",
+            dylib.display(),
+            dest.display()
+        ),
         Err(e) => info!("failed to install kiff_core symlink: {}", e),
     }
 }
@@ -97,7 +98,8 @@ pub fn setup_python_path_with_db(
                 std::path::PathBuf::from(".venv"),
                 std::env::current_dir().unwrap_or_default().join(".venv"),
             ];
-            candidates.iter()
+            candidates
+                .iter()
                 .find(|p| p.join("bin/python3").exists() || p.join("bin/python").exists())
                 .and_then(|p| p.canonicalize().ok())
                 .and_then(|p| p.to_str().map(|s| s.to_string()))
@@ -122,7 +124,8 @@ pub fn setup_python_path_with_db(
             } else {
                 // Fallback: try site.getsitepackages() in case we're running
                 // from a venv-aware interpreter.
-                let site_pkgs: Vec<String> = py.import("site")
+                let site_pkgs: Vec<String> = py
+                    .import("site")
                     .and_then(|m| m.call_method0("getsitepackages"))
                     .and_then(|v| v.extract())
                     .unwrap_or_default();

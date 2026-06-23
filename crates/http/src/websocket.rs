@@ -1,6 +1,9 @@
 use crate::AppState;
 use axum::{
-    extract::{ws::{WebSocketUpgrade, Message}, State, Query},
+    extract::{
+        ws::{Message, WebSocketUpgrade},
+        Query, State,
+    },
     response::IntoResponse,
 };
 use serde::Deserialize;
@@ -18,7 +21,8 @@ pub async fn ws_handler(
     Query(query): Query<WsQuery>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let rooms: Vec<String> = query.rooms
+    let rooms: Vec<String> = query
+        .rooms
         .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
         .unwrap_or_else(|| vec!["global".to_string()]);
 

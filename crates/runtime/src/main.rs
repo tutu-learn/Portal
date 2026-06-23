@@ -28,10 +28,7 @@ async fn main() -> error::Result<()> {
 
     // Load Rust app registry before DB setup so we can sync DocType fixtures.
     let rust_app_registry = rust_apps::load_registry();
-    info!(
-        "loaded {} rust app(s)",
-        rust_app_registry.apps().len()
-    );
+    info!("loaded {} rust app(s)", rust_app_registry.apps().len());
 
     // Connect DB pools for all sites
     let pools = Arc::new(dashmap::DashMap::new());
@@ -57,13 +54,19 @@ async fn main() -> error::Result<()> {
                     .map(|w| (w.name.to_string(), w.json.to_string(), w.app.to_string()))
                     .collect();
                 let module_fixtures = rust_app_registry.all_modules();
-                if let Err(e) = orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures, module_fixtures).await {
+                if let Err(e) =
+                    orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures, module_fixtures)
+                        .await
+                {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }
                 // Always ensure the core users and default roles exist, even if
                 // the broader doctype sync failed or roles were deleted.
                 if let Err(e) = orm::doctype_sync::ensure_core_users_and_roles(&p).await {
-                    error!("failed to ensure core users and roles for site {}: {}", name, e);
+                    error!(
+                        "failed to ensure core users and roles for site {}: {}",
+                        name, e
+                    );
                 }
                 pools.insert(name.clone(), p);
             }
@@ -74,7 +77,8 @@ async fn main() -> error::Result<()> {
     }
 
     // Setup Python path — pass the default site's DB info so kiff_core .so can init
-    let (default_db_driver, default_db_url) = site_manager.sites()
+    let (default_db_driver, default_db_url) = site_manager
+        .sites()
         .iter()
         .next()
         .map(|(_, site)| (site.config.db_driver.clone(), site.db_url()))
@@ -172,10 +176,7 @@ async fn main() -> error::Result<()> {
     Ok(())
 }
 
-async fn init_log_engine(
-    _config: &config::RuntimeConfig,
-    app_state: &rust_apps_core::AppState,
-) {
+async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_core::AppState) {
     // Store the log engine data inside the default site's directory, next to
     // the SQLite database file.
     let data_dir = app_state

@@ -1,9 +1,9 @@
+use crate::AppState;
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use crate::AppState;
 
 #[derive(Debug, Clone)]
 pub struct SessionUser {

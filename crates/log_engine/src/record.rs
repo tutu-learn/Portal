@@ -33,7 +33,11 @@ impl LogRecord {
         }
     }
 
-    pub fn with_field<K: Into<String>, V: Into<serde_json::Value>>(mut self, key: K, value: V) -> Self {
+    pub fn with_field<K: Into<String>, V: Into<serde_json::Value>>(
+        mut self,
+        key: K,
+        value: V,
+    ) -> Self {
         self.fields.insert(key.into(), value.into());
         self
     }

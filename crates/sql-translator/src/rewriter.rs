@@ -1,6 +1,6 @@
-use crate::TargetDialect;
 use crate::functions::rewrite_expr;
 use crate::tables::rewrite_name;
+use crate::TargetDialect;
 use error::Result;
 use sqlparser::ast::Statement;
 
@@ -40,15 +40,22 @@ fn rewrite_statement(stmt: &mut Statement) -> Result<()> {
                 }
             }
         }
-        Statement::Update { table, assignments, from, selection, returning, .. } => {
+        Statement::Update {
+            table,
+            assignments,
+            from,
+            selection,
+            returning,
+            ..
+        } => {
             rewrite_table_with_joins(table);
             for assign in assignments {
                 rewrite_assignment(assign);
             }
             if let Some(from_kind) = from {
                 match from_kind {
-                    sqlparser::ast::UpdateTableFromKind::BeforeSet(t) |
-                    sqlparser::ast::UpdateTableFromKind::AfterSet(t) => {
+                    sqlparser::ast::UpdateTableFromKind::BeforeSet(t)
+                    | sqlparser::ast::UpdateTableFromKind::AfterSet(t) => {
                         rewrite_table_with_joins(t);
                     }
                 }
@@ -67,8 +74,8 @@ fn rewrite_statement(stmt: &mut Statement) -> Result<()> {
                 rewrite_name(t);
             }
             match &mut delete.from {
-                sqlparser::ast::FromTable::WithFromKeyword(tables) |
-                sqlparser::ast::FromTable::WithoutKeyword(tables) => {
+                sqlparser::ast::FromTable::WithFromKeyword(tables)
+                | sqlparser::ast::FromTable::WithoutKeyword(tables) => {
                     for t in tables {
                         rewrite_table_factor(&mut t.relation);
                     }
@@ -270,8 +277,7 @@ fn rewrite_on_insert(on: &mut sqlparser::ast::OnInsert) {
 fn rewrite_table_constraint(c: &mut sqlparser::ast::TableConstraint) {
     use sqlparser::ast::TableConstraint;
     match c {
-        TableConstraint::Unique { columns, .. }
-        | TableConstraint::PrimaryKey { columns, .. } => {
+        TableConstraint::Unique { columns, .. } | TableConstraint::PrimaryKey { columns, .. } => {
             for col in columns {
                 col.value = col.value.to_lowercase().replace(" ", "_");
                 col.quote_style = None;

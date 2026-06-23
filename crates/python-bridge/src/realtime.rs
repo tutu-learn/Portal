@@ -22,7 +22,10 @@ pub fn publish_realtime(
             pubsub.publish(&format!("user:{}", u), &payload_str);
         }
     } else {
-        println!("[REALTIME event={} user={:?} room={:?}] {}", event, user, room, message);
+        println!(
+            "[REALTIME event={} user={:?} room={:?}] {}",
+            event, user, room, message
+        );
     }
     Ok(())
 }

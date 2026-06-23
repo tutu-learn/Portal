@@ -2,7 +2,7 @@ use crate::document::Document;
 use crate::filters::FilterCondition;
 use chrono::Utc;
 use error::{Result, RuntimeError};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sqlx::{Column, Row, TypeInfo};
 use std::collections::HashMap;
 use tracing::{debug, warn};
@@ -54,7 +54,9 @@ impl DatabasePool {
             meta_table,
             self.placeholder(1)
         );
-        let rows = self.query_raw(&sql, vec![Value::String(doctype.into())]).await?;
+        let rows = self
+            .query_raw(&sql, vec![Value::String(doctype.into())])
+            .await?;
         Ok(rows
             .into_iter()
             .filter_map(|mut r| {
@@ -144,9 +146,8 @@ impl DatabasePool {
                     params.push(v);
                 }
 
-                let placeholders: Vec<String> = (1..=params.len())
-                    .map(|i| self.placeholder(i))
-                    .collect();
+                let placeholders: Vec<String> =
+                    (1..=params.len()).map(|i| self.placeholder(i)).collect();
                 let insert_sql = format!(
                     r#"INSERT INTO "{}" ({}) VALUES ({})"#,
                     child_table,
@@ -162,7 +163,11 @@ impl DatabasePool {
 
     pub async fn get_doc(&self, doctype: &str, name: &str) -> Result<Document> {
         let table = self.table_name(doctype);
-        let sql = format!("SELECT * FROM \"{}\" WHERE name = {}", table, self.placeholder(1));
+        let sql = format!(
+            "SELECT * FROM \"{}\" WHERE name = {}",
+            table,
+            self.placeholder(1)
+        );
         debug!("get_doc sql: {}", sql);
 
         let rows = match self.query_raw(&sql, vec![Value::String(name.into())]).await {
@@ -175,11 +180,105 @@ impl DatabasePool {
                 return Err(e);
             }
         };
-        let mut m = rows.into_iter().next()
+        let mut m = rows
+            .into_iter()
+            .next()
             .ok_or_else(|| RuntimeError::NotFound(format!("{} {}", doctype, name)))?;
         m.insert("doctype".into(), Value::String(doctype.into()));
         m.insert("name".into(), Value::String(name.into()));
-        Document::from_map(m)
+
+        let mut doc = Document::from_map(m)?;
+        self.load_child_tables(&mut doc, doctype).await?;
+        self.add_onload_data(&mut doc, doctype).await?;
+        Ok(doc)
+    }
+
+    /// Inject `__onload` values that Frappe form controllers normally provide.
+    /// The native ORM path does not execute Python controller hooks, so we
+    /// reproduce the small set of onload data the Desk UI depends on.
+    async fn add_onload_data(&self, doc: &mut Document, doctype: &str) -> Result<()> {
+        if !matches!(doctype, "Module Profile" | "User") {
+            return Ok(());
+        }
+
+        let rows = match self
+            .execute_sql(
+                r#"SELECT module_name FROM "module_def" ORDER BY module_name"#,
+                vec![],
+            )
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("failed to load module list for __onload: {}", e);
+                return Ok(());
+            }
+        };
+
+        let modules: Vec<Value> = rows
+            .into_iter()
+            .filter_map(|mut row| {
+                row.remove("module_name")
+                    .and_then(|v| v.as_str().map(|s| Value::String(s.into())))
+            })
+            .collect();
+
+        let onload = json!({ "all_modules": modules });
+        doc.set_field("__onload", onload);
+        Ok(())
+    }
+
+    /// Load child-table rows for `doc` from the database and attach them as
+    /// arrays on the parent document, matching Frappe's get_doc behaviour.
+    async fn load_child_tables(&self, doc: &mut Document, doctype: &str) -> Result<()> {
+        let table_fields = self.get_table_fields(doctype).await?;
+        if table_fields.is_empty() {
+            return Ok(());
+        }
+
+        for (fieldname, child_doctype) in table_fields {
+            let child_table = self.table_name(&child_doctype);
+            let sql = format!(
+                r#"SELECT * FROM "{}" WHERE parent = {} AND parentfield = {} AND parenttype = {} ORDER BY idx"#,
+                child_table,
+                self.placeholder(1),
+                self.placeholder(2),
+                self.placeholder(3)
+            );
+            let params = vec![
+                Value::String(doc.name.clone()),
+                Value::String(fieldname.clone()),
+                Value::String(doctype.into()),
+            ];
+
+            let rows = match self.query_raw(&sql, params).await {
+                Ok(r) => r,
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("no such table") || msg.contains("does not exist") {
+                        warn!(
+                            doctype = %doctype,
+                            field = %fieldname,
+                            child_doctype = %child_doctype,
+                            "child table missing, skipping"
+                        );
+                        continue;
+                    }
+                    return Err(e);
+                }
+            };
+
+            let children: Vec<Value> = rows
+                .into_iter()
+                .map(|mut row| {
+                    row.insert("doctype".into(), Value::String(child_doctype.clone()));
+                    Value::Object(row.into_iter().collect())
+                })
+                .collect();
+            doc.set_field(fieldname, Value::Array(children));
+        }
+
+        Ok(())
     }
 
     pub async fn get_list(
@@ -242,10 +341,13 @@ impl DatabasePool {
                 return Err(e);
             }
         };
-        let docs: Result<Vec<Document>> = rows.into_iter().map(|mut m| {
-            m.insert("doctype".into(), Value::String(doctype.into()));
-            Document::from_map(m)
-        }).collect();
+        let docs: Result<Vec<Document>> = rows
+            .into_iter()
+            .map(|mut m| {
+                m.insert("doctype".into(), Value::String(doctype.into()));
+                Document::from_map(m)
+            })
+            .collect();
         docs
     }
 
@@ -294,7 +396,13 @@ impl DatabasePool {
         let table_field_names: std::collections::HashSet<String> =
             table_fields.iter().map(|(k, _)| k.clone()).collect();
 
-        let mut cols = vec!["name".to_string(), "owner".to_string(), "creation".to_string(), "modified".to_string(), "docstatus".to_string()];
+        let mut cols = vec![
+            "name".to_string(),
+            "owner".to_string(),
+            "creation".to_string(),
+            "modified".to_string(),
+            "docstatus".to_string(),
+        ];
         let mut params: Vec<Value> = vec![
             Value::String(doc.name.clone()),
             Value::String(doc.owner.clone()),
@@ -311,9 +419,7 @@ impl DatabasePool {
             params.push(v.clone());
         }
 
-        let placeholders: Vec<String> = (1..=params.len())
-            .map(|i| self.placeholder(i))
-            .collect();
+        let placeholders: Vec<String> = (1..=params.len()).map(|i| self.placeholder(i)).collect();
 
         let sql = format!(
             "INSERT INTO \"{}\" ({}) VALUES ({})",
@@ -335,8 +441,13 @@ impl DatabasePool {
         crate::hooks::run_hook("before_trash", doctype, &stub_doc).await?;
 
         let table = self.table_name(doctype);
-        let sql = format!("DELETE FROM \"{}\" WHERE name = {}", table, self.placeholder(1));
-        self.execute_raw(&sql, vec![Value::String(name.into())]).await?;
+        let sql = format!(
+            "DELETE FROM \"{}\" WHERE name = {}",
+            table,
+            self.placeholder(1)
+        );
+        self.execute_raw(&sql, vec![Value::String(name.into())])
+            .await?;
 
         crate::hooks::run_hook("after_trash", doctype, &stub_doc).await?;
         Ok(())
@@ -349,7 +460,9 @@ impl DatabasePool {
             table,
             self.placeholder(1)
         );
-        let rows = self.query_raw(&sql, vec![Value::String(name.into())]).await?;
+        let rows = self
+            .query_raw(&sql, vec![Value::String(name.into())])
+            .await?;
         Ok(!rows.is_empty())
     }
 
@@ -541,12 +654,30 @@ fn row_to_map_postgres(row: sqlx::postgres::PgRow) -> HashMap<String, Value> {
         let name = col.name().to_string();
         let info = col.type_info().name();
         let val: Value = match info {
-            "BOOL" => row.try_get::<bool, _>(name.as_str()).map(Value::Bool).unwrap_or(Value::Null),
-            "INT2" | "INT4" | "INT8" => row.try_get::<i64, _>(name.as_str()).map(|v| Value::Number(v.into())).unwrap_or(Value::Null),
-            "FLOAT4" | "FLOAT8" => row.try_get::<f64, _>(name.as_str()).map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into()))).unwrap_or(Value::Null),
-            "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "UNKNOWN" => row.try_get::<String, _>(name.as_str()).map(Value::String).unwrap_or(Value::Null),
-            "TIMESTAMPTZ" | "TIMESTAMP" => row.try_get::<chrono::DateTime<chrono::Utc>, _>(name.as_str()).map(|v| Value::String(v.to_rfc3339())).unwrap_or(Value::Null),
-            _ => row.try_get::<String, _>(name.as_str()).map(Value::String).unwrap_or(Value::Null),
+            "BOOL" => row
+                .try_get::<bool, _>(name.as_str())
+                .map(Value::Bool)
+                .unwrap_or(Value::Null),
+            "INT2" | "INT4" | "INT8" => row
+                .try_get::<i64, _>(name.as_str())
+                .map(|v| Value::Number(v.into()))
+                .unwrap_or(Value::Null),
+            "FLOAT4" | "FLOAT8" => row
+                .try_get::<f64, _>(name.as_str())
+                .map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into())))
+                .unwrap_or(Value::Null),
+            "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "UNKNOWN" => row
+                .try_get::<String, _>(name.as_str())
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+            "TIMESTAMPTZ" | "TIMESTAMP" => row
+                .try_get::<chrono::DateTime<chrono::Utc>, _>(name.as_str())
+                .map(|v| Value::String(v.to_rfc3339()))
+                .unwrap_or(Value::Null),
+            _ => row
+                .try_get::<String, _>(name.as_str())
+                .map(Value::String)
+                .unwrap_or(Value::Null),
         };
         map.insert(name, val);
     }
@@ -559,12 +690,30 @@ fn row_to_map_sqlite(row: sqlx::sqlite::SqliteRow) -> HashMap<String, Value> {
         let name = col.name().to_string();
         let info = col.type_info().name();
         let val: Value = match info {
-            "BOOLEAN" => row.try_get::<bool, _>(name.as_str()).map(Value::Bool).unwrap_or(Value::Null),
-            "INTEGER" => row.try_get::<i64, _>(name.as_str()).map(|v| Value::Number(v.into())).unwrap_or(Value::Null),
-            "REAL" | "DOUBLE" | "FLOAT" => row.try_get::<f64, _>(name.as_str()).map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into()))).unwrap_or(Value::Null),
-            "TEXT" | "VARCHAR" | "CHAR" | "NULL" => row.try_get::<String, _>(name.as_str()).map(Value::String).unwrap_or(Value::Null),
-            "DATETIME" => row.try_get::<chrono::DateTime<chrono::Utc>, _>(name.as_str()).map(|v| Value::String(v.to_rfc3339())).unwrap_or(Value::Null),
-            _ => row.try_get::<String, _>(name.as_str()).map(Value::String).unwrap_or(Value::Null),
+            "BOOLEAN" => row
+                .try_get::<bool, _>(name.as_str())
+                .map(Value::Bool)
+                .unwrap_or(Value::Null),
+            "INTEGER" => row
+                .try_get::<i64, _>(name.as_str())
+                .map(|v| Value::Number(v.into()))
+                .unwrap_or(Value::Null),
+            "REAL" | "DOUBLE" | "FLOAT" => row
+                .try_get::<f64, _>(name.as_str())
+                .map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into())))
+                .unwrap_or(Value::Null),
+            "TEXT" | "VARCHAR" | "CHAR" | "NULL" => row
+                .try_get::<String, _>(name.as_str())
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+            "DATETIME" => row
+                .try_get::<chrono::DateTime<chrono::Utc>, _>(name.as_str())
+                .map(|v| Value::String(v.to_rfc3339()))
+                .unwrap_or(Value::Null),
+            _ => row
+                .try_get::<String, _>(name.as_str())
+                .map(Value::String)
+                .unwrap_or(Value::Null),
         };
         map.insert(name, val);
     }
@@ -573,25 +722,39 @@ fn row_to_map_sqlite(row: sqlx::sqlite::SqliteRow) -> HashMap<String, Value> {
 
 impl Document {
     fn from_map(mut map: HashMap<String, Value>) -> Result<Document> {
-        let doctype = map.remove("doctype")
+        let doctype = map
+            .remove("doctype")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
-        let name = map.remove("name")
+        let name = map
+            .remove("name")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
-        let owner = map.remove("owner")
+        let owner = map
+            .remove("owner")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_else(|| "Administrator".into());
-        let creation = map.remove("creation")
+        let creation = map
+            .remove("creation")
             .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
             .unwrap_or_else(Utc::now);
-        let modified = map.remove("modified")
+        let modified = map
+            .remove("modified")
             .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
             .unwrap_or_else(Utc::now);
-        let docstatus = map.remove("docstatus")
+        let docstatus = map
+            .remove("docstatus")
             .and_then(|v| v.as_i64().map(|i| i as i32))
             .unwrap_or(0);
 
-        Ok(Document { doctype, name, owner, creation, modified, docstatus, fields: map })
+        Ok(Document {
+            doctype,
+            name,
+            owner,
+            creation,
+            modified,
+            docstatus,
+            fields: map,
+        })
     }
 }

@@ -1,12 +1,12 @@
 use crate::AppState;
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderValue, StatusCode, header::SET_COOKIE},
+    http::{header::SET_COOKIE, HeaderValue, StatusCode},
     response::{IntoResponse, Json, Redirect},
 };
 use orm::FilterCondition;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::warn;
@@ -28,20 +28,35 @@ pub async fn get_list(
     Path(doctype): Path<String>,
     Query(q): Query<ListQuery>,
 ) -> impl IntoResponse {
-    let fields = q.fields.map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
+    let fields = q
+        .fields
+        .map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
     let filters: Option<HashMap<String, FilterCondition>> = q.filters.and_then(|s| {
         let raw: Option<HashMap<String, Value>> = serde_json::from_str(&s).ok();
-        raw.map(|m| m.into_iter().map(|(k, v)| (k, FilterCondition::Eq(v))).collect())
+        raw.map(|m| {
+            m.into_iter()
+                .map(|(k, v)| (k, FilterCondition::Eq(v)))
+                .collect()
+        })
     });
 
     // Use first pool for now
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
-        Some(pool) => match pool.get_list(&doctype, filters, fields, q.order_by.as_deref(), q.limit).await {
+        Some(pool) => match pool
+            .get_list(&doctype, filters, fields, q.order_by.as_deref(), q.limit)
+            .await
+        {
             Ok(docs) => (StatusCode::OK, Json(serde_json::json!({ "data": docs }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": format!("{}", e) }))),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            ),
         },
-        None => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "no database pool" }))),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "error": "no database pool" })),
+        ),
     }
 }
 
@@ -53,9 +68,15 @@ pub async fn get_doc(
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
             Ok(doc) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
-            Err(e) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": format!("{}", e) }))),
+            Err(e) => (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            ),
         },
-        None => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "no database pool" }))),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "error": "no database pool" })),
+        ),
     }
 }
 
@@ -75,16 +96,30 @@ pub async fn insert_doc(
     // validation hooks and child-table handling run. Fall back to the native
     // ORM insert when Python cannot handle the DocType yet.
     let mut py_doc = body.fields.clone();
-    py_doc.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    py_doc.insert(
+        "doctype".to_string(),
+        serde_json::Value::String(doctype.clone()),
+    );
     let mut params = std::collections::HashMap::new();
-    params.insert("doc".to_string(), serde_json::Value::Object(py_doc.into_iter().collect()));
+    params.insert(
+        "doc".to_string(),
+        serde_json::Value::Object(py_doc.into_iter().collect()),
+    );
 
     match call_rust_or_python_method(&state, "frappe.client.insert", params, &headers).await {
         Ok(MethodResponse::Json(value)) => {
             let payload = value.get("message").cloned().unwrap_or(value);
-            return (StatusCode::CREATED, Json(serde_json::json!({ "data": payload })))
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "data": payload })),
+            );
         }
-        Ok(_) => return (StatusCode::CREATED, Json(serde_json::json!({ "message": "created" }))),
+        Ok(_) => {
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "message": "created" })),
+            )
+        }
         Err(error::RuntimeError::Python(e)) => {
             warn!(doctype = %doctype, error = %e, "Python frappe.client.insert failed, falling back to native ORM insert");
         }
@@ -99,11 +134,20 @@ pub async fn insert_doc(
                 doc.set_field(k, v);
             }
             match pool.insert_doc(&doc).await {
-                Ok(name) => (StatusCode::CREATED, Json(serde_json::json!({ "data": { "name": name } }))),
-                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": format!("{}", e) }))),
+                Ok(name) => (
+                    StatusCode::CREATED,
+                    Json(serde_json::json!({ "data": { "name": name } })),
+                ),
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": format!("{}", e) })),
+                ),
             }
         }
-        None => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "no database pool" }))),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "error": "no database pool" })),
+        ),
     }
 }
 
@@ -121,17 +165,19 @@ pub async fn update_doc(
     // Load the full document (including child tables and mandatory fields)
     // from Python first, then overlay the request body before saving.
     let mut get_params = std::collections::HashMap::new();
-    get_params.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    get_params.insert(
+        "doctype".to_string(),
+        serde_json::Value::String(doctype.clone()),
+    );
     get_params.insert("name".to_string(), serde_json::Value::String(name.clone()));
 
-    let mut full_doc = match call_rust_or_python_method(&state, "frappe.client.get", get_params, &headers).await {
-        Ok(MethodResponse::Json(value)) => {
-            value.get("message").cloned().unwrap_or(value)
-        }
-        Ok(_) => serde_json::Value::Object(Default::default()),
-        Err(error::RuntimeError::Python(_)) => serde_json::Value::Object(Default::default()),
-        Err(e) => return frappe_error_response(e),
-    };
+    let mut full_doc =
+        match call_rust_or_python_method(&state, "frappe.client.get", get_params, &headers).await {
+            Ok(MethodResponse::Json(value)) => value.get("message").cloned().unwrap_or(value),
+            Ok(_) => serde_json::Value::Object(Default::default()),
+            Err(error::RuntimeError::Python(_)) => serde_json::Value::Object(Default::default()),
+            Err(e) => return frappe_error_response(e),
+        };
 
     if let serde_json::Value::Object(ref mut map) = full_doc {
         for (k, v) in body {
@@ -145,9 +191,14 @@ pub async fn update_doc(
     match call_rust_or_python_method(&state, "frappe.client.save", save_params, &headers).await {
         Ok(MethodResponse::Json(value)) => {
             let payload = value.get("message").cloned().unwrap_or(value);
-            return (StatusCode::OK, Json(serde_json::json!({ "data": payload })))
+            return (StatusCode::OK, Json(serde_json::json!({ "data": payload })));
         }
-        Ok(_) => return (StatusCode::OK, Json(serde_json::json!({ "message": "updated" }))),
+        Ok(_) => {
+            return (
+                StatusCode::OK,
+                Json(serde_json::json!({ "message": "updated" })),
+            )
+        }
         Err(error::RuntimeError::Python(e)) => {
             warn!(doctype = %doctype, name = %name, error = %e, "Python frappe.client.save failed, falling back to native ORM update");
         }
@@ -164,12 +215,21 @@ pub async fn update_doc(
                 }
                 match pool.save_doc(&doc).await {
                     Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
-                    Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": format!("{}", e) }))),
+                    Err(e) => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("{}", e) })),
+                    ),
                 }
             }
-            Err(e) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": format!("{}", e) }))),
+            Err(e) => (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            ),
         },
-        None => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "no database pool" }))),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "error": "no database pool" })),
+        ),
     }
 }
 
@@ -182,11 +242,19 @@ pub async fn delete_doc(
     // up from __auth and document hooks run. Fall back to the native ORM
     // delete if Python is unavailable.
     let mut params = std::collections::HashMap::new();
-    params.insert("doctype".to_string(), serde_json::Value::String(doctype.clone()));
+    params.insert(
+        "doctype".to_string(),
+        serde_json::Value::String(doctype.clone()),
+    );
     params.insert("name".to_string(), serde_json::Value::String(name.clone()));
 
     match call_rust_or_python_method(&state, "frappe.client.delete", params, &headers).await {
-        Ok(_) => return (StatusCode::OK, Json(serde_json::json!({ "message": "deleted" }))),
+        Ok(_) => {
+            return (
+                StatusCode::OK,
+                Json(serde_json::json!({ "message": "deleted" })),
+            )
+        }
         Err(error::RuntimeError::Python(_)) => {
             // Python failed; fall through to native delete rather than returning
             // the error immediately. Some DocType controllers may not yet load
@@ -198,10 +266,19 @@ pub async fn delete_doc(
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.delete_doc(&doctype, &name).await {
-            Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "message": "deleted" }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": format!("{}", e) }))),
+            Ok(_) => (
+                StatusCode::OK,
+                Json(serde_json::json!({ "message": "deleted" })),
+            ),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            ),
         },
-        None => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "no database pool" }))),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "error": "no database pool" })),
+        ),
     }
 }
 
@@ -294,14 +371,22 @@ async fn getpage_response(
     }
 }
 
-async fn load_page_from_json(state: &AppState, name: &str, user: &str) -> Result<serde_json::Value, String> {
+async fn load_page_from_json(
+    state: &AppState,
+    name: &str,
+    user: &str,
+) -> Result<serde_json::Value, String> {
     let scrubbed = name.to_lowercase().replace(" ", "_").replace("-", "_");
     let base = PathBuf::from("apps/frappe/frappe");
 
     let mut page_path = None;
     if let Ok(entries) = std::fs::read_dir(&base) {
         for entry in entries.flatten() {
-            let path = entry.path().join("page").join(&scrubbed).join(format!("{}.json", scrubbed));
+            let path = entry
+                .path()
+                .join("page")
+                .join(&scrubbed)
+                .join(format!("{}.json", scrubbed));
             if path.exists() {
                 page_path = Some(path);
                 break;
@@ -354,7 +439,10 @@ async fn load_page_from_json(state: &AppState, name: &str, user: &str) -> Result
             let content = tokio::fs::read_to_string(&path)
                 .await
                 .map_err(|e| format!("read html error: {}", e))?;
-            let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            let filename = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
             template_script.push_str(&html_to_js_template(filename, &content));
         }
     }
@@ -470,12 +558,68 @@ async fn get_user_roles(state: &AppState, user: &str) -> Vec<String> {
     }
 }
 
+/// Native Rust implementation of frappe.desk.form.load.getdoc.
+/// Loads a single document (with child tables and __onload data) from the
+/// native ORM so forms that rely on controller onload data work even when the
+/// Python bridge cannot run the DocType controller cleanly.
+pub async fn getdoc_native(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+    let name = params.get("name").cloned().unwrap_or_default();
+
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    match pool {
+        Some(pool) => match pool.get_doc(&doctype, &name).await {
+            Ok(doc) => {
+                let docinfo = json!({
+                    "doctype": doctype,
+                    "name": name,
+                    "attachments": [],
+                    "communications": [],
+                    "automated_messages": [],
+                    "versions": [],
+                    "assignments": [],
+                    "permissions": {},
+                    "shared": [],
+                    "views": [],
+                    "additional_timeline_content": [],
+                    "milestones": [],
+                    "is_document_followed": false,
+                    "tags": [],
+                    "document_email": Value::Null,
+                    "custom_perm_types": [],
+                    "comments": [],
+                    "assignment_logs": [],
+                    "attachment_logs": [],
+                    "user_info": {},
+                });
+                let mut resp = serde_json::Map::new();
+                resp.insert("docs".to_string(), json!([doc]));
+                resp.insert("docinfo".to_string(), docinfo);
+                (StatusCode::OK, Json(Value::Object(resp)))
+            }
+            Err(error::RuntimeError::NotFound(_)) => (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": format!("{} {} not found", doctype, name) })),
+            ),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("{}", e) })),
+            ),
+        },
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": "no database pool" })),
+        ),
+    }
+}
+
 /// Native Rust implementation of frappe.desk.form.load.getdoctype.
 /// Loads doctype metadata from JSON files in apps/frappe/frappe/*/doctype/
 /// instead of relying on the Python bridge and missing DB tables.
-pub async fn getdoctype_native(
-    Query(params): Query<HashMap<String, String>>,
-) -> impl IntoResponse {
+pub async fn getdoctype_native(Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
     let doctype = params.get("doctype").cloned().unwrap_or_default();
     let _with_parent = params.get("with_parent").map(|s| s == "1").unwrap_or(false);
     let cached_timestamp = params.get("cached_timestamp").cloned().unwrap_or_default();
@@ -484,14 +628,23 @@ pub async fn getdoctype_native(
         Ok(docs) => {
             let mut resp = serde_json::Map::new();
             resp.insert("docs".to_string(), serde_json::Value::Array(docs));
-            resp.insert("user_settings".to_string(), serde_json::Value::String("{}".into()));
+            resp.insert(
+                "user_settings".to_string(),
+                serde_json::Value::String("{}".into()),
+            );
             (StatusCode::OK, Json(serde_json::Value::Object(resp)))
         }
         Err(ref e) if e == "use_cache" => {
             let mut resp = serde_json::Map::new();
-            resp.insert("message".to_string(), serde_json::Value::String("use_cache".into()));
+            resp.insert(
+                "message".to_string(),
+                serde_json::Value::String("use_cache".into()),
+            );
             resp.insert("docs".to_string(), serde_json::json!([]));
-            resp.insert("user_settings".to_string(), serde_json::Value::String("{}".into()));
+            resp.insert(
+                "user_settings".to_string(),
+                serde_json::Value::String("{}".into()),
+            );
             (StatusCode::OK, Json(serde_json::Value::Object(resp)))
         }
         Err(e) => (
@@ -499,6 +652,228 @@ pub async fn getdoctype_native(
             Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
+}
+
+/// Native Rust implementation of `frappe.desk.search.search_link` (GET).
+pub async fn search_link(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    search_link_impl(state, params).await
+}
+
+/// Native Rust implementation of `frappe.desk.search.search_link` (POST).
+///
+/// Link fields send POST requests once the user starts typing.
+pub async fn search_link_post(
+    State(state): State<AppState>,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> impl IntoResponse {
+    let mut params = HashMap::new();
+    if let Some(map) = body.as_object() {
+        if let Some(Value::String(args)) = map.get("args") {
+            if let Ok(parsed) = serde_json::from_str::<HashMap<String, Value>>(args) {
+                for (k, v) in parsed {
+                    if let Some(s) = v.as_str() {
+                        params.insert(k, s.to_string());
+                    }
+                }
+            }
+        }
+        for (k, v) in map {
+            if k == "args" {
+                continue;
+            }
+            if let Some(s) = v.as_str() {
+                params.insert(k.clone(), s.to_string());
+            }
+        }
+    }
+    search_link_impl(state, params).await
+}
+
+/// Native Rust implementation of `frappe.client.validate_link_and_fetch`.
+///
+/// Link fields call this after a value is selected to confirm the document
+/// exists and to fetch any dependent fields. The Python implementation relies
+/// on Frappe's search_widget and DB layer, so this native version performs a
+/// simple existence check against the underlying table.
+pub async fn validate_link_and_fetch(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    validate_link_and_fetch_impl(state, params).await
+}
+
+pub async fn validate_link_and_fetch_post(
+    State(state): State<AppState>,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> impl IntoResponse {
+    let mut params = HashMap::new();
+    if let Some(map) = body.as_object() {
+        if let Some(Value::String(args)) = map.get("args") {
+            if let Ok(parsed) = serde_json::from_str::<HashMap<String, Value>>(args) {
+                for (k, v) in parsed {
+                    if let Some(s) = v.as_str() {
+                        params.insert(k, s.to_string());
+                    }
+                }
+            }
+        }
+        for (k, v) in map {
+            if k == "args" {
+                continue;
+            }
+            if let Some(s) = v.as_str() {
+                params.insert(k.clone(), s.to_string());
+            }
+        }
+    }
+    validate_link_and_fetch_impl(state, params).await
+}
+
+async fn validate_link_and_fetch_impl(
+    state: AppState,
+    params: HashMap<String, String>,
+) -> impl IntoResponse {
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": {} })),
+            );
+        }
+    };
+
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+    let docname = params.get("docname").cloned().unwrap_or_default();
+
+    if doctype.is_empty() || docname.is_empty() {
+        return (StatusCode::OK, Json(json!({ "message": {} })));
+    }
+
+    let table = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
+    let table = table.strip_prefix("tab").unwrap_or(&table);
+
+    let sql = format!(r#"SELECT "name" FROM "{}" WHERE "name" = ? LIMIT 1"#, table);
+    let exists = match pool
+        .execute_sql(&sql, vec![Value::String(docname.clone())])
+        .await
+    {
+        Ok(rows) => !rows.is_empty(),
+        Err(e) => {
+            warn!("validate_link_and_fetch failed for {} {}: {}", doctype, docname, e);
+            false
+        }
+    };
+
+    if exists {
+        (
+            StatusCode::OK,
+            Json(json!({ "message": { "name": docname } })),
+        )
+    } else {
+        (StatusCode::OK, Json(json!({ "message": {} })))
+    }
+}
+
+async fn search_link_impl(state: AppState, params: HashMap<String, String>) -> impl IntoResponse {
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": [] })),
+            );
+        }
+    };
+
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+    let txt = params.get("txt").cloned().unwrap_or_default();
+    let page_length = params
+        .get("page_length")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(10);
+    let filters_json = params.get("filters").cloned().unwrap_or_default();
+
+    if doctype.is_empty() {
+        return (StatusCode::OK, Json(json!({ "message": [] })));
+    }
+
+    let table = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
+    let table = table.strip_prefix("tab").unwrap_or(&table);
+
+    let mut conditions = Vec::new();
+    let mut query_params: Vec<Value> = Vec::new();
+
+    // Equality filters (dict of field -> value). Link queries commonly send
+    // {"istable": 0} for DocType, {"enabled": 1}, etc.
+    if !filters_json.is_empty() {
+        if let Ok(filters) = serde_json::from_str::<HashMap<String, Value>>(&filters_json) {
+            for (field, value) in filters {
+                if field == "include_disabled" {
+                    continue;
+                }
+                conditions.push(format!("\"{}\" = ?", field));
+                query_params.push(value);
+            }
+        }
+    }
+
+    // Text search on the name column (and title, if one is configured).
+    let search_term = format!("%{}%", txt.replace('%', "\\%").replace('_', "\\_"));
+    let title_field: Option<String> = if doctype == "DocType" {
+        None
+    } else {
+        pool.execute_sql(
+            r#"SELECT title_field FROM "doctype" WHERE name = ?"#,
+            vec![Value::String(doctype.clone())],
+        )
+        .await
+        .ok()
+        .and_then(|mut rows| rows.pop())
+        .and_then(|mut row| row.remove("title_field"))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .filter(|s| !s.is_empty() && s != "name")
+    };
+
+    let mut or_conditions = vec![format!("\"name\" LIKE ?")];
+    query_params.push(Value::String(search_term.clone()));
+    if let Some(t) = title_field {
+        if t != "name" {
+            or_conditions.push(format!("\"{}\" LIKE ?", t));
+            query_params.push(Value::String(search_term));
+        }
+    }
+    conditions.push(format!("({})", or_conditions.join(" OR ")));
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", conditions.join(" AND "))
+    };
+
+    let sql = format!(
+        r#"SELECT "name" FROM "{}"{} ORDER BY "name" LIMIT {}"#,
+        table, where_clause, page_length
+    );
+
+    let results = match pool.execute_sql(&sql, query_params).await {
+        Ok(rows) => rows
+            .into_iter()
+            .filter_map(|mut row| {
+                let name = row.remove("name")?.as_str()?.to_string();
+                Some(json!({ "value": name.clone(), "description": name }))
+            })
+            .collect::<Vec<_>>(),
+        Err(e) => {
+            warn!("search_link failed for {}: {}", doctype, e);
+            vec![]
+        }
+    };
+
+    (StatusCode::OK, Json(json!({ "message": results })))
 }
 
 async fn load_doctype_from_json(
@@ -573,7 +948,8 @@ fn find_doctype_in_apps_dir(apps_dir: &str, doctype: &str) -> Option<PathBuf> {
                 }
                 if let Ok(content) = std::fs::read_to_string(&file_path) {
                     if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if doc.get("name")
+                        if doc
+                            .get("name")
                             .and_then(|v| v.as_str())
                             .map(|n| n == doctype)
                             .unwrap_or(false)
@@ -599,8 +975,16 @@ fn doctype_asset_paths(
     let js_path = dir.join(format!("{}.js", stem));
     let css_path = dir.join(format!("{}.css", stem));
     (
-        if js_path.exists() { Some(js_path) } else { None },
-        if css_path.exists() { Some(css_path) } else { None },
+        if js_path.exists() {
+            Some(js_path)
+        } else {
+            None
+        },
+        if css_path.exists() {
+            Some(css_path)
+        } else {
+            None
+        },
     )
 }
 
@@ -632,16 +1016,14 @@ fn read_doctype_assets_sync(
 ) -> Result<(Option<String>, Option<String>), String> {
     let (js_path, css_path) = doctype_asset_paths(path);
     let js = match js_path {
-        Some(p) => Some(
-            std::fs::read_to_string(&p)
-                .map_err(|e| format!("read doctype js error: {}", e))?,
-        ),
+        Some(p) => {
+            Some(std::fs::read_to_string(&p).map_err(|e| format!("read doctype js error: {}", e))?)
+        }
         None => None,
     };
     let css = match css_path {
         Some(p) => Some(
-            std::fs::read_to_string(&p)
-                .map_err(|e| format!("read doctype css error: {}", e))?,
+            std::fs::read_to_string(&p).map_err(|e| format!("read doctype css error: {}", e))?,
         ),
         None => None,
     };
@@ -667,7 +1049,11 @@ fn load_doctype_from_content(
         }
     }
 
-    let doctype_name = doc.get("name").and_then(|v| v.as_str()).unwrap_or(doctype).to_string();
+    let doctype_name = doc
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or(doctype)
+        .to_string();
 
     // Inject client-side controller script and stylesheet so form-level
     // behaviour (e.g. the User RoleEditor) runs in the desk.
@@ -720,12 +1106,24 @@ fn load_doctype_from_content(
 
     // Bundle child-table metas so forms with Table / Table MultiSelect render.
     let table_fieldtypes = ["Table", "Table MultiSelect"];
-    let child_doctypes: Vec<String> = doc.get("fields")
+    let child_doctypes: Vec<String> = doc
+        .get("fields")
         .and_then(|f| f.as_array())
-        .map(|arr| arr.iter()
-            .filter(|f| f.get("fieldtype").and_then(|v| v.as_str()).map(|t| table_fieldtypes.contains(&t)).unwrap_or(false))
-            .filter_map(|f| f.get("options").and_then(|v| v.as_str()).map(|s| s.to_string()))
-            .collect())
+        .map(|arr| {
+            arr.iter()
+                .filter(|f| {
+                    f.get("fieldtype")
+                        .and_then(|v| v.as_str())
+                        .map(|t| table_fieldtypes.contains(&t))
+                        .unwrap_or(false)
+                })
+                .filter_map(|f| {
+                    f.get("options")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
     for child_dt in child_doctypes {
@@ -746,8 +1144,7 @@ fn load_child_doctype_from_json(
 ) -> Result<Vec<serde_json::Value>, String> {
     let path = find_doctype_json_path(doctype)
         .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("read error: {}", e))?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("read error: {}", e))?;
     let (js, css) = read_doctype_assets_sync(&path)?;
     load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
 }
@@ -764,7 +1161,10 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
-async fn session_user_from_request(state: &AppState, headers: &axum::http::HeaderMap) -> Option<String> {
+async fn session_user_from_request(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Option<String> {
     let cookie_header = headers.get("cookie")?.to_str().ok()?;
     let sid = extract_cookie_value(cookie_header, "sid")?;
     let pool = state.pools.iter().next()?.value().clone();
@@ -806,7 +1206,10 @@ pub async fn call_method(
 /// Output of a method call: either a normal JSON payload or an HTTP redirect.
 enum MethodResponse {
     Json(serde_json::Value),
-    Redirect { location: String, cookie: Option<String> },
+    Redirect {
+        location: String,
+        cookie: Option<String>,
+    },
 }
 
 impl IntoResponse for MethodResponse {
@@ -845,9 +1248,15 @@ async fn call_rust_or_python_method(
     headers: &axum::http::HeaderMap,
 ) -> error::Result<MethodResponse> {
     // Try Rust apps first.
-    if let Some(result) = state.rust_apps.call_method(method, state.clone(), params.clone()).await? {
+    if let Some(result) = state
+        .rust_apps
+        .call_method(method, state.clone(), params.clone())
+        .await?
+    {
         // Frappe clients expect { "message": <value> } for /api/method/* calls.
-        return Ok(MethodResponse::Json(serde_json::json!({ "message": result })));
+        return Ok(MethodResponse::Json(
+            serde_json::json!({ "message": result }),
+        ));
     }
 
     // Fall back to Python method dispatcher.
@@ -891,7 +1300,10 @@ async fn session_cookie_after_py_login(
         return None;
     }
     let store = session::SessionStore::new();
-    let session = store.create(&pool, py_user, "localhost".into()).await.ok()?;
+    let session = store
+        .create(&pool, py_user, "localhost".into())
+        .await
+        .ok()?;
     Some(format!(
         "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
         session.id
@@ -979,7 +1391,12 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(
-            response.headers().get("location").unwrap().to_str().unwrap(),
+            response
+                .headers()
+                .get("location")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "/desk"
         );
         assert!(

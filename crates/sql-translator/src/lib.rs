@@ -25,7 +25,11 @@ impl SqlTranslator {
     pub fn translate(&self, sql: &str) -> Result<String> {
         let mut parsed = parser::parse(sql)?;
         rewriter::rewrite(&mut parsed, self.target)?;
-        let output = parsed.into_iter().map(|s| s.to_string()).collect::<Vec<_>>().join("; ");
+        let output = parsed
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+            .join("; ");
         let output = placeholders::rewrite(&output, self.target)?;
         Ok(output)
     }

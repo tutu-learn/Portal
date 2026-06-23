@@ -30,10 +30,7 @@ const DESK_JS_BUNDLES: &[&str] = &[
     "billing.bundle.js",
 ];
 
-const DESK_CSS_BUNDLES: &[&str] = &[
-    "desk.bundle.css",
-    "report.bundle.css",
-];
+const DESK_CSS_BUNDLES: &[&str] = &["desk.bundle.css", "report.bundle.css"];
 
 /// Icon sprites required by Frappe Desk (from frappe/hooks.py app_include_icons).
 const DESK_ICON_SPRITES: &[&str] = &[
@@ -54,9 +51,14 @@ pub async fn serve_desk(
 
     // Desk requires an authenticated session. Guests are redirected to login.
     if user.is_none() {
-        let redirect_to = uri.path_and_query().map(|pq| pq.to_string()).unwrap_or_else(|| "/app".into());
-        let query = serde_urlencoded::to_string(&LoginRedirectQuery { redirect_to: &redirect_to })
-            .unwrap_or_else(|_| format!("redirect-to={}", redirect_to));
+        let redirect_to = uri
+            .path_and_query()
+            .map(|pq| pq.to_string())
+            .unwrap_or_else(|| "/app".into());
+        let query = serde_urlencoded::to_string(&LoginRedirectQuery {
+            redirect_to: &redirect_to,
+        })
+        .unwrap_or_else(|_| format!("redirect-to={}", redirect_to));
         return Redirect::temporary(&format!("/login?{}", query)).into_response();
     }
 
@@ -124,10 +126,12 @@ async fn get_blocked_modules(
     pool: &orm::DatabasePool,
     user: &str,
 ) -> error::Result<HashSet<String>> {
-    let rows = pool.execute_sql(
-        r#"SELECT module FROM "block_module" WHERE parent = ? AND parenttype = 'User'"#,
-        vec![Value::String(user.into())],
-    ).await?;
+    let rows = pool
+        .execute_sql(
+            r#"SELECT module FROM "block_module" WHERE parent = ? AND parenttype = 'User'"#,
+            vec![Value::String(user.into())],
+        )
+        .await?;
 
     Ok(rows
         .into_iter()
@@ -138,7 +142,13 @@ async fn get_blocked_modules(
 async fn query_boot_data(
     pool: &orm::DatabasePool,
     blocked_modules: &HashSet<String>,
-) -> error::Result<(Vec<Value>, Map<String, Value>, Vec<String>, Map<String, Value>, Option<String>)> {
+) -> error::Result<(
+    Vec<Value>,
+    Map<String, Value>,
+    Vec<String>,
+    Map<String, Value>,
+    Option<String>,
+)> {
     // Query workspaces
     let ws_rows = pool.execute_sql(
         r#"SELECT name, label, title, icon, public, is_hidden, sequence_id, module, parent_page, for_user, content,
@@ -154,27 +164,64 @@ async fn query_boot_data(
     let mut default_ws: Option<String> = None;
 
     for row in ws_rows {
-        let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = row
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         if name.is_empty() {
             continue;
         }
-        let label = row.get("label").and_then(|v| v.as_str()).unwrap_or(&name).to_string();
-        let title = row.get("title").and_then(|v| v.as_str()).unwrap_or(&label).to_string();
-        let icon = row.get("icon").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let module = row.get("module").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let label = row
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&name)
+            .to_string();
+        let title = row
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&label)
+            .to_string();
+        let icon = row
+            .get("icon")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let module = row
+            .get("module")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         if !module.is_empty() && blocked_modules.contains(&module) {
             continue;
         }
-        let parent_page = row.get("parent_page").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let parent_page = row
+            .get("parent_page")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
-        let public = row.get("public")
-            .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        let public = row
+            .get("public")
+            .and_then(|v| {
+                v.as_i64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            })
             .unwrap_or(1);
-        let is_hidden = row.get("is_hidden")
-            .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        let is_hidden = row
+            .get("is_hidden")
+            .and_then(|v| {
+                v.as_i64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            })
             .unwrap_or(0);
-        let sequence_id = row.get("sequence_id")
-            .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|i| i as f64)).or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        let sequence_id = row
+            .get("sequence_id")
+            .and_then(|v| {
+                v.as_f64()
+                    .or_else(|| v.as_i64().map(|i| i as f64))
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            })
             .unwrap_or(0.0);
 
         let content = match row.get("content") {
@@ -183,13 +230,41 @@ async fn query_boot_data(
             Some(v) => v.clone(),
             None => Value::Null,
         };
-        let app = row.get("app").and_then(|v| v.as_str()).unwrap_or("frappe").to_string();
-        let ws_type = row.get("type").and_then(|v| v.as_str()).unwrap_or("Workspace").to_string();
-        let link_type = row.get("link_type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let link_to = row.get("link_to").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let external_link = row.get("external_link").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let indicator_color = row.get("indicator_color").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let for_user_val = row.get("for_user").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let app = row
+            .get("app")
+            .and_then(|v| v.as_str())
+            .unwrap_or("frappe")
+            .to_string();
+        let ws_type = row
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Workspace")
+            .to_string();
+        let link_type = row
+            .get("link_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let link_to = row
+            .get("link_to")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let external_link = row
+            .get("external_link")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let indicator_color = row
+            .get("indicator_color")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let for_user_val = row
+            .get("for_user")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
         let mut ws_obj = json!({
             "name": name,
@@ -242,23 +317,33 @@ async fn query_boot_data(
     }
 
     // Query modules
-    let mod_rows = pool.execute_sql(
-        r#"SELECT name, module_name FROM "module_def" ORDER BY module_name"#,
-        vec![],
-    ).await?;
+    let mod_rows = pool
+        .execute_sql(
+            r#"SELECT name, module_name FROM "module_def" ORDER BY module_name"#,
+            vec![],
+        )
+        .await?;
 
     let mut modules_map = Map::new();
     let mut module_list = Vec::new();
 
     for row in mod_rows {
-        let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = row
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         if name.is_empty() {
             continue;
         }
         if blocked_modules.contains(&name) {
             continue;
         }
-        let module_name = row.get("module_name").and_then(|v| v.as_str()).unwrap_or(&name).to_string();
+        let module_name = row
+            .get("module_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&name)
+            .to_string();
 
         let mod_obj = json!({
             "label": module_name,
@@ -270,15 +355,18 @@ async fn query_boot_data(
         module_list.push(module_name);
     }
 
-    Ok((workspaces, modules_map, module_list, module_wise_workspaces, default_ws))
+    Ok((
+        workspaces,
+        modules_map,
+        module_list,
+        module_wise_workspaces,
+        default_ws,
+    ))
 }
 
 /// Build workspace-related boot objects from the workspace list queried from the DB.
 /// Returns (workspaces object, workspace_sidebar_item object, default_workspace object).
-fn build_workspace_boot_objects(
-    workspaces: &[Value],
-    is_guest: bool,
-) -> (Value, Value, Value) {
+fn build_workspace_boot_objects(workspaces: &[Value], is_guest: bool) -> (Value, Value, Value) {
     // Frappe 16 expects boot.workspaces = { pages, has_access, has_create_access }
     let mut workspaces_obj = Map::new();
     workspaces_obj.insert("pages".to_string(), json!(workspaces));
@@ -345,15 +433,22 @@ fn build_workspace_boot_objects(
 
     // Build default_workspace as an object {name, title, public} — the frontend
     // expects frappe.boot.user.default_workspace to be an object, not a string.
-    let default_workspace_obj = workspaces.first().map(|ws| {
-        json!({
-            "name": ws.get("name"),
-            "title": ws.get("title"),
-            "public": ws.get("public"),
+    let default_workspace_obj = workspaces
+        .first()
+        .map(|ws| {
+            json!({
+                "name": ws.get("name"),
+                "title": ws.get("title"),
+                "public": ws.get("public"),
+            })
         })
-    }).unwrap_or(Value::Null);
+        .unwrap_or(Value::Null);
 
-    (workspaces_value, workspace_sidebar_item_value, default_workspace_obj)
+    (
+        workspaces_value,
+        workspace_sidebar_item_value,
+        default_workspace_obj,
+    )
 }
 
 async fn build_boot_info(
@@ -373,7 +468,9 @@ async fn build_boot_info(
         if is_guest {
             HashSet::new()
         } else {
-            get_blocked_modules(pool, user_name).await.unwrap_or_default()
+            get_blocked_modules(pool, user_name)
+                .await
+                .unwrap_or_default()
         }
     } else {
         HashSet::new()
@@ -430,14 +527,23 @@ async fn build_boot_info(
             boot.insert("developer_mode".to_string(), json!(true));
             boot.insert("socketio_port".to_string(), json!(9000));
             boot.insert("disable_async".to_string(), json!(false));
-            boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
+            boot.insert(
+                "server_date".to_string(),
+                json!(chrono::Local::now().format("%Y-%m-%d").to_string()),
+            );
             boot.insert("metadata_version".to_string(), json!("1"));
             // Replace Python-generated workspace/module data with the Rust-built
             // version so Rust-app workspaces show up and blocked modules are hidden.
             boot.insert("workspaces".to_string(), workspaces_value);
             boot.insert("allowed_workspaces".to_string(), json!(workspaces));
-            boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
-            boot.insert("workspace_sidebar_item".to_string(), workspace_sidebar_item_value);
+            boot.insert(
+                "module_wise_workspaces".to_string(),
+                Value::Object(module_wise_workspaces),
+            );
+            boot.insert(
+                "workspace_sidebar_item".to_string(),
+                workspace_sidebar_item_value,
+            );
             boot.insert("modules".to_string(), Value::Object(modules_map.clone()));
             boot.insert("module_list".to_string(), json!(module_list.clone()));
             if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
@@ -458,52 +564,163 @@ async fn build_boot_info(
 
     // Administrator gets full permissions on core doctypes
     let core_doctypes: Vec<&str> = vec![
-        "User", "Role", "Has Role", "Module Def", "Workspace", "Page",
-        "DocType", "DocField", "DocPerm", "System Settings",
-        "Custom Field", "Property Setter", "Workflow", "Workflow State",
-        "Workflow Action Master", "Gender", "Salutation", "User Type",
-        "Language", "Translation", "File", "Report", "Dashboard",
-        "Dashboard Chart", "Number Card", "Notification Settings",
-        "Error Log", "Activity Log", "Access Log", "Version",
-        "Communication", "Comment", "ToDo", "Event", "Note",
-        "Tag", "Tag Link", "Patch Log", "Scheduled Job Type",
-        "Scheduler Event", "RQ Job", "RQ Worker", "Webhook",
-        "Server Script", "Client Script", "Print Format",
-        "Letter Head", "Terms and Conditions", "Address",
-        "Contact", "Country", "Currency", "Calendar View",
-        "Kanban Board", "List View Settings", "Form Tour",
-        "Onboarding Step", "Module Onboarding", "Domain",
-        "Company", "Website Theme", "Web Page", "Web Form",
-        "Blogger", "Blog Post", "Blog Category", "Blog Settings",
-        "Website Settings", "About Us Settings", "Contact Us Settings",
-        "Social Login Key", "OAuth Client", "OAuth Authorization Code",
-        "OAuth Bearer Token", "Integration Request", "Connected App",
-        "Email Account", "Email Domain", "Email Template",
-        "Notification", "Auto Email Report", "S3 Backup Settings",
-        "Dropbox Settings", "Google Settings", "Google Drive",
-        "LDAP Settings", "Stripe Settings", "PayPal Settings",
-        "Recorder Query", "Success Action", "Review",
-        "Global Search Settings", "Console Log", "Package",
-        "Package Release", "Energy Point Rule", "Energy Point Log",
-        "Milestone", "Milestone Tracker", "Transaction Log",
-        "Bulk Update", "Data Import", "Data Export",
-        "Document Share Key", "Document Naming Rule",
-        "Document Naming Settings", "Submission Queue",
-        "Installed Application", "Module Profile", "User Group",
-        "User Group Member", "Dashboard Chart Source",
-        "Number Card", "Shortcut", "Custom HTML Block",
-        "Network Printer Settings", "Print Style", "Print Heading",
-        "Address Template", "Contacts Settings", "Google Contacts",
-        "Holiday List", "Weekday", "Stock Entry", "Item",
-        "Item Group", "Warehouse", "UOM", "Brand",
-        "Customer", "Supplier", "Sales Order", "Purchase Order",
-        "Sales Invoice", "Purchase Invoice", "Payment Entry",
-        "Journal Entry", "Account", "Cost Center",
-        "Budget", "Project", "Task", "Timesheet",
-        "Employee", "Department", "Designation", "Salary Structure",
-        "Salary Slip", "Leave Application", "Attendance",
-        "Job Opening", "Job Applicant", "Job Offer",
-        "Quiz", "LMS Course", "LMS Batch", "LMS Enrollment",
+        "User",
+        "Role",
+        "Has Role",
+        "Module Def",
+        "Workspace",
+        "Page",
+        "DocType",
+        "DocField",
+        "DocPerm",
+        "System Settings",
+        "Custom Field",
+        "Property Setter",
+        "Workflow",
+        "Workflow State",
+        "Workflow Action Master",
+        "Gender",
+        "Salutation",
+        "User Type",
+        "Language",
+        "Translation",
+        "File",
+        "Report",
+        "Dashboard",
+        "Dashboard Chart",
+        "Number Card",
+        "Notification Settings",
+        "Error Log",
+        "Activity Log",
+        "Access Log",
+        "Version",
+        "Communication",
+        "Comment",
+        "ToDo",
+        "Event",
+        "Note",
+        "Tag",
+        "Tag Link",
+        "Patch Log",
+        "Scheduled Job Type",
+        "Scheduler Event",
+        "RQ Job",
+        "RQ Worker",
+        "Webhook",
+        "Server Script",
+        "Client Script",
+        "Print Format",
+        "Letter Head",
+        "Terms and Conditions",
+        "Address",
+        "Contact",
+        "Country",
+        "Currency",
+        "Calendar View",
+        "Kanban Board",
+        "List View Settings",
+        "Form Tour",
+        "Onboarding Step",
+        "Module Onboarding",
+        "Domain",
+        "Company",
+        "Website Theme",
+        "Web Page",
+        "Web Form",
+        "Blogger",
+        "Blog Post",
+        "Blog Category",
+        "Blog Settings",
+        "Website Settings",
+        "About Us Settings",
+        "Contact Us Settings",
+        "Social Login Key",
+        "OAuth Client",
+        "OAuth Authorization Code",
+        "OAuth Bearer Token",
+        "Integration Request",
+        "Connected App",
+        "Email Account",
+        "Email Domain",
+        "Email Template",
+        "Notification",
+        "Auto Email Report",
+        "S3 Backup Settings",
+        "Dropbox Settings",
+        "Google Settings",
+        "Google Drive",
+        "LDAP Settings",
+        "Stripe Settings",
+        "PayPal Settings",
+        "Recorder Query",
+        "Success Action",
+        "Review",
+        "Global Search Settings",
+        "Console Log",
+        "Package",
+        "Package Release",
+        "Energy Point Rule",
+        "Energy Point Log",
+        "Milestone",
+        "Milestone Tracker",
+        "Transaction Log",
+        "Bulk Update",
+        "Data Import",
+        "Data Export",
+        "Document Share Key",
+        "Document Naming Rule",
+        "Document Naming Settings",
+        "Submission Queue",
+        "Installed Application",
+        "Module Profile",
+        "User Group",
+        "User Group Member",
+        "Dashboard Chart Source",
+        "Number Card",
+        "Shortcut",
+        "Custom HTML Block",
+        "Network Printer Settings",
+        "Print Style",
+        "Print Heading",
+        "Address Template",
+        "Contacts Settings",
+        "Google Contacts",
+        "Holiday List",
+        "Weekday",
+        "Stock Entry",
+        "Item",
+        "Item Group",
+        "Warehouse",
+        "UOM",
+        "Brand",
+        "Customer",
+        "Supplier",
+        "Sales Order",
+        "Purchase Order",
+        "Sales Invoice",
+        "Purchase Invoice",
+        "Payment Entry",
+        "Journal Entry",
+        "Account",
+        "Cost Center",
+        "Budget",
+        "Project",
+        "Task",
+        "Timesheet",
+        "Employee",
+        "Department",
+        "Designation",
+        "Salary Structure",
+        "Salary Slip",
+        "Leave Application",
+        "Attendance",
+        "Job Opening",
+        "Job Applicant",
+        "Job Offer",
+        "Quiz",
+        "LMS Course",
+        "LMS Batch",
+        "LMS Enrollment",
     ];
     let core_doctypes = json!(core_doctypes);
 
@@ -511,7 +728,10 @@ async fn build_boot_info(
     user_obj.insert("name".to_string(), json!(user_name));
     user_obj.insert("email".to_string(), json!(user_name));
     user_obj.insert("full_name".to_string(), json!(user_name));
-    user_obj.insert("user_type".to_string(), json!(if is_guest { "Guest" } else { "System User" }));
+    user_obj.insert(
+        "user_type".to_string(),
+        json!(if is_guest { "Guest" } else { "System User" }),
+    );
     user_obj.insert("roles".to_string(), roles);
     user_obj.insert("language".to_string(), json!("en"));
     user_obj.insert("timezone".to_string(), json!("UTC"));
@@ -560,7 +780,10 @@ async fn build_boot_info(
     sysdefaults.insert("currency_precision".to_string(), json!(2));
     sysdefaults.insert("currency".to_string(), json!("USD"));
     sysdefaults.insert("hide_currency_symbol".to_string(), json!("No"));
-    sysdefaults.insert("rounding_method".to_string(), json!("Banker's Rounding (legacy)"));
+    sysdefaults.insert(
+        "rounding_method".to_string(),
+        json!("Banker's Rounding (legacy)"),
+    );
     sysdefaults.insert("setup_complete".to_string(), json!(true));
     sysdefaults.insert("letter_head".to_string(), Value::Null);
     sysdefaults.insert("session_recording_start".to_string(), json!(0));
@@ -579,16 +802,22 @@ async fn build_boot_info(
     notification_settings.insert("enable_email_notifications".to_string(), json!(true));
     notification_settings.insert("enable_email_mention".to_string(), json!(true));
     notification_settings.insert("enable_email_assignment".to_string(), json!(true));
-    notification_settings.insert("enable_email_threads_on_assigned_document".to_string(), json!(true));
+    notification_settings.insert(
+        "enable_email_threads_on_assigned_document".to_string(),
+        json!(true),
+    );
     notification_settings.insert("enable_email_share".to_string(), json!(true));
     notification_settings.insert("enable_email_event_reminders".to_string(), json!(true));
 
     let mut navbar_settings = Map::new();
     navbar_settings.insert("help_dropdown".to_string(), json!([]));
-    navbar_settings.insert("settings_dropdown".to_string(), json!([
-        {"item_label": "My Settings", "route": "/app/user/"},
-        {"item_label": "Logout", "route": "/logout"}
-    ]));
+    navbar_settings.insert(
+        "settings_dropdown".to_string(),
+        json!([
+            {"item_label": "My Settings", "route": "/app/user/"},
+            {"item_label": "Logout", "route": "/logout"}
+        ]),
+    );
     navbar_settings.insert("announcement_widget".to_string(), json!(""));
     navbar_settings.insert("app_logo".to_string(), json!(""));
 
@@ -626,7 +855,10 @@ async fn build_boot_info(
     boot.insert("nested_set_doctypes".to_string(), json!([]));
     boot.insert("doctype_layouts".to_string(), json!([]));
     boot.insert("user_permissions".to_string(), json!({}));
-    boot.insert("notification_settings".to_string(), Value::Object(notification_settings));
+    boot.insert(
+        "notification_settings".to_string(),
+        Value::Object(notification_settings),
+    );
     boot.insert("is_first_startup".to_string(), json!(false));
     boot.insert("setup_complete".to_string(), json!(true));
     boot.insert("developer_mode".to_string(), json!(true));
@@ -670,8 +902,14 @@ async fn build_boot_info(
     boot.insert("workspaces".to_string(), workspaces_value);
     // Kept for older frontend code that may still reference it
     boot.insert("allowed_workspaces".to_string(), json!(workspaces));
-    boot.insert("module_wise_workspaces".to_string(), Value::Object(module_wise_workspaces));
-    boot.insert("workspace_sidebar_item".to_string(), workspace_sidebar_item_value);
+    boot.insert(
+        "module_wise_workspaces".to_string(),
+        Value::Object(module_wise_workspaces),
+    );
+    boot.insert(
+        "workspace_sidebar_item".to_string(),
+        workspace_sidebar_item_value,
+    );
     boot.insert("dashboards".to_string(), json!([]));
     boot.insert("page_info".to_string(), json!({}));
     boot.insert("allowed_pages".to_string(), json!([]));
@@ -686,8 +924,14 @@ async fn build_boot_info(
     boot.insert("treeviews".to_string(), json!([]));
     boot.insert("print_css".to_string(), json!(""));
     boot.insert("home_folder".to_string(), json!(""));
-    boot.insert("navbar_settings".to_string(), Value::Object(navbar_settings));
-    boot.insert("app_logo_url".to_string(), json!("/assets/frappe/images/frappe-framework-logo.svg"));
+    boot.insert(
+        "navbar_settings".to_string(),
+        Value::Object(navbar_settings),
+    );
+    boot.insert(
+        "app_logo_url".to_string(),
+        json!("/assets/frappe/images/frappe-framework-logo.svg"),
+    );
     boot.insert("onboarding_tours".to_string(), json!([]));
     boot.insert("versions".to_string(), json!({}));
     boot.insert("error_report_email".to_string(), Value::Null);
@@ -720,7 +964,10 @@ async fn build_boot_info(
     boot.insert("metadata_version".to_string(), json!("1"));
     boot.insert("timezone_info".to_string(), Value::Object(timezone_info));
     boot.insert("disable_async".to_string(), json!(false));
-    boot.insert("server_date".to_string(), json!(chrono::Local::now().format("%Y-%m-%d").to_string()));
+    boot.insert(
+        "server_date".to_string(),
+        json!(chrono::Local::now().format("%Y-%m-%d").to_string()),
+    );
 
     sanitize_bootinfo(&mut boot);
     Value::Object(boot)
@@ -737,7 +984,11 @@ fn sanitize_bootinfo(boot: &mut Map<String, Value>) {
     let user = boot.get_mut("user").unwrap().as_object_mut().unwrap();
 
     // all_reports must be an object for Object.keys() in search_utils.js
-    if !user.get("all_reports").map(|v| v.is_object()).unwrap_or(false) {
+    if !user
+        .get("all_reports")
+        .map(|v| v.is_object())
+        .unwrap_or(false)
+    {
         user.insert("all_reports".to_string(), json!({}));
     }
 
@@ -817,10 +1068,7 @@ fn discover_assets(bundle_map: &HashMap<String, String>) -> (String, String) {
     // Generate CSS includes
     for bundle in DESK_CSS_BUNDLES {
         if let Some(path) = bundle_map.get(*bundle) {
-            css_tags.push_str(&format!(
-                r#"<link rel="stylesheet" href="{}">"#,
-                path
-            ));
+            css_tags.push_str(&format!(r#"<link rel="stylesheet" href="{}">"#, path));
             css_tags.push('\n');
         }
     }
@@ -891,11 +1139,18 @@ async fn get_social_login_providers(pool: &orm::DatabasePool) -> Vec<SocialLogin
             let auth_url_data = row.remove("auth_url_data").filter(|v| !v.is_null());
             let custom_base_url = row
                 .remove("custom_base_url")
-                .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .and_then(|v| {
+                    v.as_i64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
                 .unwrap_or(0)
                 == 1;
-            let base_url = row.remove("base_url").and_then(|v| v.as_str().map(String::from));
-            let icon = row.remove("icon").and_then(|v| v.as_str().map(String::from));
+            let base_url = row
+                .remove("base_url")
+                .and_then(|v| v.as_str().map(String::from));
+            let icon = row
+                .remove("icon")
+                .and_then(|v| v.as_str().map(String::from));
 
             Some(SocialLoginProvider {
                 name,
@@ -932,7 +1187,11 @@ fn build_authorize_url(
     {
         provider.redirect_url.clone()
     } else {
-        format!("{}{}", site_url.trim_end_matches('/'), provider.redirect_url)
+        format!(
+            "{}{}",
+            site_url.trim_end_matches('/'),
+            provider.redirect_url
+        )
     };
 
     let token = uuid::Uuid::new_v4().simple().to_string();
@@ -959,12 +1218,18 @@ fn build_authorize_url(
     }
 
     // Default OAuth2 parameters if the provider config did not supply them.
-    params.entry("response_type".to_string()).or_insert_with(|| "code".to_string());
+    params
+        .entry("response_type".to_string())
+        .or_insert_with(|| "code".to_string());
 
     // Microsoft Entra ID (v2.0) requires a scope parameter on the authorize request.
     // If the provider config left it out, default to the standard OIDC scopes so login works.
-    if authorize_url.contains("login.microsoftonline.com") && authorize_url.contains("/oauth2/v2.0/authorize") {
-        params.entry("scope".to_string()).or_insert_with(|| "openid email profile".to_string());
+    if authorize_url.contains("login.microsoftonline.com")
+        && authorize_url.contains("/oauth2/v2.0/authorize")
+    {
+        params
+            .entry("scope".to_string())
+            .or_insert_with(|| "openid email profile".to_string());
     }
 
     let query = match serde_urlencoded::to_string(&params) {
@@ -997,7 +1262,10 @@ fn render_social_login_buttons(providers: &[(SocialLoginProvider, String)]) -> S
     for (provider, auth_url) in providers {
         let icon_html = match &provider.icon {
             Some(icon) if icon.ends_with(".svg") => {
-                format!(r#"<img src="{}" alt="{}" class="social-icon">"#, icon, provider.provider_name)
+                format!(
+                    r#"<img src="{}" alt="{}" class="social-icon">"#,
+                    icon, provider.provider_name
+                )
             }
             Some(icon) => {
                 format!(r#"<span class="social-icon {}"></span>"#, icon)
@@ -1005,7 +1273,10 @@ fn render_social_login_buttons(providers: &[(SocialLoginProvider, String)]) -> S
             None => String::new(),
         };
 
-        let btn_class = format!("btn btn-social btn-{}", provider.name.to_lowercase().replace(' ', "_"));
+        let btn_class = format!(
+            "btn btn-social btn-{}",
+            provider.name.to_lowercase().replace(' ', "_")
+        );
         html.push_str(&format!(
             r#"<a href="{}" class="{}">{}Login with {}</a>"#,
             auth_url, btn_class, icon_html, provider.provider_name
@@ -1065,7 +1336,10 @@ mod tests {
     #[test]
     fn test_build_oauth_url_with_absolute_url() {
         assert_eq!(
-            build_oauth_url("https://example.com", "https://login.microsoftonline.com/common/oauth2/authorize"),
+            build_oauth_url(
+                "https://example.com",
+                "https://login.microsoftonline.com/common/oauth2/authorize"
+            ),
             "https://login.microsoftonline.com/common/oauth2/authorize"
         );
     }
@@ -1093,7 +1367,8 @@ mod tests {
             provider_name: "Office 365".to_string(),
             client_id: "test-client-id".to_string(),
             authorize_url: "https://login.microsoftonline.com/common/oauth2/authorize".to_string(),
-            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365".to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365"
+                .to_string(),
             auth_url_data: Some(json!({"response_type": "code", "scope": "openid"})),
             custom_base_url: false,
             base_url: None,
@@ -1123,7 +1398,12 @@ mod tests {
             icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
         };
 
-        let url = build_authorize_url(&provider, "https://compliance-system.sebrus.dev", Some("/desk")).unwrap();
+        let url = build_authorize_url(
+            &provider,
+            "https://compliance-system.sebrus.dev",
+            Some("/desk"),
+        )
+        .unwrap();
         assert!(url.starts_with("https://login.microsoftonline.com/1d6f2f1f-694e-4308-a2ba-bb00bb00fa46/oauth2/v2.0/authorize?"));
         assert!(url.contains("client_id=test-client-id"));
         assert!(url.contains("redirect_uri=https%3A%2F%2Fcompliance-system.sebrus.dev%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_microsoft"));
@@ -1139,14 +1419,16 @@ mod tests {
             provider_name: "Office 365".to_string(),
             client_id: "test-client-id".to_string(),
             authorize_url: "https://login.microsoftonline.com/common/oauth2/authorize".to_string(),
-            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365".to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365"
+                .to_string(),
             auth_url_data: None,
             custom_base_url: false,
             base_url: None,
             icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
         };
 
-        let auth_url = "https://login.microsoftonline.com/common/oauth2/authorize?test=1".to_string();
+        let auth_url =
+            "https://login.microsoftonline.com/common/oauth2/authorize?test=1".to_string();
         let html = render_social_login_buttons(&[(provider, auth_url)]);
         assert!(html.contains("Login with Office 365"));
         assert!(html.contains("btn-office_365"));

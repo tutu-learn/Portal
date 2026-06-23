@@ -6,12 +6,12 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use tantivy::collector::TopDocs;
 use tantivy::directory::MmapDirectory;
 use tantivy::query::QueryParser;
-use tantivy::schema::{Field, Schema, Value, INDEXED, FAST, STORED, STRING, TEXT};
+use tantivy::schema::{Field, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument};
 
+use crate::error::{LogError, LogResult};
 use crate::record::LogRecord;
 use crate::trigger::{Alert, Trigger};
-use crate::error::{LogError, LogResult};
 
 /// The core synchronous log engine.
 ///
@@ -155,7 +155,10 @@ impl LogEngine {
     /// Query the committed index and return matching records.
     pub fn query(&self, q: &str, limit: usize) -> LogResult<Vec<LogRecord>> {
         let searcher = self.reader.searcher();
-        let qp = QueryParser::for_index(&self.index, vec![self.f_message, self.f_level, self.f_service]);
+        let qp = QueryParser::for_index(
+            &self.index,
+            vec![self.f_message, self.f_level, self.f_service],
+        );
         let query = qp.parse_query(q)?;
         let hits = searcher.search(&query, &TopDocs::with_limit(limit))?;
 
@@ -194,8 +197,12 @@ mod tests {
         let dir = temp_dir();
         let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
 
-        engine.ingest(LogRecord::new("INFO", "web", "GET /health 200")).unwrap();
-        engine.ingest(LogRecord::new("ERROR", "auth", "login timeout")).unwrap();
+        engine
+            .ingest(LogRecord::new("INFO", "web", "GET /health 200"))
+            .unwrap();
+        engine
+            .ingest(LogRecord::new("ERROR", "auth", "login timeout"))
+            .unwrap();
         engine.commit().unwrap();
 
         let hits = engine.query("level:ERROR", 10).unwrap();
@@ -213,9 +220,13 @@ mod tests {
         // Session 1: commit one, ingest another without commit.
         {
             let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
-            engine.ingest(LogRecord::new("INFO", "web", "committed")).unwrap();
+            engine
+                .ingest(LogRecord::new("INFO", "web", "committed"))
+                .unwrap();
             engine.commit().unwrap();
-            engine.ingest(LogRecord::new("WARN", "web", "uncommitted")).unwrap();
+            engine
+                .ingest(LogRecord::new("WARN", "web", "uncommitted"))
+                .unwrap();
             // drop without commit -> simulated crash
         }
 
@@ -232,7 +243,9 @@ mod tests {
         let (mut engine, alerts) = LogEngine::open_or_create(&dir).unwrap();
         engine.add_trigger("any-error", |r| r.level == "ERROR");
 
-        engine.ingest(LogRecord::new("ERROR", "billing", "card declined")).unwrap();
+        engine
+            .ingest(LogRecord::new("ERROR", "billing", "card declined"))
+            .unwrap();
 
         let alert = alerts.recv_timeout(Duration::from_secs(1)).unwrap();
         assert_eq!(alert.trigger, "any-error");

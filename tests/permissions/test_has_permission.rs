@@ -5,14 +5,26 @@ async fn test_admin_always_has_permission() -> Result<()> {
     let pool = crate::common::setup_test_db().await?;
     let engine = permissions::PermissionEngine::new();
 
-    let can_read = engine.has_permission(&pool, "Administrator", "User", "read", None).await?;
+    let can_read = engine
+        .has_permission(&pool, "Administrator", "User", "read", None)
+        .await?;
     assert!(can_read, "Administrator should always have read permission");
 
-    let can_write = engine.has_permission(&pool, "Administrator", "User", "write", None).await?;
-    assert!(can_write, "Administrator should always have write permission");
+    let can_write = engine
+        .has_permission(&pool, "Administrator", "User", "write", None)
+        .await?;
+    assert!(
+        can_write,
+        "Administrator should always have write permission"
+    );
 
-    let can_delete = engine.has_permission(&pool, "Administrator", "User", "delete", None).await?;
-    assert!(can_delete, "Administrator should always have delete permission");
+    let can_delete = engine
+        .has_permission(&pool, "Administrator", "User", "delete", None)
+        .await?;
+    assert!(
+        can_delete,
+        "Administrator should always have delete permission"
+    );
 
     Ok(())
 }
@@ -22,10 +34,15 @@ async fn test_guest_limited_permission() -> Result<()> {
     let pool = crate::common::setup_test_db().await?;
     let engine = permissions::PermissionEngine::new();
 
-    let can_read = engine.has_permission(&pool, "Guest", "User", "read", None).await?;
+    // "Gender" is seeded with a plain read permission for the "All" role.
+    let can_read = engine
+        .has_permission(&pool, "Guest", "Gender", "read", None)
+        .await?;
     assert!(can_read, "Guest should have read via 'All' role");
 
-    let can_write = engine.has_permission(&pool, "Guest", "User", "write", None).await?;
+    let can_write = engine
+        .has_permission(&pool, "Guest", "Gender", "write", None)
+        .await?;
     assert!(!can_write, "Guest should NOT have write permission");
 
     Ok(())
@@ -37,7 +54,11 @@ async fn test_owner_only_permission() -> Result<()> {
     crate::common::create_doctype_table(&pool, "OwnerDoc").await?;
 
     // Remove the default "All" wildcard permission so it doesn't grant access to everyone
-    pool.execute_sql("DELETE FROM __kiff_docperm WHERE parent = '*' AND role = 'All'", vec![]).await?;
+    pool.execute_sql(
+        "DELETE FROM __kiff_docperm WHERE parent = '*' AND role = 'All'",
+        vec![],
+    )
+    .await?;
 
     // Insert a custom permission: All users can read OwnerDoc only if owner
     let sql = r#"
@@ -53,12 +74,19 @@ async fn test_owner_only_permission() -> Result<()> {
     pool.insert_doc(&doc).await?;
 
     // User with Sales User role trying to read their own doc
-    let can_read_own = engine.has_permission(&pool, "alice@example.com", "OwnerDoc", "read", Some(&doc)).await?;
+    let can_read_own = engine
+        .has_permission(&pool, "alice@example.com", "OwnerDoc", "read", Some(&doc))
+        .await?;
     assert!(can_read_own, "Owner should be able to read their own doc");
 
     // Different user trying to read the same doc
-    let can_read_other = engine.has_permission(&pool, "bob@example.com", "OwnerDoc", "read", Some(&doc)).await?;
-    assert!(!can_read_other, "Non-owner should NOT be able to read owner-only doc");
+    let can_read_other = engine
+        .has_permission(&pool, "bob@example.com", "OwnerDoc", "read", Some(&doc))
+        .await?;
+    assert!(
+        !can_read_other,
+        "Non-owner should NOT be able to read owner-only doc"
+    );
 
     Ok(())
 }
@@ -69,13 +97,23 @@ async fn test_permission_query_conditions() -> Result<()> {
     let engine = permissions::PermissionEngine::new();
 
     // Admin has no conditions (full access)
-    let admin_cond = engine.get_permission_query_conditions(&pool, "Administrator", "User").await?;
-    assert!(admin_cond.is_none(), "Admin should have no query conditions");
+    let admin_cond = engine
+        .get_permission_query_conditions(&pool, "Administrator", "User")
+        .await?;
+    assert!(
+        admin_cond.is_none(),
+        "Admin should have no query conditions"
+    );
 
-    // Guest gets owner condition for owner-only perms, or none for full perms
-    // Since default 'All' role has full read, Guest should have no conditions
-    let guest_cond = engine.get_permission_query_conditions(&pool, "Guest", "User").await?;
-    assert!(guest_cond.is_none(), "Guest with 'All' role should have no conditions for User");
+    // Guest gets owner condition for owner-only perms, or none for full perms.
+    // "Gender" is seeded with a plain read permission for the "All" role.
+    let guest_cond = engine
+        .get_permission_query_conditions(&pool, "Guest", "Gender")
+        .await?;
+    assert!(
+        guest_cond.is_none(),
+        "Guest with 'All' role should have no conditions for Gender"
+    );
 
     Ok(())
 }
