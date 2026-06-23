@@ -72,6 +72,14 @@ pub fn create_router() -> Router<AppState> {
             post(permissions::get_users_with_role_post),
         )
         .route(
+            "/api/method/frappe.desk.reportview.get",
+            get(api::reportview_get).post(api::reportview_get),
+        )
+        .route(
+            "/api/method/frappe.desk.reportview.get_count",
+            get(api::reportview_get_count).post(api::reportview_get_count),
+        )
+        .route(
             "/api/method/:method",
             get(api::call_method_get).post(api::call_method),
         )

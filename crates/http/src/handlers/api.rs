@@ -2,14 +2,25 @@ use crate::AppState;
 use axum::{
     extract::{Path, Query, State},
     http::{header::SET_COOKIE, HeaderValue, StatusCode},
-    response::{IntoResponse, Json, Redirect},
+    response::{IntoResponse, Json, Redirect, Response},
 };
+use log_engine::LogRecord;
 use orm::FilterCondition;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tracing::warn;
+use tracing::{info, warn};
+
+fn virtual_doctype_error(doctype: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        Json(json!({
+            "error": format!("{} is a virtual DocType and is not backed by SQL", doctype),
+            "message": "Use the dedicated desk endpoints for this DocType"
+        })),
+    )
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
@@ -28,6 +39,10 @@ pub async fn get_list(
     Path(doctype): Path<String>,
     Query(q): Query<ListQuery>,
 ) -> impl IntoResponse {
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
     let fields = q
         .fields
         .map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
@@ -64,6 +79,11 @@ pub async fn get_doc(
     State(state): State<AppState>,
     Path((doctype, name)): Path<(String, String)>,
 ) -> impl IntoResponse {
+    let _ = name;
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
@@ -92,6 +112,10 @@ pub async fn insert_doc(
     headers: axum::http::HeaderMap,
     Json(body): Json<InsertBody>,
 ) -> impl IntoResponse {
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
     // Prefer the real Frappe Document.insert() path so DocType controllers,
     // validation hooks and child-table handling run. Fall back to the native
     // ORM insert when Python cannot handle the DocType yet.
@@ -157,6 +181,10 @@ pub async fn update_doc(
     headers: axum::http::HeaderMap,
     Json(body): Json<HashMap<String, Value>>,
 ) -> impl IntoResponse {
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
     // Keep a copy for the native ORM fallback path.
     let body_for_fallback = body.clone();
 
@@ -238,6 +266,10 @@ pub async fn delete_doc(
     Path((doctype, name)): Path<(String, String)>,
     headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
     // Try real Frappe Document.delete() first so Password fields are cleaned
     // up from __auth and document hooks run. Fall back to the native ORM
     // delete if Python is unavailable.
@@ -569,6 +601,10 @@ pub async fn getdoc_native(
     let doctype = params.get("doctype").cloned().unwrap_or_default();
     let name = params.get("name").cloned().unwrap_or_default();
 
+    if doctype == "Kiff Log Entry" {
+        return get_kiff_log_doc(state, &name).await;
+    }
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
@@ -776,6 +812,484 @@ async fn validate_link_and_fetch_impl(
     } else {
         (StatusCode::OK, Json(json!({ "message": {} })))
     }
+}
+
+/// Native Rust implementation of `frappe.desk.reportview.get`.
+///
+/// The desk list view uses this endpoint. For normal DocTypes we fall back to
+/// the ORM; for the virtual `Kiff Log Entry` DocType we read from the log
+/// engine instead.
+pub async fn reportview_get(
+    State(state): State<AppState>,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> Response {
+    let params = reportview_params_from_body(body);
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+
+    if doctype == "Kiff Log Entry" {
+        return reportview_kiff_log_get(state, params).await;
+    }
+
+    info!(
+        "reportview.get doctype={} fields={:?} filters={:?}",
+        doctype,
+        params.get("fields"),
+        params.get("filters")
+    );
+
+    // For non-virtual DocTypes, use the ORM's get_list and compress the result
+    // into the reportview shape.
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": "no database pool" })),
+            )
+                .into_response();
+        }
+    };
+
+    let fields = params
+        .get("fields")
+        .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
+        .or_else(|| {
+            params
+                .get("fields")
+                .map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>())
+        });
+    // The desk sends link-field title expressions like `sop.name as sop_name`.
+    // The native ORM cannot resolve joins, so keep only the base link field.
+    let fields = fields.map(|f| sanitize_reportview_fields(&f));
+
+    // Filter requested fields to columns that actually exist in the data table.
+    // This avoids 500s when the desk asks for fields like `disabled` that are
+    // not present on every DocType.
+    let fields = match fields {
+        Some(fields) => {
+            let table = reportview_table_name(&doctype);
+            let cols: std::collections::HashSet<String> = pool
+                .execute_sql(&format!("PRAGMA table_info(\"{}\")", table), vec![])
+                .await
+                .map(|rows| {
+                    rows.into_iter()
+                        .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if cols.is_empty() {
+                Some(fields)
+            } else {
+                Some(fields.into_iter().filter(|f| cols.contains(f)).collect::<Vec<_>>())
+            }
+        }
+        None => None,
+    };
+
+    let filters = params.get("filters").and_then(|s| {
+        let raw: Option<HashMap<String, Value>> = serde_json::from_str(s).ok();
+        raw.map(|m| {
+            m.into_iter()
+                .map(|(k, v)| (k, FilterCondition::Eq(v)))
+                .collect::<HashMap<_, _>>()
+        })
+    });
+
+    let limit_start = params
+        .get("limit_start")
+        .or_else(|| params.get("start"))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let page_length = params
+        .get("limit_page_length")
+        .or_else(|| params.get("page_length"))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(20);
+
+    match pool
+        .get_list(&doctype, filters, fields, None, Some(limit_start + page_length))
+        .await
+    {
+        Ok(docs) => {
+            let docs: Vec<Value> = docs
+                .into_iter()
+                .skip(limit_start)
+                .take(page_length)
+                .map(|d| serde_json::to_value(d).unwrap_or_default())
+                .collect();
+            (
+                StatusCode::OK,
+                Json(json!({ "message": compress_reportview(&docs) })),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            warn!(
+                "reportview.get failed for doctype={} fields={:?} filters={:?}: {}",
+                doctype,
+                params.get("fields"),
+                params.get("filters"),
+                e
+            );
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "message": format!("{}", e) })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Native Rust implementation of `frappe.desk.reportview.get_count`.
+pub async fn reportview_get_count(
+    State(state): State<AppState>,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> Response {
+    let params = reportview_params_from_body(body);
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+
+    if doctype == "Kiff Log Entry" {
+        return kiff_log_count(state, params).await;
+    }
+
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": "no database pool" })),
+            )
+                .into_response();
+        }
+    };
+
+    let filters = params.get("filters").and_then(|s| {
+        let raw: Option<HashMap<String, Value>> = serde_json::from_str(s).ok();
+        raw.map(|m| {
+            m.into_iter()
+                .map(|(k, v)| (k, FilterCondition::Eq(v)))
+                .collect::<HashMap<_, _>>()
+        })
+    });
+
+    match pool.get_list(&doctype, filters, None, None, None).await {
+        Ok(docs) => (StatusCode::OK, Json(json!({ "message": docs.len() }))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "message": format!("{}", e) })),
+        )
+            .into_response(),
+    }
+}
+
+fn reportview_params_from_body(body: Value) -> HashMap<String, String> {
+    let mut params = HashMap::new();
+    if let Some(map) = body.as_object() {
+        if let Some(Value::String(args)) = map.get("args") {
+            if let Ok(parsed) = serde_json::from_str::<HashMap<String, Value>>(args) {
+                for (k, v) in parsed {
+                    insert_value(&mut params, k, v);
+                }
+            }
+        }
+        for (k, v) in map {
+            if k == "args" {
+                continue;
+            }
+            insert_value(&mut params, k.clone(), v.clone());
+        }
+    }
+    params
+}
+
+fn insert_value(params: &mut HashMap<String, String>, key: String, value: Value) {
+    match value {
+        Value::String(s) => {
+            params.insert(key, s);
+        }
+        Value::Array(arr) => {
+            params.insert(key, serde_json::to_string(&arr).unwrap_or_default());
+        }
+        Value::Object(obj) => {
+            params.insert(key, serde_json::to_string(&obj).unwrap_or_default());
+        }
+        Value::Number(n) => {
+            params.insert(key, n.to_string());
+        }
+        Value::Bool(b) => {
+            params.insert(key, b.to_string());
+        }
+        Value::Null => {}
+    }
+}
+
+async fn get_kiff_log_doc(state: AppState, name: &str) -> (StatusCode, Json<Value>) {
+    let service = match state.logger.get() {
+        Some(s) => s.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "error": "log engine not initialized" })),
+            );
+        }
+    };
+
+    let _ = service.commit().await;
+
+    // Name format: KLE-<timestamp_ms>-<index>. Query broadly and match by name.
+    let records = match service.query("*", 100_000).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("log query failed: {}", e) })),
+            );
+        }
+    };
+
+    for (idx, rec) in records.into_iter().enumerate() {
+        let candidate = format!("KLE-{}-{}", rec.timestamp, idx);
+        if candidate == name {
+            let doc = log_record_to_doc(rec, idx);
+            let docinfo = json!({
+                "doctype": "Kiff Log Entry",
+                "name": name,
+                "attachments": [],
+                "communications": [],
+                "automated_messages": [],
+                "versions": [],
+                "assignments": [],
+                "permissions": {},
+                "shared": [],
+                "views": [],
+                "additional_timeline_content": [],
+                "milestones": [],
+                "is_document_followed": false,
+                "tags": [],
+                "document_email": Value::Null,
+                "custom_perm_types": [],
+                "comments": [],
+                "assignment_logs": [],
+                "attachment_logs": [],
+                "user_info": {},
+            });
+            let mut resp = serde_json::Map::new();
+            resp.insert("docs".to_string(), json!([doc]));
+            resp.insert("docinfo".to_string(), docinfo);
+            return (StatusCode::OK, Json(Value::Object(resp)));
+        }
+    }
+
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({ "error": format!("Kiff Log Entry {} not found", name) })),
+    )
+}
+
+fn compress_reportview(data: &[Value]) -> Value {
+    if data.is_empty() {
+        return json!({ "keys": [], "values": [], "user_info": {} });
+    }
+    let keys: Vec<String> = data[0]
+        .as_object()
+        .map(|m| m.keys().cloned().collect())
+        .unwrap_or_default();
+    let values: Vec<Vec<Value>> = data
+        .iter()
+        .map(|row| keys.iter().map(|k| row.get(k).cloned().unwrap_or(Value::Null)).collect())
+        .collect();
+    json!({ "keys": keys, "values": values, "user_info": {} })
+}
+
+/// Convert a DocType name into the physical SQL table name used by the ORM.
+fn reportview_table_name(doctype: &str) -> String {
+    let name = doctype.to_lowercase().replace(" ", "_");
+    name.strip_prefix("tab").unwrap_or(&name).to_string()
+}
+
+/// Strip SQL aliases / table prefixes from the desk list-view field list so
+/// the native ORM can fetch them. For example `sop.name as sop_name` becomes
+/// `sop`.
+fn sanitize_reportview_fields(fields: &[String]) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    fields
+        .iter()
+        .filter_map(|f| {
+            if f.is_empty() {
+                return None;
+            }
+            let base = if let Some(pos) = f.to_lowercase().find(" as ") {
+                f[..pos].trim()
+            } else {
+                f.trim()
+            };
+            let base = base
+                .trim_start_matches('`')
+                .trim_end_matches('`');
+            let base = base.split('.').next().unwrap_or(base).to_string();
+            if base.is_empty() || !seen.insert(base.clone()) {
+                None
+            } else {
+                Some(base)
+            }
+        })
+        .collect()
+}
+
+async fn reportview_kiff_log_get(state: AppState, params: HashMap<String, String>) -> Response {
+    let limit_start = params
+        .get("limit_start")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let page_length = params
+        .get("limit_page_length")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(20);
+    let query = params.get("filters").cloned().unwrap_or_default();
+    let query = kiff_log_query_from_filters(&query);
+
+    let service = match state.logger.get() {
+        Some(s) => s.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": "log engine not initialized" })),
+            )
+                .into_response();
+        }
+    };
+
+    // Commit staged logs so recently-ingested records are searchable.
+    let _ = service.commit().await;
+
+    let records = match service.query(&query, limit_start + page_length).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("kiff log query failed: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "message": format!("log query failed: {}", e) })),
+            )
+                .into_response();
+        }
+    };
+
+    let docs: Vec<Value> = records
+        .into_iter()
+        .skip(limit_start)
+        .take(page_length)
+        .enumerate()
+        .map(|(idx, rec)| log_record_to_doc(rec, idx))
+        .collect();
+
+    (
+        StatusCode::OK,
+        Json(json!({ "message": compress_reportview(&docs) })),
+    )
+        .into_response()
+}
+
+async fn kiff_log_count(state: AppState, params: HashMap<String, String>) -> Response {
+    let query = params.get("filters").cloned().unwrap_or_default();
+    let query = kiff_log_query_from_filters(&query);
+
+    let service = match state.logger.get() {
+        Some(s) => s.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": "log engine not initialized" })),
+            )
+                .into_response();
+        }
+    };
+
+    let _ = service.commit().await;
+
+    match service.query(&query, 1_000_000).await {
+        Ok(records) => (
+            StatusCode::OK,
+            Json(json!({ "message": records.len() })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "message": format!("log query failed: {}", e) })),
+        )
+            .into_response(),
+    }
+}
+
+fn kiff_log_query_from_filters(filters_json: &str) -> String {
+    if filters_json.is_empty() {
+        return "*".to_string();
+    }
+    // The desk may send filters as a JSON list like [["Kiff Log Entry", "level", "=", "ERROR"]].
+    // Convert the simple equality filters into a Tantivy query string.
+    if let Ok(filters) = serde_json::from_str::<Vec<Vec<Value>>>(filters_json) {
+        let parts: Vec<String> = filters
+            .into_iter()
+            .filter_map(|f| {
+                if f.len() >= 4 {
+                    let field = f.get(1)?.as_str()?;
+                    let op = f.get(2)?.as_str()?;
+                    let value = f.get(3)?.as_str()?;
+                    if op == "=" {
+                        Some(format!("{}:{}" , field, value))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if parts.is_empty() {
+            "*".to_string()
+        } else {
+            parts.join(" AND ")
+        }
+    } else {
+        "*".to_string()
+    }
+}
+
+fn log_record_to_doc(rec: LogRecord, idx: usize) -> Value {
+    let ts_secs = rec.timestamp / 1000;
+    let dt = chrono::DateTime::from_timestamp(ts_secs, 0)
+        .map(|d| d.to_rfc3339())
+        .unwrap_or_else(|| rec.timestamp.to_string());
+    let name = format!("KLE-{}-{}", rec.timestamp, idx);
+
+    let mut doc = serde_json::Map::new();
+    doc.insert("name".to_string(), json!(name));
+    doc.insert("doctype".to_string(), json!("Kiff Log Entry"));
+    doc.insert("timestamp".to_string(), json!(dt));
+    doc.insert("level".to_string(), json!(rec.level));
+    doc.insert("service".to_string(), json!(rec.service));
+    doc.insert("message".to_string(), json!(rec.message));
+
+    if let Some(doctype) = rec.fields.get("doctype").and_then(|v| v.as_str()) {
+        doc.insert("doctype_field".to_string(), json!(doctype));
+    }
+    if let Some(docname) = rec.fields.get("docname").and_then(|v| v.as_str()) {
+        doc.insert("docname".to_string(), json!(docname));
+    }
+    if let Some(event) = rec.fields.get("event").and_then(|v| v.as_str()) {
+        doc.insert("event".to_string(), json!(event));
+    }
+    if let Some(status) = rec.fields.get("status").and_then(|v| v.as_str()) {
+        doc.insert("status".to_string(), json!(status));
+    }
+    if let Some(severity) = rec.fields.get("severity").and_then(|v| v.as_str()) {
+        doc.insert("severity".to_string(), json!(severity));
+    }
+    if !rec.fields.is_empty() {
+        let raw = serde_json::to_string(&rec.fields).unwrap_or_else(|_| "{}".to_string());
+        doc.insert("raw_fields".to_string(), json!(raw));
+    }
+
+    Value::Object(doc)
 }
 
 async fn search_link_impl(state: AppState, params: HashMap<String, String>) -> impl IntoResponse {
@@ -1040,10 +1554,29 @@ fn load_doctype_from_content(
     let mut doc: serde_json::Value =
         serde_json::from_str(content).map_err(|e| format!("parse error: {}", e))?;
 
+    // Ensure common meta arrays that the desk client expects are present.
+    // If we had to inject them, bump `modified` so browsers with a stale
+    // cached version request fresh metadata.
+    let mut injected_meta = false;
+    if let serde_json::Value::Object(ref mut map) = doc {
+        for key in ["states", "actions", "links"] {
+            if !map.contains_key(key) {
+                map.insert(key.to_string(), serde_json::Value::Array(vec![]));
+                injected_meta = true;
+            }
+        }
+        if injected_meta {
+            map.insert(
+                "modified".to_string(),
+                serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
+            );
+        }
+    }
+
     // Check cache timestamp
     if !cached_timestamp.is_empty() {
         if let Some(modified) = doc.get("modified").and_then(|m| m.as_str()) {
-            if modified == cached_timestamp {
+            if modified == cached_timestamp && !injected_meta {
                 return Err("use_cache".into());
             }
         }

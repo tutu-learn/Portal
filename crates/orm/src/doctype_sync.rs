@@ -588,13 +588,14 @@ async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
 
     // Read all doctypes from metadata
     let rows = pool
-        .execute_sql("SELECT name, istable FROM \"doctype\"", vec![])
+        .execute_sql("SELECT name, istable, is_virtual FROM \"doctype\"", vec![])
         .await?;
 
     let mut created = 0usize;
     for row in rows {
         let doctype_name = row.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let istable = row.get("istable").and_then(|v| v.as_i64()).unwrap_or(0) != 0;
+        let is_virtual = row.get("is_virtual").and_then(|v| v.as_i64()).unwrap_or(0) != 0;
         if doctype_name.is_empty() {
             continue;
         }
@@ -603,6 +604,17 @@ async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
         // Treating them as data tables causes schema mismatches because their
         // JSON definition does not match the metadata table layout.
         if doctype_name == "DocType" || doctype_name == "DocField" {
+            continue;
+        }
+
+        // Virtual DocTypes are not backed by SQL; their data comes from custom
+        // engines (e.g. Kiff Log Entry reads from the Tantivy log engine).
+        if is_virtual {
+            let table = data_table_name(doctype_name);
+            // Drop any stale physical table left over from a previous sync.
+            let _ = pool
+                .execute_sql(&format!("DROP TABLE IF EXISTS \"{}\"", table), vec![])
+                .await;
             continue;
         }
 
@@ -656,6 +668,12 @@ async fn create_data_table(
         ("owner".into(), "owner TEXT".into()),
         ("docstatus".into(), "docstatus INTEGER DEFAULT 0".into()),
         ("idx".into(), "idx INTEGER DEFAULT 0".into()),
+        // Frappe client always requests these internal fields in list views.
+        ("_user_tags".into(), "_user_tags TEXT".into()),
+        ("_comments".into(), "_comments TEXT".into()),
+        ("_assign".into(), "_assign TEXT".into()),
+        ("_liked_by".into(), "_liked_by TEXT".into()),
+        ("_seen".into(), "_seen TEXT".into()),
     ];
 
     if istable {
