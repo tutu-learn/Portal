@@ -1,0 +1,20 @@
+{
+    "creation": "2026-06-24 00:00:00.000000",
+    "docstatus": 0,
+    "doctype": "Page",
+    "icon": "fa fa-key",
+    "idx": 1,
+    "modified": "2026-06-24 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "KiffLogger",
+    "name": "kiff-logger-token-ui",
+    "owner": "Administrator",
+    "page_name": "kiff-logger-token-ui",
+    "roles": [
+        {
+            "role": "Kiff Logs Admin"
+        }
+    ],
+    "standard": "Yes",
+    "title": "Kiff Logger Token UI"
+}

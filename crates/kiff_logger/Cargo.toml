@@ -13,4 +13,11 @@ serde_json     = { workspace = true }
 axum           = { workspace = true }
 tokio          = { workspace = true }
 tracing        = { workspace = true }
+chrono         = { workspace = true }
 async-trait    = "0.1"
+argon2         = "0.5"
+rand           = "0.8"
+hex            = "0.4"
+orm            = { workspace = true }
+permissions    = { path = "../permissions" }
+session        = { path = "../session" }

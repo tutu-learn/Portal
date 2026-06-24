@@ -10,7 +10,7 @@
     "is_hidden": 0,
     "restrict_to_domain": null,
     "sequence_id": 200.0,
-    "content": "[{\"id\":\"kiff-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Kiff Logger</span>\",\"col\":12}},{\"id\":\"kiff-sub\",\"type\":\"paragraph\",\"data\":{\"text\":\"System logs, saved queries, and log backup configuration.\",\"col\":12}},{\"id\":\"kiff-shortcut-1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Entries\",\"col\":4}},{\"id\":\"kiff-shortcut-2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Queries\",\"col\":4}},{\"id\":\"kiff-shortcut-3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"S3 Backup Configuration\",\"col\":4}},{\"id\":\"kiff-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"kiff-card-logs\",\"type\":\"card\",\"data\":{\"card_name\":\"Logs & Queries\",\"col\":6}},{\"id\":\"kiff-card-config\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":6}}]",
+    "content": "[{\"id\":\"kiff-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Kiff Logger</span>\",\"col\":12}},{\"id\":\"kiff-sub\",\"type\":\"paragraph\",\"data\":{\"text\":\"System logs, saved queries, and log backup configuration.\",\"col\":12}},{\"id\":\"kiff-shortcut-1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Entries\",\"col\":3}},{\"id\":\"kiff-shortcut-2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Log Queries\",\"col\":3}},{\"id\":\"kiff-shortcut-3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"S3 Backup Configuration\",\"col\":3}},{\"id\":\"kiff-shortcut-4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Token UI\",\"col\":3}},{\"id\":\"kiff-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"kiff-card-logs\",\"type\":\"card\",\"data\":{\"card_name\":\"Logs & Queries\",\"col\":6}},{\"id\":\"kiff-card-config\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":6}}]",
     "links": [
         {
             "type": "Link",
@@ -61,7 +61,7 @@
             "type": "Card Break",
             "label": "Configuration",
             "link_type": "DocType",
-            "link_count": 1,
+            "link_count": 2,
             "hidden": 0,
             "is_query_report": 0,
             "onboard": 0
@@ -71,6 +71,15 @@
             "label": "S3 Backup Configuration",
             "link_type": "DocType",
             "link_to": "S3 Backup Configuration",
+            "hidden": 0,
+            "is_query_report": 0,
+            "onboard": 0
+        },
+        {
+            "type": "Link",
+            "label": "Token UI",
+            "link_type": "Page",
+            "link_to": "kiff-logger-token-ui",
             "hidden": 0,
             "is_query_report": 0,
             "onboard": 0

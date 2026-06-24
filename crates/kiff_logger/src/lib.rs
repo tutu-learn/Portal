@@ -9,8 +9,11 @@ use rust_apps_core::{ApiMethod, AppContext, DoctypeFixture, RustApp, WorkspaceFi
 
 mod handlers;
 mod methods;
+mod page;
+mod token;
 
 pub use handlers::{IngestRequest, IngestResponse, QueryResponse};
+pub use token::{touch_token, verify_bearer_token, VerifiedToken};
 
 pub struct KiffLoggerApp;
 
@@ -38,6 +41,11 @@ impl RustApp for KiffLoggerApp {
             ),
             DoctypeFixture::new(
                 "Kiff Logger",
+                "Kiff Logger Token",
+                include_str!("doctypes/kiff_logger/kiff_logger_token.json"),
+            ),
+            DoctypeFixture::new(
+                "Kiff Logger",
                 "S3 Backup Configuration",
                 include_str!("doctypes/kiff_logger/s3_backup_config.json"),
             ),
@@ -57,14 +65,20 @@ impl RustApp for KiffLoggerApp {
         router: Router<rust_apps_core::AppState>,
     ) -> Router<rust_apps_core::AppState> {
         router
-            .route("/kiff_logger/ingest", axum::routing::post(handlers::ingest_handler))
+            .route(
+                "/kiff_logger/ingest",
+                axum::routing::post(handlers::ingest_handler),
+            )
             .route("/kiff_logger/query", get(handlers::query_handler))
+            .route("/kiff_logger/token-ui", get(page::token_ui_handler))
     }
 
     fn api_methods(&self) -> Vec<ApiMethod> {
         vec![
             ApiMethod::new("kiff_logger.ingest", methods::ingest_method),
             ApiMethod::new("kiff_logger.query", methods::query_method),
+            ApiMethod::new("kiff_logger.create_token", methods::create_token_method),
+            ApiMethod::new("kiff_logger.revoke_token", methods::revoke_token_method),
         ]
     }
 }
