@@ -20,6 +20,7 @@ queue          = { path = "../queue" }
 http           = { path = "../http" }
 rust_apps_core = { path = "../../rust_apps/core" }
 audit_ready    = { path = "../../rust_apps/audit_ready" }
+sebrus_logger  = { path = "../../rust_apps/sebrus_logger" }
 kiff_logger    = { path = "../kiff_logger" }
 log_engine     = { path = "../log_engine" }
 axum           = { workspace = true }

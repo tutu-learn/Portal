@@ -1,5 +1,6 @@
 {
   "apps": [
-    "audit_ready"
+    "audit_ready",
+    "sebrus_logger"
   ]
 }

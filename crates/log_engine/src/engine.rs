@@ -251,4 +251,23 @@ mod tests {
         assert_eq!(alert.trigger, "any-error");
         assert_eq!(alert.record.service, "billing");
     }
+
+    #[test]
+    fn query_by_timestamp_range() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        let mut old = LogRecord::new("INFO", "web", "old event");
+        old.timestamp = 1_000;
+        let mut recent = LogRecord::new("INFO", "web", "recent event");
+        recent.timestamp = 5_000;
+
+        engine.ingest(old).unwrap();
+        engine.ingest(recent).unwrap();
+        engine.commit().unwrap();
+
+        let hits = engine.query("timestamp:[4000 TO 6000]", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "recent event");
+    }
 }

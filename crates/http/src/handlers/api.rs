@@ -431,7 +431,10 @@ async fn load_page_from_json(
 
     // 2. Project-specific Rust app pages.
     if page_path.is_none() {
-        let custom_bases: Vec<PathBuf> = vec![PathBuf::from("crates/kiff_logger/src/pages")];
+        let custom_bases: Vec<PathBuf> = vec![
+            PathBuf::from("crates/kiff_logger/src/pages"),
+            PathBuf::from("rust_apps/sebrus_logger/src/pages"),
+        ];
         for base in custom_bases {
             let path = base.join(&scrubbed).join(format!("{}.json", scrubbed));
             if path.exists() {

@@ -16,6 +16,7 @@ members = [
     "cli",
     "rust_apps/core",
     "rust_apps/audit_ready",
+    "rust_apps/sebrus_logger",
     "crates/kiff_logger",
 ]
 

@@ -913,7 +913,7 @@ async fn build_boot_info(
     );
     boot.insert("dashboards".to_string(), json!([]));
 
-    // Expose the Kiff Logger token generator page to users with the admin role.
+    // Expose Rust app pages to users with the appropriate roles.
     let mut page_info = serde_json::Map::new();
     let mut allowed_pages = Vec::new();
     if let Some(ref pool) = pool {
@@ -931,6 +931,18 @@ async fn build_boot_info(
                         }),
                     );
                     allowed_pages.push("kiff-logger-token-ui");
+                }
+                if roles.iter().any(|r| r == "Sebrus Log Rule Admin" || r == "Sebrus Log Rule Viewer") {
+                    page_info.insert(
+                        "sebrus-logger-dashboard".to_string(),
+                        json!({
+                            "title": "Sebrus Logger Dashboard",
+                            "route": "sebrus-logger-dashboard",
+                            "module": "SebrusLogger",
+                            "icon": "fa fa-file-text"
+                        }),
+                    );
+                    allowed_pages.push("sebrus-logger-dashboard");
                 }
             }
         }
