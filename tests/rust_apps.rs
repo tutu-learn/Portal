@@ -57,7 +57,7 @@ async fn audit_ready_app_api_method() {
     let params = HashMap::from([("name".to_string(), serde_json::json!("Tester"))]);
 
     let result = registry
-        .call_method("audit_ready.hello", state, params)
+        .call_method("audit_ready.hello", state, params, None)
         .await
         .unwrap()
         .expect("method should be found");
