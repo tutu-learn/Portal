@@ -1,3 +1,4 @@
+use crate::middleware::auth::authenticate_request;
 use crate::AppState;
 use axum::{
     extract::{Path, Query, State},
@@ -409,16 +410,30 @@ async fn load_page_from_json(
     user: &str,
 ) -> Result<serde_json::Value, String> {
     let scrubbed = name.to_lowercase().replace(" ", "_").replace("-", "_");
-    let base = PathBuf::from("apps/frappe/frappe");
 
     let mut page_path = None;
-    if let Ok(entries) = std::fs::read_dir(&base) {
+
+    // 1. Standard Frappe app pages.
+    let frappe_base = PathBuf::from("apps/frappe/frappe");
+    if let Ok(entries) = std::fs::read_dir(&frappe_base) {
         for entry in entries.flatten() {
             let path = entry
                 .path()
                 .join("page")
                 .join(&scrubbed)
                 .join(format!("{}.json", scrubbed));
+            if path.exists() {
+                page_path = Some(path);
+                break;
+            }
+        }
+    }
+
+    // 2. Project-specific Rust app pages.
+    if page_path.is_none() {
+        let custom_bases: Vec<PathBuf> = vec![PathBuf::from("crates/kiff_logger/src/pages")];
+        for base in custom_bases {
+            let path = base.join(&scrubbed).join(format!("{}.json", scrubbed));
             if path.exists() {
                 page_path = Some(path);
                 break;
@@ -1682,30 +1697,13 @@ fn load_child_doctype_from_json(
     load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
 }
 
-fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
-    for pair in header.split(';') {
-        let pair = pair.trim();
-        if let Some((key, value)) = pair.split_once('=') {
-            if key.trim() == name {
-                return Some(value.trim().to_string());
-            }
-        }
-    }
-    None
-}
-
 async fn session_user_from_request(
     state: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> Option<String> {
-    let cookie_header = headers.get("cookie")?.to_str().ok()?;
-    let sid = extract_cookie_value(cookie_header, "sid")?;
-    let pool = state.pools.iter().next()?.value().clone();
-    let store = session::SessionStore::new();
-    match store.get(&pool, &sid).await {
-        Ok(Some(session)) if !session.is_expired() => Some(session.user),
-        _ => None,
-    }
+    authenticate_request(state, headers)
+        .await
+        .map(|u| u.user)
 }
 
 pub async fn call_method_get(
@@ -1781,9 +1779,10 @@ async fn call_rust_or_python_method(
     headers: &axum::http::HeaderMap,
 ) -> error::Result<MethodResponse> {
     // Try Rust apps first.
+    let user = session_user_from_request(state, headers).await;
     if let Some(result) = state
         .rust_apps
-        .call_method(method, state.clone(), params.clone())
+        .call_method(method, state.clone(), params.clone(), user.clone())
         .await?
     {
         // Frappe clients expect { "message": <value> } for /api/method/* calls.
@@ -1793,7 +1792,6 @@ async fn call_rust_or_python_method(
     }
 
     // Fall back to Python method dispatcher.
-    let user = session_user_from_request(state, headers).await;
     let body = serde_json::to_value(params).unwrap_or(Value::Object(Default::default()));
     let result = kiff_core::call_method_with_user(method, &body, user.as_deref())?;
 

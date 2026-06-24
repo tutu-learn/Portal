@@ -42,11 +42,21 @@ pub struct AppState {
 pub struct AppContext {
     pub app_name: &'static str,
     pub state: AppState,
+    pub user: Option<String>,
 }
 
 impl AppContext {
     pub fn new(app_name: &'static str, state: AppState) -> Self {
-        Self { app_name, state }
+        Self {
+            app_name,
+            state,
+            user: None,
+        }
+    }
+
+    pub fn with_user(mut self, user: Option<String>) -> Self {
+        self.user = user;
+        self
     }
 }
 
@@ -381,11 +391,12 @@ impl RustAppRegistry {
         name: &str,
         state: AppState,
         params: HashMap<String, Value>,
+        user: Option<String>,
     ) -> error::Result<Option<Value>> {
         for app in self.apps.iter() {
             for method in app.api_methods() {
                 if method.name == name {
-                    let ctx = AppContext::new(app.name(), state);
+                    let ctx = AppContext::new(app.name(), state).with_user(user);
                     return (method.handler)(ctx, params).await.map(Some);
                 }
             }

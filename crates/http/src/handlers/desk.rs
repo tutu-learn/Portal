@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use permissions::PermissionEngine;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
@@ -911,8 +912,31 @@ async fn build_boot_info(
         workspace_sidebar_item_value,
     );
     boot.insert("dashboards".to_string(), json!([]));
-    boot.insert("page_info".to_string(), json!({}));
-    boot.insert("allowed_pages".to_string(), json!([]));
+
+    // Expose the Kiff Logger token generator page to users with the admin role.
+    let mut page_info = serde_json::Map::new();
+    let mut allowed_pages = Vec::new();
+    if let Some(ref pool) = pool {
+        if !is_guest {
+            let pm = PermissionEngine::new();
+            if let Ok(roles) = pm.get_roles(pool, user_name).await {
+                if roles.iter().any(|r| r == "Kiff Logs Admin") {
+                    page_info.insert(
+                        "kiff-logger-token-ui".to_string(),
+                        json!({
+                            "title": "Kiff Logger Token Generator",
+                            "route": "kiff-logger-token-ui",
+                            "module": "KiffLogger",
+                            "icon": "fa fa-key"
+                        }),
+                    );
+                    allowed_pages.push("kiff-logger-token-ui");
+                }
+            }
+        }
+    }
+    boot.insert("page_info".to_string(), Value::Object(page_info));
+    boot.insert("allowed_pages".to_string(), json!(allowed_pages));
     boot.insert("allowed_modules".to_string(), json!([]));
     boot.insert("notes".to_string(), json!([]));
     boot.insert("letter_heads".to_string(), json!({}));

@@ -1104,6 +1104,8 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Guest", 0),
         ("Report Manager", 1),
         ("Translator", 1),
+        ("Kiff Logs", 1),
+        ("Kiff Logs Admin", 1),
     ] {
         pool.execute_sql(
             &format!(

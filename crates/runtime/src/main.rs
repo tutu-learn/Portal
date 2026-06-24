@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
 mod hooks;
@@ -147,7 +148,13 @@ async fn main() -> error::Result<()> {
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state_for_routes.clone());
         router = app.routes(&ctx, router);
     }
-    let router = router.with_state(app_state_for_routes);
+    let router = router
+        .layer(axum::middleware::from_fn_with_state(
+            app_state_for_routes.clone(),
+            http::middleware::auth::token_auth_middleware,
+        ))
+        .layer(CorsLayer::permissive())
+        .with_state(app_state_for_routes);
     let http_future = http::run_server_with_router(router, &config.server.host, config.server.port);
 
     // Start background workers and scheduler if we have pools

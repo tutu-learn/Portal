@@ -140,6 +140,49 @@ impl Migrator {
         };
         pool.execute_sql(perm_sql, vec![]).await?;
 
+        // Bearer-token table for Kiff Logger external ingest.
+        let logger_tokens_sql = match pool.dialect() {
+            "postgres" => {
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_logger_tokens (
+                    name TEXT PRIMARY KEY,
+                    token_name TEXT NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    "user" TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'Kiff Logs',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    description TEXT,
+                    last_used_at TIMESTAMPTZ,
+                    creation TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified_by TEXT NOT NULL DEFAULT 'Administrator',
+                    owner TEXT NOT NULL DEFAULT 'Administrator',
+                    docstatus INTEGER NOT NULL DEFAULT 0
+                )
+            "#
+            }
+            _ => {
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_logger_tokens (
+                    name TEXT PRIMARY KEY,
+                    token_name TEXT NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    "user" TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'Kiff Logs',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    description TEXT,
+                    last_used_at TEXT,
+                    creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified_by TEXT NOT NULL DEFAULT 'Administrator',
+                    owner TEXT NOT NULL DEFAULT 'Administrator',
+                    docstatus INTEGER NOT NULL DEFAULT 0
+                )
+            "#
+            }
+        };
+        pool.execute_sql(logger_tokens_sql, vec![]).await?;
+
         let migrations = vec![
             ("001_baseline_schema", "SELECT 1"),
             (
