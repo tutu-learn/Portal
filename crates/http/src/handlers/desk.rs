@@ -452,6 +452,50 @@ fn build_workspace_boot_objects(workspaces: &[Value], is_guest: bool) -> (Value,
     )
 }
 
+/// Compute permission-type -> [doctype] lists for a user from the Rust
+/// permission engine. Used to fix the desk bootinfo when the Python shim
+/// leaves can_create/write/delete/etc. empty.
+async fn compute_user_permission_lists(
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    user: &str,
+    doctypes: &[String],
+) -> HashMap<String, Vec<String>> {
+    let mut result: HashMap<String, Vec<String>> = HashMap::new();
+    let ptypes = vec![
+        "read", "write", "create", "delete", "submit", "cancel", "select", "report", "export",
+        "import", "print", "email",
+    ];
+
+    // Administrator is implicitly granted every permission on every DocType,
+    // matching Frappe's behaviour.
+    if user == "Administrator" {
+        for ptype in ptypes {
+            result.insert(ptype.to_string(), doctypes.to_vec());
+        }
+        return result;
+    }
+
+    for doctype in doctypes {
+        for ptype in &ptypes {
+            match state
+                .permissions
+                .has_permission(pool, user, doctype, ptype, None)
+                .await
+            {
+                Ok(true) => {
+                    result
+                        .entry((*ptype).to_string())
+                        .or_default()
+                        .push(doctype.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+    result
+}
+
 async fn build_boot_info(
     state: &AppState,
     user: Option<&str>,
@@ -551,6 +595,34 @@ async fn build_boot_info(
                 user_obj.insert("default_workspace".to_string(), default_workspace_obj);
                 // Keep the Python user permissions in sync with the filtered module list.
                 user_obj.insert("allow_modules".to_string(), json!(module_list.clone()));
+
+                // The Python bootinfo shim populates can_read but leaves most
+                // other permission lists empty, so the desk hides actions like
+                // Create / Save / Delete. Recompute them from the Rust
+                // permission engine so the UI reflects the real DocPerms.
+                if let Some(ref pool) = pool {
+                    let doctypes: Vec<String> = user_obj
+                        .get("can_read")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let perms =
+                        compute_user_permission_lists(state, pool, user_name, &doctypes).await;
+                    for (ptype, list) in &perms {
+                        user_obj.insert(format!("can_{}", ptype), json!(list));
+                    }
+                    if let Some(read_list) = perms.get("read") {
+                        user_obj.insert("all_read".to_string(), json!(read_list));
+                        user_obj.insert("can_search".to_string(), json!(read_list));
+                    }
+                    if let Some(create_list) = perms.get("create") {
+                        user_obj.insert("in_create".to_string(), json!(create_list));
+                    }
+                }
             }
             sanitize_bootinfo(&mut boot);
             return Value::Object(boot);
@@ -932,7 +1004,10 @@ async fn build_boot_info(
                     );
                     allowed_pages.push("kiff-logger-token-ui");
                 }
-                if roles.iter().any(|r| r == "Sebrus Log Rule Admin" || r == "Sebrus Log Rule Viewer") {
+                if roles
+                    .iter()
+                    .any(|r| r == "Sebrus Log Rule Admin" || r == "Sebrus Log Rule Viewer")
+                {
                     page_info.insert(
                         "sebrus-logger-dashboard".to_string(),
                         json!({

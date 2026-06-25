@@ -262,26 +262,26 @@ pub async fn update_doc(
     }
 }
 
-pub async fn delete_doc(
-    State(state): State<AppState>,
-    Path((doctype, name)): Path<(String, String)>,
-    headers: axum::http::HeaderMap,
-) -> impl IntoResponse {
-    if doctype == "Kiff Log Entry" {
-        return virtual_doctype_error(&doctype);
-    }
-
+async fn delete_doc_inner(
+    state: &AppState,
+    doctype: &str,
+    name: &str,
+    headers: &axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
     // Try real Frappe Document.delete() first so Password fields are cleaned
     // up from __auth and document hooks run. Fall back to the native ORM
     // delete if Python is unavailable.
     let mut params = std::collections::HashMap::new();
     params.insert(
         "doctype".to_string(),
-        serde_json::Value::String(doctype.clone()),
+        serde_json::Value::String(doctype.to_string()),
     );
-    params.insert("name".to_string(), serde_json::Value::String(name.clone()));
+    params.insert(
+        "name".to_string(),
+        serde_json::Value::String(name.to_string()),
+    );
 
-    match call_rust_or_python_method(&state, "frappe.client.delete", params, &headers).await {
+    match call_rust_or_python_method(state, "frappe.client.delete", params, headers).await {
         Ok(_) => {
             return (
                 StatusCode::OK,
@@ -296,23 +296,65 @@ pub async fn delete_doc(
         Err(e) => return frappe_error_response(e),
     }
 
+    // Python path failed. Before falling back to the native ORM delete,
+    // enforce Frappe-style delete permission so the fallback cannot be used
+    // to bypass permission checks.
+    let user = match authenticate_request(state, headers).await {
+        Some(u) => u.user,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "error": "unauthorized" })),
+            )
+        }
+    };
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
-        Some(pool) => match pool.delete_doc(&doctype, &name).await {
-            Ok(_) => (
-                StatusCode::OK,
-                Json(serde_json::json!({ "message": "deleted" })),
-            ),
-            Err(e) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            ),
-        },
+        Some(pool) => {
+            let doc = pool.get_doc(doctype, name).await.ok();
+            match state
+                .permissions
+                .has_permission(&pool, &user, doctype, "delete", doc.as_ref())
+                .await
+            {
+                Ok(true) => match pool.delete_doc(doctype, name).await {
+                    Ok(_) => (
+                        StatusCode::OK,
+                        Json(serde_json::json!({ "message": "deleted" })),
+                    ),
+                    Err(e) => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("{}", e) })),
+                    ),
+                },
+                Ok(false) => (
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({ "error": "permission denied" })),
+                ),
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": format!("{}", e) })),
+                ),
+            }
+        }
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({ "error": "no database pool" })),
         ),
     }
+}
+
+pub async fn delete_doc(
+    State(state): State<AppState>,
+    Path((doctype, name)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
+    delete_doc_inner(&state, &doctype, &name, &headers).await
 }
 
 /// Native Rust implementation of frappe.desk.desk_page.getpage.
@@ -615,6 +657,7 @@ async fn get_user_roles(state: &AppState, user: &str) -> Vec<String> {
 pub async fn getdoc_native(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
     let doctype = params.get("doctype").cloned().unwrap_or_default();
     let name = params.get("name").cloned().unwrap_or_default();
@@ -627,6 +670,25 @@ pub async fn getdoc_native(
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
             Ok(doc) => {
+                let permissions = if let Some(user) = authenticate_request(&state, &headers).await {
+                    let ptypes = vec![
+                        "read", "write", "create", "delete", "submit", "cancel", "select",
+                        "report", "export", "import", "print", "email", "share",
+                    ];
+                    let mut perms = serde_json::Map::new();
+                    for ptype in ptypes {
+                        let allowed = state
+                            .permissions
+                            .has_permission(&pool, &user.user, &doctype, ptype, Some(&doc))
+                            .await
+                            .unwrap_or(false);
+                        perms.insert(ptype.to_string(), json!(if allowed { 1 } else { 0 }));
+                    }
+                    Value::Object(perms)
+                } else {
+                    Value::Object(serde_json::Map::new())
+                };
+
                 let docinfo = json!({
                     "doctype": doctype,
                     "name": name,
@@ -635,7 +697,7 @@ pub async fn getdoc_native(
                     "automated_messages": [],
                     "versions": [],
                     "assignments": [],
-                    "permissions": {},
+                    "permissions": permissions,
                     "shared": [],
                     "views": [],
                     "additional_timeline_content": [],
@@ -817,7 +879,10 @@ async fn validate_link_and_fetch_impl(
     {
         Ok(rows) => !rows.is_empty(),
         Err(e) => {
-            warn!("validate_link_and_fetch failed for {} {}: {}", doctype, docname, e);
+            warn!(
+                "validate_link_and_fetch failed for {} {}: {}",
+                doctype, docname, e
+            );
             false
         }
     };
@@ -872,9 +937,11 @@ pub async fn reportview_get(
         .get("fields")
         .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
         .or_else(|| {
-            params
-                .get("fields")
-                .map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>())
+            params.get("fields").map(|s| {
+                s.split(',')
+                    .map(|x| x.trim().to_string())
+                    .collect::<Vec<_>>()
+            })
         });
     // The desk sends link-field title expressions like `sop.name as sop_name`.
     // The native ORM cannot resolve joins, so keep only the base link field.
@@ -898,7 +965,12 @@ pub async fn reportview_get(
             if cols.is_empty() {
                 Some(fields)
             } else {
-                Some(fields.into_iter().filter(|f| cols.contains(f)).collect::<Vec<_>>())
+                Some(
+                    fields
+                        .into_iter()
+                        .filter(|f| cols.contains(f))
+                        .collect::<Vec<_>>(),
+                )
             }
         }
         None => None,
@@ -925,7 +997,13 @@ pub async fn reportview_get(
         .unwrap_or(20);
 
     match pool
-        .get_list(&doctype, filters, fields, None, Some(limit_start + page_length))
+        .get_list(
+            &doctype,
+            filters,
+            fields,
+            None,
+            Some(limit_start + page_length),
+        )
         .await
     {
         Ok(docs) => {
@@ -1114,7 +1192,11 @@ fn compress_reportview(data: &[Value]) -> Value {
         .unwrap_or_default();
     let values: Vec<Vec<Value>> = data
         .iter()
-        .map(|row| keys.iter().map(|k| row.get(k).cloned().unwrap_or(Value::Null)).collect())
+        .map(|row| {
+            keys.iter()
+                .map(|k| row.get(k).cloned().unwrap_or(Value::Null))
+                .collect()
+        })
         .collect();
     json!({ "keys": keys, "values": values, "user_info": {} })
 }
@@ -1141,9 +1223,7 @@ fn sanitize_reportview_fields(fields: &[String]) -> Vec<String> {
             } else {
                 f.trim()
             };
-            let base = base
-                .trim_start_matches('`')
-                .trim_end_matches('`');
+            let base = base.trim_start_matches('`').trim_end_matches('`');
             let base = base.split('.').next().unwrap_or(base).to_string();
             if base.is_empty() || !seen.insert(base.clone()) {
                 None
@@ -1225,11 +1305,7 @@ async fn kiff_log_count(state: AppState, params: HashMap<String, String>) -> Res
     let _ = service.commit().await;
 
     match service.query(&query, 1_000_000).await {
-        Ok(records) => (
-            StatusCode::OK,
-            Json(json!({ "message": records.len() })),
-        )
-            .into_response(),
+        Ok(records) => (StatusCode::OK, Json(json!({ "message": records.len() }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "message": format!("log query failed: {}", e) })),
@@ -1253,7 +1329,7 @@ fn kiff_log_query_from_filters(filters_json: &str) -> String {
                     let op = f.get(2)?.as_str()?;
                     let value = f.get(3)?.as_str()?;
                     if op == "=" {
-                        Some(format!("{}:{}" , field, value))
+                        Some(format!("{}:{}", field, value))
                     } else {
                         None
                     }
@@ -1704,9 +1780,7 @@ async fn session_user_from_request(
     state: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> Option<String> {
-    authenticate_request(state, headers)
-        .await
-        .map(|u| u.user)
+    authenticate_request(state, headers).await.map(|u| u.user)
 }
 
 pub async fn call_method_get(
@@ -1769,6 +1843,23 @@ async fn method_response(
     params: HashMap<String, Value>,
     headers: &axum::http::HeaderMap,
 ) -> axum::response::Response {
+    // The Frappe desk UI invokes deletes through frappe.client.delete rather
+    // than the REST DELETE endpoint. Route that through the same Python-then-
+    // native fallback so deletions don't fail when the Python shim cannot
+    // complete the full Frappe delete flow (e.g. creating Deleted Document).
+    if method == "frappe.client.delete" {
+        if let (Some(Value::String(doctype)), Some(Value::String(name))) =
+            (params.get("doctype"), params.get("name"))
+        {
+            if doctype == "Kiff Log Entry" {
+                return virtual_doctype_error(doctype).into_response();
+            }
+            return delete_doc_inner(state, doctype, name, headers)
+                .await
+                .into_response();
+        }
+    }
+
     match call_rust_or_python_method(state, method, params, headers).await {
         Ok(result) => result.into_response(),
         Err(e) => frappe_error_response(e).into_response(),
