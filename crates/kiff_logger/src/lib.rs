@@ -5,7 +5,9 @@
 //! `rust_apps_core` and are initialized by the runtime.
 
 use axum::{routing::get, Router};
-use rust_apps_core::{ApiMethod, AppContext, DoctypeFixture, RustApp, WorkspaceFixture};
+use rust_apps_core::{
+    ApiMethod, AppContext, DoctypeFixture, PageFixture, RustApp, WorkspaceFixture,
+};
 
 mod handlers;
 mod methods;
@@ -57,6 +59,16 @@ impl RustApp for KiffLoggerApp {
             "Kiff Logger",
             include_str!("workspaces/kiff_logger/kiff_logger.json"),
         )]
+    }
+
+    fn pages(&self) -> Vec<PageFixture> {
+        vec![PageFixture::new(
+            "kiff-logger-token-ui",
+            include_str!("pages/kiff_logger_token_ui/kiff_logger_token_ui.json"),
+        )
+        .with_script(include_str!(
+            "pages/kiff_logger_token_ui/kiff_logger_token_ui.js"
+        ))]
     }
 
     fn routes(
