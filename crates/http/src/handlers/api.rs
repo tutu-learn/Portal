@@ -733,14 +733,18 @@ pub async fn getdoc_native(
 }
 
 /// Native Rust implementation of frappe.desk.form.load.getdoctype.
-/// Loads doctype metadata from JSON files in apps/frappe/frappe/*/doctype/
-/// instead of relying on the Python bridge and missing DB tables.
-pub async fn getdoctype_native(Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
+/// Loads doctype metadata from Rust app fixtures (in-memory) or JSON files in
+/// apps/frappe/frappe/*/doctype/, instead of relying on the Python bridge and
+/// missing DB tables.
+pub async fn getdoctype_native(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
     let doctype = params.get("doctype").cloned().unwrap_or_default();
     let _with_parent = params.get("with_parent").map(|s| s == "1").unwrap_or(false);
     let cached_timestamp = params.get("cached_timestamp").cloned().unwrap_or_default();
 
-    match load_doctype_from_json(&doctype, &cached_timestamp).await {
+    match load_doctype_metadata(&state, &doctype, &cached_timestamp).await {
         Ok(docs) => {
             let mut resp = serde_json::Map::new();
             resp.insert("docs".to_string(), serde_json::Value::Array(docs));
@@ -763,6 +767,10 @@ pub async fn getdoctype_native(Query(params): Query<HashMap<String, String>>) ->
             );
             (StatusCode::OK, Json(serde_json::Value::Object(resp)))
         }
+        Err(ref e) if e.starts_with("doctype json not found") => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
+        ),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("{}", e) })),
@@ -1484,10 +1492,20 @@ async fn search_link_impl(state: AppState, params: HashMap<String, String>) -> i
     (StatusCode::OK, Json(json!({ "message": results })))
 }
 
-async fn load_doctype_from_json(
+/// Load DocType metadata. Rust app fixtures are checked first because they are
+/// kept in memory after startup, so they work even when the source tree (e.g.
+/// `crates/kiff_logger`) is not present in the deployed environment.
+async fn load_doctype_metadata(
+    state: &AppState,
     doctype: &str,
     cached_timestamp: &str,
 ) -> Result<Vec<serde_json::Value>, String> {
+    for fixture in state.rust_apps.all_doctypes() {
+        if fixture.name == doctype {
+            return load_doctype_from_content(doctype, &fixture.json, cached_timestamp, None, None);
+        }
+    }
+
     let path = find_doctype_json_path(doctype)
         .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
     let content = tokio::fs::read_to_string(&path)
