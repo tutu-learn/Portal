@@ -95,6 +95,45 @@ impl WorkspaceFixture {
     }
 }
 
+/// A Page fixture contributed by a Rust app.
+///
+/// Pages need more than JSON: they may include a controller script, stylesheet,
+/// and HTML templates. Keeping the raw parts in memory lets the runtime serve
+/// pages even when the app's source tree is not present at runtime.
+#[derive(Debug, Clone, Default)]
+pub struct PageFixture {
+    pub name: String,
+    pub json: String,
+    pub script: String,
+    pub style: String,
+    pub templates: HashMap<String, String>,
+}
+
+impl PageFixture {
+    pub fn new(name: &str, json: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            json: json.to_string(),
+            ..Default::default()
+        }
+    }
+
+    pub fn with_script(mut self, script: &str) -> Self {
+        self.script = script.to_string();
+        self
+    }
+
+    pub fn with_style(mut self, style: &str) -> Self {
+        self.style = style.to_string();
+        self
+    }
+
+    pub fn with_template(mut self, name: &str, content: &str) -> Self {
+        self.templates.insert(name.to_string(), content.to_string());
+        self
+    }
+}
+
 /// Document lifecycle event kinds supported for Rust hooks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DocEvent {
@@ -244,6 +283,11 @@ pub trait RustApp: Send + Sync + 'static {
         vec![]
     }
 
+    /// Return Page fixtures for desk pages served by this app.
+    fn pages(&self) -> Vec<PageFixture> {
+        vec![]
+    }
+
     /// Register Rust handlers for document lifecycle events.
     fn doc_hooks(&self) -> Vec<DocHook> {
         vec![]
@@ -334,6 +378,10 @@ impl RustAppRegistry {
                 })
             })
             .collect()
+    }
+
+    pub fn all_pages(&self) -> Vec<PageFixture> {
+        self.apps.iter().flat_map(|app| app.pages()).collect()
     }
 
     pub fn all_doc_hooks(&self) -> Vec<DocHook> {

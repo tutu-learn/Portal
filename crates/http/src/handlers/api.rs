@@ -7,6 +7,7 @@ use axum::{
 };
 use log_engine::LogRecord;
 use orm::FilterCondition;
+use rust_apps_core::PageFixture;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -429,7 +430,7 @@ async fn getpage_response(
         }
     };
 
-    match load_page_from_json(state, name, &user).await {
+    match load_page(state, name, &user).await {
         Ok(doc) => {
             let mut resp = serde_json::Map::new();
             resp.insert("docs".to_string(), serde_json::Value::Array(vec![doc]));
@@ -439,11 +440,86 @@ async fn getpage_response(
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({ "exc": "Not permitted" })),
         ),
+        Err(ref e) if e.starts_with("page json not found") => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
+        ),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
+}
+
+async fn load_page(state: &AppState, name: &str, user: &str) -> Result<serde_json::Value, String> {
+    // Try Rust app fixtures first. These are loaded into memory at startup so
+    // pages work even when the app's source tree is not deployed.
+    for fixture in state.rust_apps.all_pages() {
+        if fixture.name == name {
+            return load_page_from_fixture(state, user, &fixture).await;
+        }
+    }
+
+    // Fall back to on-disk JSON for Frappe core pages.
+    load_page_from_json(state, name, user).await
+}
+
+async fn load_page_from_fixture(
+    state: &AppState,
+    user: &str,
+    fixture: &PageFixture,
+) -> Result<serde_json::Value, String> {
+    let mut doc: serde_json::Value =
+        serde_json::from_str(&fixture.json).map_err(|e| format!("parse error: {}", e))?;
+
+    check_page_roles(state, &doc, user).await?;
+
+    let script = build_page_script(&fixture.templates, &fixture.script);
+
+    if let serde_json::Value::Object(ref mut map) = doc {
+        map.insert("script".to_string(), serde_json::Value::String(script));
+        map.insert(
+            "style".to_string(),
+            serde_json::Value::String(fixture.style.clone()),
+        );
+    }
+
+    Ok(doc)
+}
+
+fn extract_page_roles(doc: &serde_json::Value) -> Vec<String> {
+    doc.get("roles")
+        .and_then(|r| r.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.get("role").and_then(|r| r.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+async fn check_page_roles(
+    state: &AppState,
+    doc: &serde_json::Value,
+    user: &str,
+) -> Result<(), String> {
+    let allowed_roles = extract_page_roles(doc);
+    if !allowed_roles.is_empty() && user != "Administrator" {
+        let user_roles = get_user_roles(state, user).await;
+        let has_role = user_roles.iter().any(|r| allowed_roles.contains(r));
+        if !has_role {
+            return Err("not_permitted".into());
+        }
+    }
+    Ok(())
+}
+
+fn build_page_script(templates: &HashMap<String, String>, script: &str) -> String {
+    let mut template_script = String::new();
+    for (filename, content) in templates {
+        template_script.push_str(&html_to_js_template(filename, content));
+    }
+    format!("{}{}", template_script, script)
 }
 
 async fn load_page_from_json(
@@ -493,24 +569,7 @@ async fn load_page_from_json(
     let mut doc: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("parse error: {}", e))?;
 
-    // Enforce page roles if defined.
-    let allowed_roles: Vec<String> = doc
-        .get("roles")
-        .and_then(|r| r.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.get("role").and_then(|r| r.as_str()).map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    if !allowed_roles.is_empty() {
-        let user_roles = get_user_roles(&state, user).await;
-        let has_role = user_roles.iter().any(|r| allowed_roles.contains(r));
-        if !has_role && user != "Administrator" {
-            return Err("not_permitted".into());
-        }
-    }
+    check_page_roles(state, &doc, user).await?;
 
     // Load assets from the page directory.
     let dir = path.parent().unwrap().to_path_buf();
@@ -521,7 +580,7 @@ async fn load_page_from_json(
     // entries, matching Frappe's Page.load_assets behaviour. This lets page
     // scripts call frappe.render_template("<name>", {}) without the template
     // needing to be bundled into a desk asset bundle.
-    let mut template_script = String::new();
+    let mut templates: HashMap<String, String> = HashMap::new();
     let mut entries = tokio::fs::read_dir(&dir)
         .await
         .map_err(|e| format!("read dir error: {}", e))?;
@@ -535,26 +594,18 @@ async fn load_page_from_json(
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or_default();
-            template_script.push_str(&html_to_js_template(filename, &content));
+            templates.insert(filename.to_string(), content);
         }
     }
 
-    let script = if js_path.exists() {
-        let js = tokio::fs::read_to_string(&js_path)
-            .await
-            .map_err(|e| format!("read script error: {}", e))?;
-        format!("{}{}", template_script, js)
-    } else {
-        template_script
-    };
+    let script = tokio::fs::read_to_string(&js_path)
+        .await
+        .unwrap_or_default();
+    let style = tokio::fs::read_to_string(&css_path)
+        .await
+        .unwrap_or_default();
 
-    let style = if css_path.exists() {
-        tokio::fs::read_to_string(&css_path)
-            .await
-            .map_err(|e| format!("read style error: {}", e))?
-    } else {
-        String::new()
-    };
+    let script = build_page_script(&templates, &script);
 
     if let serde_json::Value::Object(ref mut map) = doc {
         map.insert("script".to_string(), serde_json::Value::String(script));
