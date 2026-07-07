@@ -47,9 +47,12 @@ def get_roles(user=None):
 
 
 def has_permission(doctype, ptype="read", doc=None, user=None, throw=False, **kwargs):
-    if _rust is None:
-        return True
-    return _rust.has_permission(doctype, ptype, doc, user or session.user)
+    user = user or session.user
+    if _rust is not None:
+        return _rust.has_permission(doctype, ptype, doc, user)
+    # Without the Kiff runtime we cannot make a real permission decision.
+    # Default to deny rather than the old unconditional allow.
+    return False
 
 
 class _SimpleUserPermissions:
@@ -73,6 +76,7 @@ class _SimpleUserPermissions:
         self.can_export = []
         self.can_print = []
         self.can_email = []
+        self.can_share = []
         self.allow_modules = []
         self.in_create = []
         self.doc = None
@@ -108,6 +112,17 @@ class _SimpleUserPermissions:
         self.can_create = list(self.can_read)
         self.can_search = list(self.can_read)
         self.all_read = list(self.can_read)
+
+        # Mirror the "read" list for the secondary ptypes so the desk doesn't
+        # see empty can_select / can_report / can_print lists when Kiff has
+        # already decided the user can read these DocTypes.
+        self.can_select = list(self.can_read)
+        self.can_get_report = list(self.can_read)
+        self.can_export = list(self.can_read)
+        self.can_import = list(self.can_read)
+        self.can_print = list(self.can_read)
+        self.can_email = list(self.can_read)
+        self.can_share = list(self.can_read)
 
         # Respect per-user and Module Profile block lists.
         try:

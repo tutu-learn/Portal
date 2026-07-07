@@ -20,11 +20,31 @@ impl AuthService {
         password: &str,
         site: &str,
     ) -> Result<Session> {
+        self.login_with_metadata(
+            pool,
+            username,
+            password,
+            site,
+            crate::session::SessionMetadata::default(),
+        )
+        .await
+    }
+
+    pub async fn login_with_metadata(
+        &self,
+        pool: &DatabasePool,
+        username: &str,
+        password: &str,
+        site: &str,
+        metadata: crate::session::SessionMetadata,
+    ) -> Result<Session> {
         let hash = self.get_password_hash(pool, username).await?;
         if !self.verify_password(password, &hash).await? {
             return Err(RuntimeError::Auth("invalid password".into()));
         }
-        self.store.create(pool, username.into(), site.into()).await
+        self.store
+            .create_with_metadata(pool, username.into(), site.into(), metadata)
+            .await
     }
 
     pub async fn logout(&self, pool: &DatabasePool, session_id: &str) -> Result<()> {
@@ -120,7 +140,7 @@ fn ab64_decode(input: &str) -> std::result::Result<Vec<u8>, base64::DecodeError>
         3 => normalized + "=",
         _ => normalized, // invalid length, let base64 fail
     };
-    base64::decode(padded)
+    base64::Engine::decode(&base64::engine::general_purpose::STANDARD, padded)
 }
 
 #[cfg(test)]

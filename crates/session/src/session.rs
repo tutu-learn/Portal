@@ -20,6 +20,29 @@ impl Session {
     }
 }
 
+/// Optional client metadata captured at login / on refresh.
+/// Stored inside `__kiff_sessions.data` and mirrored into `tabSessions.sessiondata`.
+#[derive(Debug, Clone, Default)]
+pub struct SessionMetadata {
+    pub ip: Option<String>,
+    pub user_agent: Option<String>,
+}
+
+impl SessionMetadata {
+    fn merge_into(&self, data: &mut HashMap<String, serde_json::Value>, now: DateTime<Utc>) {
+        if let Some(ip) = &self.ip {
+            data.insert("session_ip".into(), serde_json::Value::String(ip.clone()));
+        }
+        if let Some(ua) = &self.user_agent {
+            data.insert("user_agent".into(), serde_json::Value::String(ua.clone()));
+        }
+        data.insert(
+            "last_updated".into(),
+            serde_json::Value::String(now.to_rfc3339()),
+        );
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SessionStore;
 
@@ -34,15 +57,33 @@ impl SessionStore {
         user: String,
         site: String,
     ) -> Result<Session> {
+        self.create_with_metadata(pool, user, site, SessionMetadata::default())
+            .await
+    }
+
+    pub async fn create_with_metadata(
+        &self,
+        pool: &orm::DatabasePool,
+        user: String,
+        site: String,
+        metadata: SessionMetadata,
+    ) -> Result<Session> {
         let now = Utc::now();
         let expires = now + chrono::Duration::hours(24);
+        let mut data = HashMap::new();
+        data.insert(
+            "creation".into(),
+            serde_json::Value::String(now.to_rfc3339()),
+        );
+        metadata.merge_into(&mut data, now);
+
         let session = Session {
             id: uuid::Uuid::new_v4().to_string(),
             user: user.clone(),
             site: site.clone(),
             created_at: now,
             expires_at: expires,
-            data: HashMap::new(),
+            data,
         };
 
         let data_json = serde_json::to_string(&session.data)?;
@@ -64,14 +105,18 @@ impl SessionStore {
             sql,
             vec![
                 serde_json::Value::String(session.id.clone()),
-                serde_json::Value::String(user),
+                serde_json::Value::String(user.clone()),
                 serde_json::Value::String(site),
                 serde_json::Value::String(now.to_rfc3339()),
                 serde_json::Value::String(expires.to_rfc3339()),
-                serde_json::Value::String(data_json),
+                serde_json::Value::String(data_json.clone()),
             ],
         )
         .await?;
+
+        // Mirror into tabSessions for full Frappe compatibility.
+        self.write_tab_sessions(pool, &session.id, &user, &session.data, metadata)
+            .await?;
 
         Ok(session)
     }
@@ -139,6 +184,14 @@ impl SessionStore {
         };
         pool.execute_sql(sql, vec![serde_json::Value::String(session_id.into())])
             .await?;
+
+        // Keep the Frappe mirror table in sync.
+        let mirror_sql = "DELETE FROM \"tabSessions\" WHERE sid = ?";
+        pool.execute_sql(
+            mirror_sql,
+            vec![serde_json::Value::String(session_id.into())],
+        )
+        .await?;
         Ok(())
     }
 
@@ -156,11 +209,156 @@ impl SessionStore {
         pool.execute_sql(
             sql,
             vec![
+                serde_json::Value::String(data_json.clone()),
+                serde_json::Value::String(session_id.into()),
+            ],
+        )
+        .await?;
+
+        // Refresh the mirror row's sessiondata blob. ip/status/last_updated are
+        // not changed by this helper; use `refresh_metadata` for that.
+        let mirror_sql = match pool.dialect() {
+            "postgres" => "UPDATE \"tabSessions\" SET sessiondata = $1 WHERE sid = $2",
+            _ => "UPDATE \"tabSessions\" SET sessiondata = ? WHERE sid = ?",
+        };
+        pool.execute_sql(
+            mirror_sql,
+            vec![
                 serde_json::Value::String(data_json),
                 serde_json::Value::String(session_id.into()),
             ],
         )
         .await?;
+        Ok(())
+    }
+
+    /// Refresh client metadata on an existing session. Called on every
+    /// authenticated request so that `last_updated` stays current.
+    pub async fn refresh_metadata(
+        &self,
+        pool: &orm::DatabasePool,
+        session_id: &str,
+        metadata: SessionMetadata,
+    ) -> Result<()> {
+        let now = Utc::now();
+
+        // Read current data so we don't clobber other fields.
+        let session = match self.get(pool, session_id).await? {
+            Some(s) => s,
+            None => return Ok(()),
+        };
+        let mut data = session.data;
+        metadata.merge_into(&mut data, now);
+
+        let data_json = serde_json::to_string(&data)?;
+        let kiff_sql = match pool.dialect() {
+            "postgres" => "UPDATE __kiff_sessions SET data = $1 WHERE id = $2",
+            _ => "UPDATE __kiff_sessions SET data = ? WHERE id = ?",
+        };
+        pool.execute_sql(
+            kiff_sql,
+            vec![
+                serde_json::Value::String(data_json.clone()),
+                serde_json::Value::String(session_id.into()),
+            ],
+        )
+        .await?;
+
+        let ip = data
+            .get("session_ip")
+            .and_then(|v| v.as_str().map(String::from));
+        self.write_tab_sessions(
+            pool,
+            session_id,
+            &session.user,
+            &data,
+            SessionMetadata { ip, ..metadata },
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Upsert a row in `tabSessions` from the canonical Kiff session data.
+    async fn write_tab_sessions(
+        &self,
+        pool: &orm::DatabasePool,
+        sid: &str,
+        user: &str,
+        data: &HashMap<String, serde_json::Value>,
+        metadata: SessionMetadata,
+    ) -> Result<()> {
+        let now = Utc::now();
+        let ip = metadata
+            .ip
+            .or_else(|| {
+                data.get("session_ip")
+                    .and_then(|v| v.as_str().map(String::from))
+            })
+            .unwrap_or_default();
+
+        // `tabSessions.sessiondata` mirrors `__kiff_sessions.data`. Frappe's
+        // `User.active_sessions` parses this JSON and reads `session_ip`,
+        // `user_agent`, `last_updated`, and `creation` directly.
+        let sessiondata_json = serde_json::to_string(data)?;
+
+        // Upsert the mirror row using dialect-specific syntax. We keep both
+        // `ip`/`last_updated` (requested by the Kiff workstream) and
+        // `ipaddress`/`lastupdate` (the actual Frappe column names) so existing
+        // Frappe Python code such as `frappe.sessions` continues to work.
+        let (sql, params): (&str, Vec<serde_json::Value>) = match pool.dialect() {
+            "postgres" => (
+                r#"
+                INSERT INTO "tabSessions" (sid, "user", sessiondata, ip, last_updated, ipaddress, lastupdate, status, creation)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (sid) DO UPDATE
+                SET "user" = EXCLUDED."user",
+                    sessiondata = EXCLUDED.sessiondata,
+                    ip = EXCLUDED.ip,
+                    last_updated = EXCLUDED.last_updated,
+                    ipaddress = EXCLUDED.ipaddress,
+                    lastupdate = EXCLUDED.lastupdate,
+                    status = EXCLUDED.status
+            "#,
+                vec![
+                    serde_json::Value::String(sid.into()),
+                    serde_json::Value::String(user.into()),
+                    serde_json::Value::String(sessiondata_json),
+                    serde_json::Value::String(ip.clone()),
+                    serde_json::Value::String(now.to_rfc3339()),
+                    serde_json::Value::String(ip.clone()),
+                    serde_json::Value::String(now.to_rfc3339()),
+                    serde_json::Value::String("Active".into()),
+                    serde_json::Value::String(
+                        data.get("creation")
+                            .and_then(|v| v.as_str().map(String::from))
+                            .unwrap_or_else(|| now.to_rfc3339()),
+                    ),
+                ],
+            ),
+            _ => (
+                r#"
+                INSERT OR REPLACE INTO "tabSessions" (sid, user, sessiondata, ip, last_updated, ipaddress, lastupdate, status, creation)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+                vec![
+                    serde_json::Value::String(sid.into()),
+                    serde_json::Value::String(user.into()),
+                    serde_json::Value::String(sessiondata_json),
+                    serde_json::Value::String(ip.clone()),
+                    serde_json::Value::String(now.to_rfc3339()),
+                    serde_json::Value::String(ip),
+                    serde_json::Value::String(now.to_rfc3339()),
+                    serde_json::Value::String("Active".into()),
+                    serde_json::Value::String(
+                        data.get("creation")
+                            .and_then(|v| v.as_str().map(String::from))
+                            .unwrap_or_else(|| now.to_rfc3339()),
+                    ),
+                ],
+            ),
+        };
+        pool.execute_sql(sql, params).await?;
+
         Ok(())
     }
 }

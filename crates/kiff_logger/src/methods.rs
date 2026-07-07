@@ -124,9 +124,7 @@ pub async fn create_token_method(
         ("token".to_string(), Value::String(raw_token)),
         (
             "message".to_string(),
-            Value::String(
-                "Copy this token now — it will not be shown again.".into(),
-            ),
+            Value::String("Copy this token now — it will not be shown again.".into()),
         ),
     ])))
 }
@@ -161,13 +159,11 @@ pub async fn revoke_token_method(
         ("ok".to_string(), Value::Bool(revoked)),
         (
             "message".to_string(),
-            Value::String(
-                if revoked {
-                    "Token revoked.".into()
-                } else {
-                    "Token not found or already revoked.".into()
-                },
-            ),
+            Value::String(if revoked {
+                "Token revoked.".into()
+            } else {
+                "Token not found or already revoked.".into()
+            }),
         ),
     ])))
 }

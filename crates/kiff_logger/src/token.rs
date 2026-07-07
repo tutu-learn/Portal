@@ -94,7 +94,10 @@ pub async fn create_token(
 }
 
 /// Look up a token by its prefix and verify the full secret.
-pub async fn verify_bearer_token(pool: &DatabasePool, token: &str) -> Result<Option<VerifiedToken>> {
+pub async fn verify_bearer_token(
+    pool: &DatabasePool,
+    token: &str,
+) -> Result<Option<VerifiedToken>> {
     if token.len() <= PREFIX_LEN {
         return Ok(None);
     }
@@ -110,10 +113,7 @@ pub async fn verify_bearer_token(pool: &DatabasePool, token: &str) -> Result<Opt
         .await?;
 
     for row in rows {
-        let stored_hash = row
-            .get("token_hash")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let stored_hash = row.get("token_hash").and_then(|v| v.as_str()).unwrap_or("");
         if !verify_token(token, stored_hash) {
             continue;
         }
@@ -149,18 +149,18 @@ pub async fn touch_token(pool: &DatabasePool, name: &str) -> Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
     pool.execute_sql(
         r#"UPDATE kiff_logger_token SET last_used_at = ?, modified = ? WHERE name = ?"#,
-        vec![Value::String(now.clone()), Value::String(now), Value::String(name.into())],
+        vec![
+            Value::String(now.clone()),
+            Value::String(now),
+            Value::String(name.into()),
+        ],
     )
     .await?;
     Ok(())
 }
 
 /// Revoke (blacklist) a token by its public name/prefix.
-pub async fn revoke_token(
-    pool: &DatabasePool,
-    name: &str,
-    revoked_by: &str,
-) -> Result<bool> {
+pub async fn revoke_token(pool: &DatabasePool, name: &str, revoked_by: &str) -> Result<bool> {
     let now = chrono::Utc::now().to_rfc3339();
     let rows = pool
         .execute_sql(

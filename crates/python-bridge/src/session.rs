@@ -1,3 +1,4 @@
+use permissions::PermissionEngine;
 use pyo3::prelude::*;
 
 #[pyfunction]
@@ -104,11 +105,44 @@ pub fn get_roles(_py: Python<'_>, user: String) -> PyResult<Vec<String>> {
 #[pyfunction]
 pub fn has_permission(
     _py: Python<'_>,
-    _doctype: String,
-    _ptype: String,
-    _doc: Option<Bound<'_, PyAny>>,
-    _user: Option<String>,
+    doctype: String,
+    ptype: String,
+    doc: Option<Bound<'_, PyAny>>,
+    user: Option<String>,
 ) -> PyResult<bool> {
-    // TODO: integrate with permissions crate
-    Ok(true)
+    let Some(pool) = crate::POOL.get() else {
+        // No Kiff DB pool initialized yet; keep the permissive fallback so
+        // pure-Python bootstrap paths don't break.
+        return Ok(true);
+    };
+
+    let user = user.unwrap_or_else(|| "Guest".to_string());
+    let ptype = ptype.to_lowercase();
+    let orm_doc = doc.as_ref().and_then(py_doc_to_orm);
+
+    let engine = PermissionEngine::new();
+    crate::rt()
+        .block_on(async {
+            engine
+                .has_permission(pool, &user, &doctype, &ptype, orm_doc.as_ref())
+                .await
+        })
+        .map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("permission check failed: {}", e))
+        })
+}
+
+/// Best-effort conversion of a Python Document-like object into an ORM
+/// Document so the permission engine can apply owner-only rules.
+fn py_doc_to_orm(doc: &Bound<'_, PyAny>) -> Option<orm::Document> {
+    let doctype = doc.getattr("doctype").ok()?.extract::<String>().ok()?;
+    let name = doc.getattr("name").ok()?.extract::<String>().ok()?;
+    let owner = doc
+        .getattr("owner")
+        .ok()
+        .and_then(|v| v.extract::<String>().ok())
+        .unwrap_or_else(|| "Administrator".to_string());
+    let mut d = orm::Document::new(doctype, name);
+    d.owner = owner;
+    Some(d)
 }

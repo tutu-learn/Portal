@@ -19,10 +19,7 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
-async fn session_user_from_cookie(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Option<String> {
+async fn session_user_from_cookie(state: &AppState, headers: &HeaderMap) -> Option<String> {
     let cookie_header = headers.get("cookie").and_then(|h| h.to_str().ok())?;
     let sid = extract_cookie_value(cookie_header, "sid")?;
     let pool = state.pools.iter().next().map(|e| e.value().clone())?;
@@ -48,7 +45,10 @@ async fn require_kiff_logs_admin(
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let pm = permissions::PermissionEngine::new();
-    let roles = pm.get_roles(&pool, &user).await.map_err(|_| StatusCode::FORBIDDEN)?;
+    let roles = pm
+        .get_roles(&pool, &user)
+        .await
+        .map_err(|_| StatusCode::FORBIDDEN)?;
     if !roles.iter().any(|r| r == "Kiff Logs Admin") {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -444,16 +444,9 @@ const TOKEN_UI_HTML: &str = r#"<!DOCTYPE html>
 </body>
 </html>"#;
 
-pub async fn token_ui_handler(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn token_ui_handler(State(state): State<AppState>, headers: HeaderMap) -> Response {
     match require_kiff_logs_admin(&state, &headers).await {
         Ok(_) => Html(TOKEN_UI_HTML).into_response(),
-        Err(status) => (
-            status,
-            Html(format!("<h1>{}</h1>", status.as_str())),
-        )
-            .into_response(),
+        Err(status) => (status, Html(format!("<h1>{}</h1>", status.as_str()))).into_response(),
     }
 }

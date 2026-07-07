@@ -58,7 +58,7 @@ pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
         translator: Arc::new(sql_translator::SqlTranslator::new(
             sql_translator::TargetDialect::Sqlite,
         )),
-        rust_apps: rust_apps_core::RustAppRegistry::default(),
+        rust_apps: rust_apps_core::RustAppRegistry::new(vec![Box::new(audit_ready::AuditReadyApp)]),
         logger: Arc::new(std::sync::OnceLock::new()),
     }
 }

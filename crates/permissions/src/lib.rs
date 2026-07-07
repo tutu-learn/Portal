@@ -5,9 +5,36 @@ pub mod sod;
 pub mod user_perms;
 
 use dashmap::DashMap;
-use error::{Result, RuntimeError};
+use error::Result;
 use orm::DatabasePool;
 use std::sync::Arc;
+
+/// Map a permission type to the boolean flag on a DocPerm row.
+///
+/// For the extra Frappe ptypes (`select`, `report`, `export`, `print`,
+/// `email`, `share`) the engine falls back to `read` when the explicit flag
+/// is not set. `import` falls back to `create`. This mirrors the sensible
+/// defaults Frappe uses for actions that are normally available once a role
+/// can read (or create) a DocType.
+fn ptype_allowed(perm: &DocPerm, ptype: &str) -> bool {
+    match ptype {
+        "read" => perm.read,
+        "write" => perm.write,
+        "create" => perm.create,
+        "delete" => perm.delete,
+        "submit" => perm.submit,
+        "cancel" => perm.cancel,
+        "amend" => perm.amend,
+        "select" => perm.select || perm.read,
+        "report" => perm.report || perm.read,
+        "export" => perm.export || perm.read,
+        "import" => perm.import || perm.create,
+        "print" => perm.print || perm.read,
+        "email" => perm.email || perm.read,
+        "share" => perm.share || perm.read,
+        _ => false,
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct PermissionEngine {
@@ -65,15 +92,7 @@ impl PermissionEngine {
             if !roles.contains(&perm.role) {
                 continue;
             }
-            let allowed = match ptype {
-                "read" => perm.read,
-                "write" => perm.write,
-                "create" => perm.create,
-                "delete" => perm.delete,
-                "submit" => perm.submit,
-                "cancel" => perm.cancel,
-                _ => false,
-            };
+            let allowed = ptype_allowed(&perm, ptype);
             if allowed {
                 // If owner-only permission, check ownership
                 if perm.if_owner {
@@ -230,7 +249,7 @@ impl PermissionEngine {
 
     pub async fn check_field_permission(
         &self,
-        pool: &DatabasePool,
+        _pool: &DatabasePool,
         user: &str,
         doctype: &str,
         field: &str,
@@ -386,5 +405,116 @@ impl SodEngine {
 impl Default for SodEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    async fn setup_test_db() -> error::Result<orm::DatabasePool> {
+        let n = DB_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = format!("/tmp/kiff_perm_test_{}.db", n);
+        let _ = std::fs::remove_file(&path);
+        let pool = orm::DatabasePool::connect_sqlite(&path).await?;
+        orm::migrations::Migrator::run(&pool).await?;
+        Ok(pool)
+    }
+
+    async fn create_doctype_table(pool: &orm::DatabasePool, doctype: &str) -> error::Result<()> {
+        let table = doctype.to_lowercase().replace(" ", "_");
+        let table = table.strip_prefix("tab").unwrap_or(&table);
+        let sql = format!(
+            r#"CREATE TABLE IF NOT EXISTS "{}" (
+                name TEXT PRIMARY KEY,
+                owner TEXT NOT NULL DEFAULT 'Administrator',
+                creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                docstatus INTEGER NOT NULL DEFAULT 0,
+                title TEXT,
+                description TEXT,
+                status TEXT
+            )"#,
+            table
+        );
+        pool.execute_sql(&sql, vec![]).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn extra_ptypes_follow_read_and_create() -> Result<()> {
+        let pool = setup_test_db().await?;
+        create_doctype_table(&pool, "PermDoc").await?;
+
+        pool.execute_sql(
+            "DELETE FROM __kiff_docperm WHERE parent = '*' AND role = 'All'",
+            vec![],
+        )
+        .await?;
+
+        pool.execute_sql(
+            r#"
+            INSERT INTO __kiff_docperm (
+                "parent", "role", "permlevel", "read", "write", "create", "delete",
+                "submit", "cancel", "if_owner", "select", "report", "export", "import",
+                "share", "print", "email", "mask", "amend"
+            ) VALUES ('PermDoc', 'All', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            "#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+
+        for ptype in ["select", "report", "export", "print", "email", "share"] {
+            let allowed = engine
+                .has_permission(&pool, "Guest", "PermDoc", ptype, None)
+                .await?;
+            assert!(allowed, "{} should follow read", ptype);
+        }
+
+        let can_import = engine
+            .has_permission(&pool, "Guest", "PermDoc", "import", None)
+            .await?;
+        assert!(
+            !can_import,
+            "import should not follow read when create is false"
+        );
+
+        pool.execute_sql(
+            r#"UPDATE __kiff_docperm SET "create" = 1 WHERE parent = 'PermDoc' AND role = 'All'"#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let can_import = engine
+            .has_permission(&pool, "Guest", "PermDoc", "import", None)
+            .await?;
+        assert!(can_import, "import should follow create");
+
+        pool.execute_sql(
+            r#"UPDATE __kiff_docperm SET "read" = 0, "select" = 1 WHERE parent = 'PermDoc' AND role = 'All'"#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let can_select = engine
+            .has_permission(&pool, "Guest", "PermDoc", "select", None)
+            .await?;
+        assert!(can_select, "explicit select should be allowed");
+        let can_report = engine
+            .has_permission(&pool, "Guest", "PermDoc", "report", None)
+            .await?;
+        assert!(
+            !can_report,
+            "report should not be allowed when read is false and report is unset"
+        );
+
+        Ok(())
     }
 }

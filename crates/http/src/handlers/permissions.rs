@@ -139,8 +139,7 @@ async fn get_permissions_impl(
             if let Some(mut row) = rows.into_iter().next() {
                 doctype_meta.insert(
                     "is_submittable".into(),
-                    row.remove("is_submittable")
-                        .unwrap_or(serde_json::json!(0)),
+                    row.remove("is_submittable").unwrap_or(serde_json::json!(0)),
                 );
                 doctype_meta.insert(
                     "in_create".into(),
@@ -280,10 +279,7 @@ pub async fn add_permission_post(
         .await;
     if let Ok(rows) = exists {
         if !rows.is_empty() {
-            return (
-                StatusCode::OK,
-                Json(serde_json::json!({ "message": "OK" })),
-            );
+            return (StatusCode::OK, Json(serde_json::json!({ "message": "OK" })));
         }
     }
 
@@ -529,5 +525,8 @@ pub async fn get_users_with_role_post(
         }
     };
 
-    (StatusCode::OK, Json(serde_json::json!({ "message": users })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "message": users })),
+    )
 }

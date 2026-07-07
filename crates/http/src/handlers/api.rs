@@ -720,8 +720,40 @@ pub async fn getdoc_native(
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
-            Ok(doc) => {
-                let permissions = if let Some(user) = authenticate_request(&state, &headers).await {
+            Ok(mut doc) => {
+                let user = authenticate_request(&state, &headers).await.map(|u| u.user);
+
+                // Whitelisted framework DocTypes may rely on controller ``onload``
+                // data that the native ORM does not produce (e.g. User.onload
+                // populates __onload.all_modules for the "Allow Modules" UI).
+                // Bridge to the Python controller when possible and fall back to
+                // the native ORM's onload injection on failure.
+                if matches!(doctype.as_str(), "User" | "Workspace" | "Module Profile") {
+                    if let Ok(doc_value) = serde_json::to_value(&doc) {
+                        match kiff_core::document::run_onload(&doctype, &doc_value, user.as_deref())
+                        {
+                            Ok(onload) => {
+                                // Only overwrite the native ORM fallback when
+                                // the controller actually produced onload data.
+                                if let Some(map) = onload.as_object() {
+                                    if !map.is_empty() {
+                                        doc.set_field("__onload", onload);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!(
+                                    doctype = %doctype,
+                                    name = %name,
+                                    error = %e,
+                                    "Python onload bridge failed, keeping native fallback"
+                                );
+                            }
+                        }
+                    }
+                }
+
+                let permissions = if let Some(ref user) = user {
                     let ptypes = vec![
                         "read", "write", "create", "delete", "submit", "cancel", "select",
                         "report", "export", "import", "print", "email", "share",
@@ -730,7 +762,7 @@ pub async fn getdoc_native(
                     for ptype in ptypes {
                         let allowed = state
                             .permissions
-                            .has_permission(&pool, &user.user, &doctype, ptype, Some(&doc))
+                            .has_permission(&pool, user, &doctype, ptype, Some(&doc))
                             .await
                             .unwrap_or(false);
                         perms.insert(ptype.to_string(), json!(if allowed { 1 } else { 0 }));

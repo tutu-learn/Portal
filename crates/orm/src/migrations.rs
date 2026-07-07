@@ -60,6 +60,44 @@ impl Migrator {
         };
         pool.execute_sql(session_sql, vec![]).await?;
 
+        // Frappe-compatible Sessions mirror table.
+        // `__kiff_sessions` remains the canonical session store; `tabSessions`
+        // is kept in sync so that Frappe's `User.active_sessions` and any
+        // existing queries against `tabSessions` continue to work unchanged.
+        let frappe_sessions_sql = match pool.dialect() {
+            "postgres" => {
+                r#"
+                CREATE TABLE IF NOT EXISTS "tabSessions" (
+                    sid TEXT PRIMARY KEY,
+                    "user" TEXT NOT NULL,
+                    sessiondata JSONB NOT NULL DEFAULT '{}',
+                    ip TEXT,
+                    last_updated TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ipaddress TEXT,
+                    lastupdate TIMESTAMPTZ,
+                    status TEXT NOT NULL DEFAULT 'Active',
+                    creation TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            "#
+            }
+            _ => {
+                r#"
+                CREATE TABLE IF NOT EXISTS "tabSessions" (
+                    sid TEXT PRIMARY KEY,
+                    user TEXT NOT NULL,
+                    sessiondata TEXT NOT NULL DEFAULT '{}',
+                    ip TEXT,
+                    last_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ipaddress TEXT,
+                    lastupdate TEXT,
+                    status TEXT NOT NULL DEFAULT 'Active',
+                    creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            "#
+            }
+        };
+        pool.execute_sql(frappe_sessions_sql, vec![]).await?;
+
         // Queue table
         let queue_sql = match pool.dialect() {
             "postgres" => {

@@ -4,4 +4,4 @@ pub mod middleware;
 pub mod session;
 
 pub use auth::AuthService;
-pub use session::{Session, SessionStore};
+pub use session::{Session, SessionMetadata, SessionStore};

@@ -1,13 +1,33 @@
 use crate::AppState;
 use axum::{
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
+use std::net::SocketAddr;
+
+fn extract_client_ip(headers: &HeaderMap, addr: Option<SocketAddr>) -> Option<String> {
+    if let Some(forwarded) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+        return forwarded.split(',').next().map(|s| s.trim().to_string());
+    }
+    if let Some(addr) = addr {
+        return Some(addr.ip().to_string());
+    }
+    None
+}
+
+fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .map(String::from)
+}
 
 pub async fn login(
     State(state): State<AppState>,
+    headers: HeaderMap,
+    addr: Option<ConnectInfo<SocketAddr>>,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
     let usr = body
@@ -24,8 +44,15 @@ pub async fn login(
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => {
+            let metadata = session::SessionMetadata {
+                ip: extract_client_ip(&headers, addr.map(|a| a.0)),
+                user_agent: extract_user_agent(&headers),
+            };
             let auth = session::AuthService::new(session::SessionStore::new());
-            match auth.login(&pool, &usr, &pwd, "localhost").await {
+            match auth
+                .login_with_metadata(&pool, &usr, &pwd, "localhost", metadata)
+                .await
+            {
                 Ok(session) => {
                     let cookie = format!(
                         "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",

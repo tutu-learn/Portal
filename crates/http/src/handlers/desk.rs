@@ -452,6 +452,152 @@ fn build_workspace_boot_objects(workspaces: &[Value], is_guest: bool) -> (Value,
     )
 }
 
+/// Frappe's `scrub`: lower-case and replace spaces/hyphens with underscores.
+fn scrub_module_name(name: &str) -> String {
+    name.to_lowercase().replace([' ', '-'], "_")
+}
+
+/// Frappe's `slug`: lower-case and replace spaces with hyphens.
+fn slugify(name: &str) -> String {
+    name.to_lowercase().replace(' ', "-")
+}
+
+/// Read the Frappe apps installed on this site and append the registered
+/// Rust apps so both Python and Rust workspaces show up in the app switcher.
+async fn get_installed_apps(rust_apps: &rust_apps_core::RustAppRegistry) -> Vec<String> {
+    let mut apps = Vec::new();
+
+    if let Ok(content) = tokio::fs::read_to_string("sites/apps.txt").await {
+        for line in content.lines() {
+            let line = line.trim();
+            if !line.is_empty() && !line.starts_with('#') && !apps.contains(&line.to_string()) {
+                apps.push(line.to_string());
+            }
+        }
+    }
+
+    if apps.is_empty() {
+        apps.push("frappe".to_string());
+    }
+
+    for app in rust_apps.apps() {
+        let name = app.name().to_string();
+        if !apps.contains(&name) {
+            apps.push(name);
+        }
+    }
+
+    apps
+}
+
+/// Build `module_app` (scrubbed module name -> owning app).
+async fn build_module_app(pool: &orm::DatabasePool) -> error::Result<Map<String, Value>> {
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name, app_name FROM "module_def" ORDER BY name"#,
+            vec![],
+        )
+        .await?;
+
+    let mut map = Map::new();
+    for row in rows {
+        if let (Some(name), Some(app)) = (
+            row.get("name").and_then(|v| v.as_str()),
+            row.get("app_name").and_then(|v| v.as_str()),
+        ) {
+            if !name.is_empty() && !app.is_empty() {
+                map.insert(scrub_module_name(name), json!(app));
+            }
+        }
+    }
+    Ok(map)
+}
+
+/// Return a human-readable title and logo URL for well-known apps.
+fn default_app_metadata(app: &str) -> (String, String) {
+    match app {
+        "frappe" => (
+            "Frappe Framework".to_string(),
+            "/assets/frappe/images/frappe-framework-logo.svg".to_string(),
+        ),
+        _ => (app.to_string(), "".to_string()),
+    }
+}
+
+/// Build `app_data`: one entry per installed app with its modules and workspaces.
+async fn build_app_data(
+    pool: &orm::DatabasePool,
+    installed_apps: &[String],
+    workspaces: &[Value],
+) -> error::Result<Vec<Value>> {
+    let mut result = Vec::new();
+
+    for app in installed_apps {
+        let rows = pool
+            .execute_sql(
+                r#"SELECT name, module_name FROM "module_def" WHERE app_name = ? ORDER BY module_name"#,
+                vec![Value::String(app.clone())],
+            )
+            .await?;
+
+        let modules: Vec<String> = rows
+            .iter()
+            .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+
+        let app_modules: HashSet<String> = modules.iter().map(|m| scrub_module_name(m)).collect();
+        let app_workspaces: Vec<String> = workspaces
+            .iter()
+            .filter_map(|ws| {
+                let ws_module = ws.get("module").and_then(|v| v.as_str())?;
+                if app_modules.contains(&scrub_module_name(ws_module)) {
+                    ws.get("name").and_then(|v| v.as_str()).map(String::from)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let app_route = app_workspaces
+            .first()
+            .map(|ws| format!("/app/{}", slugify(ws)))
+            .unwrap_or_default();
+
+        let (app_title, app_logo_url) = default_app_metadata(app);
+
+        result.push(json!({
+            "app_name": app,
+            "app_title": app_title,
+            "app_route": app_route,
+            "app_logo_url": app_logo_url,
+            "modules": modules,
+            "workspaces": app_workspaces,
+        }));
+    }
+
+    Ok(result)
+}
+
+/// Build `allowed_modules`: module objects the desktop can render as icons.
+fn build_allowed_modules(modules_map: &Map<String, Value>) -> Vec<Value> {
+    modules_map
+        .iter()
+        .map(|(module_name, obj)| {
+            let label = obj
+                .get("label")
+                .and_then(|v| v.as_str())
+                .unwrap_or(module_name);
+            json!({
+                "module_name": module_name,
+                "label": label,
+                "type": "module",
+                "icon": "",
+                "color": "#8D99A6",
+            })
+        })
+        .collect()
+}
+
 /// Compute permission-type -> [doctype] lists for a user from the Rust
 /// permission engine. Used to fix the desk bootinfo when the Python shim
 /// leaves can_create/write/delete/etc. empty.
@@ -464,7 +610,7 @@ async fn compute_user_permission_lists(
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
     let ptypes = vec![
         "read", "write", "create", "delete", "submit", "cancel", "select", "report", "export",
-        "import", "print", "email",
+        "import", "print", "email", "share",
     ];
 
     // Administrator is implicitly granted every permission on every DocType,
@@ -532,6 +678,23 @@ async fn build_boot_info(
             (vec![], Map::new(), vec![], Map::new(), None)
         };
 
+    // Build module/app mapping and app data. These are Kiff-managed values that
+    // must be present even when the Python bootinfo call fails.
+    let installed_apps = get_installed_apps(&state.rust_apps).await;
+    let module_app = if let Some(ref pool) = pool {
+        build_module_app(pool).await.unwrap_or_default()
+    } else {
+        Map::new()
+    };
+    let app_data = if let Some(ref pool) = pool {
+        build_app_data(pool, &installed_apps, &workspaces)
+            .await
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
+    let allowed_modules = build_allowed_modules(&modules_map);
+
     let (workspaces_value, workspace_sidebar_item_value, default_workspace_obj) =
         build_workspace_boot_objects(&workspaces, is_guest);
 
@@ -591,6 +754,12 @@ async fn build_boot_info(
             );
             boot.insert("modules".to_string(), Value::Object(modules_map.clone()));
             boot.insert("module_list".to_string(), json!(module_list.clone()));
+            boot.insert("module_app".to_string(), Value::Object(module_app.clone()));
+            boot.insert("app_data".to_string(), json!(app_data.clone()));
+            boot.insert(
+                "allowed_modules".to_string(),
+                json!(allowed_modules.clone()),
+            );
             if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
                 user_obj.insert("default_workspace".to_string(), default_workspace_obj);
                 // Keep the Python user permissions in sync with the filtered module list.
@@ -621,6 +790,9 @@ async fn build_boot_info(
                     }
                     if let Some(create_list) = perms.get("create") {
                         user_obj.insert("in_create".to_string(), json!(create_list));
+                    }
+                    if let Some(report_list) = perms.get("report") {
+                        user_obj.insert("can_get_report".to_string(), json!(report_list));
                     }
                 }
             }
@@ -1024,11 +1196,11 @@ async fn build_boot_info(
     }
     boot.insert("page_info".to_string(), Value::Object(page_info));
     boot.insert("allowed_pages".to_string(), json!(allowed_pages));
-    boot.insert("allowed_modules".to_string(), json!([]));
+    boot.insert("allowed_modules".to_string(), json!(allowed_modules));
     boot.insert("notes".to_string(), json!([]));
     boot.insert("letter_heads".to_string(), json!({}));
-    boot.insert("module_app".to_string(), json!({}));
-    boot.insert("app_data".to_string(), json!([]));
+    boot.insert("module_app".to_string(), Value::Object(module_app));
+    boot.insert("app_data".to_string(), json!(app_data));
     boot.insert("app_name_style".to_string(), json!("Default"));
     boot.insert("desktop_icons".to_string(), json!([]));
     boot.insert("calendars".to_string(), json!([]));

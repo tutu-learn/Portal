@@ -646,3 +646,38 @@ def insert_doc(doc):
 def delete_doc(doctype, name):
     if _rust is not None:
         _rust.delete_doc(doctype, name)
+
+
+def _run_document_onload(doctype, doc, user=None):
+    """Run a real Document controller's ``onload`` hook for an in-memory doc.
+
+    The native Rust ``getdoc`` path calls this so framework DocTypes that rely
+    on ``__onload`` data (e.g. ``User`` needs ``__onload.all_modules``) still
+    work without running the full Python getdoc flow.
+
+    Args:
+        doctype: DocType name (used for logging/dispatch).
+        doc: Document data as a dict (must contain ``doctype``).
+        user: Optional session user for the request context.
+
+    Returns:
+        A plain dict with the contents of ``doc.get_onload()``.
+    """
+    import frappe
+    from frappe import _dict
+
+    user = user or "Guest"
+    frappe._set_request_context(_dict(), user=user)
+
+    try:
+        # ``frappe.get_doc`` is patched to the real Frappe implementation when
+        # available, so ``doc_obj`` is a real Document subclass with onload().
+        doc_obj = frappe.get_doc(doc)
+        if hasattr(doc_obj, "onload") and callable(doc_obj.onload):
+            doc_obj.onload()
+        return dict(doc_obj.get_onload() or {})
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return {}

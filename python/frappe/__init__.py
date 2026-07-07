@@ -181,6 +181,7 @@ from ._meta import _doctype_json_cache, _load_doctype_json, get_meta
 from ._document import (
     get_doc, get_list, get_all, get_value,
     new_doc, set_value, save_doc, insert_doc, delete_doc,
+    _run_document_onload,
 )
 from ._permissions import (
     get_roles, has_permission,

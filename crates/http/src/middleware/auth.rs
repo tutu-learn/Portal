@@ -1,10 +1,10 @@
 use crate::AppState;
+use axum::http::HeaderMap;
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use axum::http::HeaderMap;
 
 #[derive(Debug, Clone)]
 pub struct SessionUser {
@@ -24,15 +24,26 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
+fn extract_client_ip(headers: &HeaderMap) -> Option<String> {
+    if let Some(forwarded) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+        return forwarded.split(',').next().map(|s| s.trim().to_string());
+    }
+    None
+}
+
+fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .map(String::from)
+}
+
 /// Authenticate a request from its headers.
 ///
 /// Returns a [`SessionUser`] when either a valid `sid` cookie or a valid
 /// `Authorization: Bearer <kiff-logger-token>` header is present.  Credentials
 /// are invalid or missing, returns `None` (Guest).
-pub async fn authenticate_request(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Option<SessionUser> {
+pub async fn authenticate_request(state: &AppState, headers: &HeaderMap) -> Option<SessionUser> {
     // 1. Cookie session.
     if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
         if let Some(sid) = extract_cookie_value(cookie_header, "sid") {
@@ -41,6 +52,23 @@ pub async fn authenticate_request(
                 let store = session::SessionStore::new();
                 match store.get(&pool, &sid).await {
                     Ok(Some(session)) if !session.is_expired() => {
+                        // Refresh session metadata on every authenticated
+                        // request so `last_updated` reflects real activity.
+                        let metadata = session::SessionMetadata {
+                            ip: extract_client_ip(headers).or_else(|| {
+                                session
+                                    .data
+                                    .get("session_ip")
+                                    .and_then(|v| v.as_str().map(String::from))
+                            }),
+                            user_agent: extract_user_agent(headers).or_else(|| {
+                                session
+                                    .data
+                                    .get("user_agent")
+                                    .and_then(|v| v.as_str().map(String::from))
+                            }),
+                        };
+                        let _ = store.refresh_metadata(&pool, &sid, metadata).await;
                         return Some(SessionUser {
                             user: session.user.clone(),
                             sid: sid.clone(),

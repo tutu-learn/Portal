@@ -238,6 +238,20 @@ async fn test_getdoc_native_includes_onload_modules() {
         .expect("__onload.all_modules expected");
     assert!(!all_modules.is_empty());
 
+    // The bridge runs User.onload() which returns sorted module names.
+    let module_names: Vec<&str> = all_modules
+        .iter()
+        .map(|v| v.as_str().expect("module name should be a string"))
+        .collect();
+    assert!(
+        module_names.windows(2).all(|w| w[0] <= w[1]),
+        "all_modules should be sorted"
+    );
+    assert!(
+        module_names.contains(&"Core"),
+        "Core module should be present"
+    );
+
     let docinfo = json["docinfo"].as_object().expect("docinfo expected");
     assert_eq!(docinfo["doctype"], "User");
     assert_eq!(docinfo["name"], "Administrator");

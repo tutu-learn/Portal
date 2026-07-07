@@ -7,6 +7,7 @@ pub mod websocket;
 pub use rust_apps_core::AppState;
 
 use axum::Router;
+use std::net::SocketAddr;
 
 pub async fn run_server(state: AppState, host: &str, port: u16) -> error::Result<()> {
     let app = router::create_router().with_state(state);
@@ -18,8 +19,11 @@ pub async fn run_server_with_router(router: Router, host: &str, port: u16) -> er
         .await
         .map_err(error::RuntimeError::Io)?;
     tracing::info!("HTTP server listening on {}:{}", host, port);
-    axum::serve(listener, router)
-        .await
-        .map_err(|e| error::RuntimeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .map_err(|e| error::RuntimeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
     Ok(())
 }
