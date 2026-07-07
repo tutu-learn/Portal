@@ -40,6 +40,34 @@ pub async fn create_doctype_table(pool: &orm::DatabasePool, doctype: &str) -> er
     Ok(())
 }
 
+pub async fn grant_permission(
+    pool: &orm::DatabasePool,
+    doctype: &str,
+    role: &str,
+    read: bool,
+    write: bool,
+    create: bool,
+    delete: bool,
+) -> error::Result<()> {
+    pool.execute_sql(
+        r#"INSERT OR REPLACE INTO __kiff_docperm (
+            parent, role, permlevel, "read", "write", "create", "delete",
+            "submit", "cancel", "if_owner", "select", "report", "export", "import",
+            "share", "print", "email", "mask", "amend"
+        ) VALUES (?, ?, 0, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)"#,
+        vec![
+            serde_json::Value::String(doctype.into()),
+            serde_json::Value::String(role.into()),
+            serde_json::Value::Number((read as i32).into()),
+            serde_json::Value::Number((write as i32).into()),
+            serde_json::Value::Number((create as i32).into()),
+            serde_json::Value::Number((delete as i32).into()),
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
 pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
     use dashmap::DashMap;
     use std::sync::Arc;
@@ -58,7 +86,7 @@ pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
         translator: Arc::new(sql_translator::SqlTranslator::new(
             sql_translator::TargetDialect::Sqlite,
         )),
-        rust_apps: rust_apps_core::RustAppRegistry::new(vec![Box::new(audit_ready::AuditReadyApp)]),
+        rust_apps: rust_apps_core::RustAppRegistry::new(vec![Box::new(sebrus_logger::SebrusLoggerApp)]),
         logger: Arc::new(std::sync::OnceLock::new()),
     }
 }

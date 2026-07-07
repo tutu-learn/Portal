@@ -40,14 +40,85 @@ pub async fn get_list(
     State(state): State<AppState>,
     Path(doctype): Path<String>,
     Query(q): Query<ListQuery>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
     if doctype == "Kiff Log Entry" {
         return virtual_doctype_error(&doctype);
     }
 
-    let fields = q
-        .fields
-        .map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
+        }
+    };
+
+    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+
+    // Enforce row-level read permissions before running the query. Owner-only
+    // read permissions are expressed as a query condition, so a blanket
+    // has_permission(..., None) check would reject them incorrectly.
+    let permission_conditions = match state
+        .permissions
+        .get_permission_query_conditions(&pool, &user, &doctype)
+        .await
+    {
+        Ok(None) => None,
+        Ok(Some(cond)) if cond == "1 = 0" => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": "permission denied" })),
+            );
+        }
+        Ok(Some(cond)) => Some(vec![cond]),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            );
+        }
+    };
+
+    let valid_columns = match pool.get_doctype_columns(&doctype).await {
+        Ok(cols) => cols,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            );
+        }
+    };
+
+    let fields = match q.fields {
+        Some(s) => match validate_fields(&s, &valid_columns) {
+            Ok(f) if !f.is_empty() => Some(f),
+            Ok(_) => None,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                );
+            }
+        },
+        None => None,
+    };
+
+    let order_by = match q.order_by {
+        Some(s) => match parse_order_by(&s, &valid_columns) {
+            Ok(ob) => ob,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                );
+            }
+        },
+        None => None,
+    };
+
     let filters: Option<HashMap<String, FilterCondition>> = q.filters.and_then(|s| {
         let raw: Option<HashMap<String, Value>> = serde_json::from_str(&s).ok();
         raw.map(|m| {
@@ -57,47 +128,116 @@ pub async fn get_list(
         })
     });
 
-    // Use first pool for now
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
-    match pool {
-        Some(pool) => match pool
-            .get_list(&doctype, filters, fields, q.order_by.as_deref(), q.limit)
-            .await
-        {
-            Ok(docs) => (StatusCode::OK, Json(serde_json::json!({ "data": docs }))),
-            Err(e) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            ),
-        },
-        None => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "no database pool" })),
+    match pool
+        .get_list(&doctype, filters, fields, order_by, permission_conditions, q.limit)
+        .await
+    {
+        Ok(docs) => (StatusCode::OK, Json(serde_json::json!({ "data": docs }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
+}
+
+fn validate_fields(raw: &str, valid: &std::collections::HashSet<String>) -> Result<Vec<String>, String> {
+    // Frappe sends `fields` as either a comma-separated list or a JSON array
+    // such as `["name","role_name"]`.
+    let items: Vec<String> = if raw.trim().starts_with('[') {
+        serde_json::from_str::<Vec<String>>(raw)
+            .map_err(|e| format!("invalid fields JSON: {}", e))?
+    } else {
+        raw.split(',').map(|s| s.trim().to_string()).collect()
+    };
+
+    let mut fields = Vec::new();
+    for field in items {
+        if field.is_empty() {
+            continue;
+        }
+        if !valid.contains(&field) {
+            return Err(format!("invalid field: {}", field));
+        }
+        fields.push(field);
+    }
+    Ok(fields)
+}
+
+fn parse_order_by(
+    raw: &str,
+    valid: &std::collections::HashSet<String>,
+) -> Result<Option<(String, bool)>, String> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+
+    let mut parts = raw.split_whitespace();
+    let field = parts
+        .next()
+        .ok_or_else(|| "order_by is empty".to_string())?;
+    if !valid.contains(field) {
+        return Err(format!("invalid order_by field: {}", field));
+    }
+
+    let mut desc = false;
+    if let Some(dir) = parts.next() {
+        match dir.to_ascii_uppercase().as_str() {
+            "ASC" => desc = false,
+            "DESC" => desc = true,
+            _ => return Err(format!("invalid order_by direction: {}", dir)),
+        }
+    }
+
+    if parts.next().is_some() {
+        return Err("order_by must be '<field> [ASC|DESC]'".to_string());
+    }
+
+    Ok(Some((field.into(), desc)))
 }
 
 pub async fn get_doc(
     State(state): State<AppState>,
     Path((doctype, name)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
-    let _ = name;
     if doctype == "Kiff Log Entry" {
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
-    match pool {
-        Some(pool) => match pool.get_doc(&doctype, &name).await {
-            Ok(doc) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
-            Err(e) => (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            ),
-        },
-        None => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "no database pool" })),
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
+        }
+    };
+
+    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+
+    match pool.get_doc(&doctype, &name).await {
+        Ok(doc) => {
+            match state
+                .permissions
+                .has_permission(&pool, &user, &doctype, "read", Some(&doc))
+                .await
+            {
+                Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
+                Ok(false) => (
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({ "error": "permission denied" })),
+                ),
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": format!("{}", e) })),
+                ),
+            }
+        }
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
 }
@@ -152,27 +292,55 @@ pub async fn insert_doc(
         Err(e) => return frappe_error_response(e),
     }
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
-    match pool {
-        Some(pool) => {
-            let mut doc = orm::Document::new(doctype, uuid::Uuid::new_v4().to_string());
-            for (k, v) in body.fields {
-                doc.set_field(k, v);
-            }
-            match pool.insert_doc(&doc).await {
-                Ok(name) => (
-                    StatusCode::CREATED,
-                    Json(serde_json::json!({ "data": { "name": name } })),
-                ),
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": format!("{}", e) })),
-                ),
-            }
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
         }
-        None => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "no database pool" })),
+    };
+
+    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+    match state
+        .permissions
+        .has_permission(&pool, &user, &doctype, "create", None)
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": "permission denied" })),
+            );
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            );
+        }
+    }
+
+    let is_user_doctype = doctype == "User";
+    let mut doc = orm::Document::new(doctype, uuid::Uuid::new_v4().to_string());
+    for (k, v) in body.fields {
+        doc.set_field(k, v);
+    }
+    match pool.insert_doc(&doc).await {
+        Ok(name) => {
+            if is_user_doctype {
+                state.permissions.clear_roles_cache(&name);
+            }
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "data": { "name": name } })),
+            )
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
 }
@@ -236,29 +404,59 @@ pub async fn update_doc(
     }
 
     // Fall back to the native ORM update when Python cannot handle the DocType yet.
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
-    match pool {
-        Some(pool) => match pool.get_doc(&doctype, &name).await {
-            Ok(mut doc) => {
-                for (k, v) in body_for_fallback {
-                    doc.set_field(k, v);
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
+        }
+    };
+
+    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+
+    match pool.get_doc(&doctype, &name).await {
+        Ok(mut doc) => {
+            match state
+                .permissions
+                .has_permission(&pool, &user, &doctype, "write", Some(&doc))
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(serde_json::json!({ "error": "permission denied" })),
+                    );
                 }
-                match pool.save_doc(&doc).await {
-                    Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
-                    Err(e) => (
+                Err(e) => {
+                    return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({ "error": format!("{}", e) })),
-                    ),
+                    );
                 }
             }
-            Err(e) => (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            ),
-        },
-        None => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "no database pool" })),
+
+            for (k, v) in body_for_fallback {
+                doc.set_field(k, v);
+            }
+            match pool.save_doc(&doc).await {
+                Ok(_) => {
+                    if doctype == "User" {
+                        state.permissions.clear_roles_cache(&name);
+                    }
+                    (StatusCode::OK, Json(serde_json::json!({ "data": doc })))
+                }
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": format!("{}", e) })),
+                ),
+            }
+        }
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("{}", e) })),
         ),
     }
 }
@@ -320,10 +518,15 @@ async fn delete_doc_inner(
                 .await
             {
                 Ok(true) => match pool.delete_doc(doctype, name).await {
-                    Ok(_) => (
-                        StatusCode::OK,
-                        Json(serde_json::json!({ "message": "deleted" })),
-                    ),
+                    Ok(_) => {
+                        if doctype == "User" {
+                            state.permissions.clear_roles_cache(name);
+                        }
+                        (
+                            StatusCode::OK,
+                            Json(serde_json::json!({ "message": "deleted" })),
+                        )
+                    }
                     Err(e) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({ "error": format!("{}", e) })),
@@ -1093,6 +1296,7 @@ pub async fn reportview_get(
             filters,
             fields,
             None,
+            None,
             Some(limit_start + page_length),
         )
         .await
@@ -1159,7 +1363,7 @@ pub async fn reportview_get_count(
         })
     });
 
-    match pool.get_list(&doctype, filters, None, None, None).await {
+    match pool.get_list(&doctype, filters, None, None, None, None).await {
         Ok(docs) => (StatusCode::OK, Json(json!({ "message": docs.len() }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,

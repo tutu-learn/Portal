@@ -387,9 +387,16 @@ xss_safe_methods = []
 
 def whitelist(allow_guest=False, xss_safe=False, methods=None):
     def innerfn(fn):
+        fn.whitelisted = True
+        fn.allow_guest = bool(allow_guest)
+        fn.xss_safe = bool(xss_safe)
+        # Keep list-based bookkeeping for compatibility with code that may
+        # still import these module-level lists.
         whitelisted.append(fn)
         if allow_guest:
             guest_methods.append(fn)
+        if xss_safe:
+            xss_safe_methods.append(fn)
         return fn
 
     if callable(allow_guest):

@@ -67,6 +67,56 @@ impl DatabasePool {
             .collect())
     }
 
+    /// Return the set of valid column identifiers for a DocType data table.
+    ///
+    /// Includes the standard Frappe columns plus every `fieldname` defined in
+    /// the `docfield` metadata table for this DocType. This is used by HTTP
+    /// handlers to sanitise `fields` and `order_by` query parameters before
+    /// they reach SQL.
+    pub async fn get_doctype_columns(
+        &self,
+        doctype: &str,
+    ) -> Result<std::collections::HashSet<String>> {
+        let mut cols = std::collections::HashSet::from([
+            "name".into(),
+            "creation".into(),
+            "modified".into(),
+            "modified_by".into(),
+            "owner".into(),
+            "docstatus".into(),
+            "idx".into(),
+            "parent".into(),
+            "parentfield".into(),
+            "parenttype".into(),
+        ]);
+
+        let meta_table = self.table_name("DocField");
+        let sql = format!(
+            r#"SELECT fieldname FROM "{}" WHERE parent = {} AND fieldname IS NOT NULL AND fieldname != ''"#,
+            meta_table,
+            self.placeholder(1)
+        );
+        match self.query_raw(&sql, vec![Value::String(doctype.into())]).await {
+            Ok(rows) => {
+                for mut row in rows {
+                    if let Some(name) = row
+                        .remove("fieldname")
+                        .and_then(|v| v.as_str().map(String::from))
+                    {
+                        cols.insert(name);
+                    }
+                }
+            }
+            Err(e) => {
+                // If DocField metadata isn't available yet, fall back to the
+                // standard columns rather than failing the request.
+                warn!(doctype = %doctype, error = %e, "failed to load docfield metadata");
+            }
+        }
+
+        Ok(cols)
+    }
+
     /// Persist child-table rows for `doc`. Only fields present in `doc.fields`
     /// are processed, matching real Frappe's update_children behaviour.
     async fn save_child_tables(&self, doc: &Document) -> Result<()> {
@@ -286,21 +336,26 @@ impl DatabasePool {
         doctype: &str,
         filters: Option<HashMap<String, FilterCondition>>,
         fields: Option<Vec<String>>,
-        order_by: Option<&str>,
+        order_by: Option<(String, bool)>,
+        permission_conditions: Option<Vec<String>>,
         limit: Option<usize>,
     ) -> Result<Vec<Document>> {
         let table = self.table_name(doctype);
         let cols = match fields {
-            Some(f) if !f.is_empty() => f.join(", "),
+            Some(f) if !f.is_empty() => f
+                .iter()
+                .map(|c| format!("\"{}\"", c.replace('"', "")))
+                .collect::<Vec<_>>()
+                .join(", "),
             _ => "*".to_string(),
         };
 
         let mut sql = format!("SELECT {} FROM \"{}\"", cols, table);
         let mut params: Vec<Value> = Vec::new();
+        let mut all_conditions: Vec<String> = Vec::new();
 
         if let Some(filts) = filters {
             if !filts.is_empty() {
-                let mut conditions = Vec::new();
                 for (k, cond) in filts {
                     let dialect = self.dialect();
                     let base = params.len();
@@ -314,15 +369,26 @@ impl DatabasePool {
                         offset += 1;
                         ph
                     });
-                    conditions.push(frag);
+                    all_conditions.push(frag);
                     params.extend(vals);
                 }
-                sql.push_str(&format!(" WHERE {}", conditions.join(" AND ")));
             }
         }
 
-        if let Some(ob) = order_by {
-            sql.push_str(&format!(" ORDER BY {}", ob));
+        if let Some(conds) = permission_conditions {
+            if !conds.is_empty() {
+                all_conditions.extend(conds);
+            }
+        }
+
+        if !all_conditions.is_empty() {
+            sql.push_str(&format!(" WHERE {}", all_conditions.join(" AND ")));
+        }
+
+        if let Some((field, desc)) = order_by {
+            let dir = if desc { "DESC" } else { "ASC" };
+            let safe_field = field.replace('"', "");
+            sql.push_str(&format!(" ORDER BY \"{}\" {}", safe_field, dir));
         }
 
         if let Some(lim) = limit {

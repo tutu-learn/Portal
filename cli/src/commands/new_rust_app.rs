@@ -3,6 +3,12 @@ use std::io::Write;
 use std::path::Path;
 use tracing::info;
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct AppsConfig {
+    #[serde(default)]
+    apps: Vec<String>,
+}
+
 const CARGO_TOML_TEMPLATE: &str = r#"[package]
 name = "{name}"
 version = "0.1.0"
@@ -137,7 +143,7 @@ pub async fn run(name: &str) -> error::Result<()> {
     )?;
 
     add_to_workspace(name)?;
-    add_to_registry(name, &pascal_name)?;
+    add_to_apps_json(name)?;
 
     info!("created rust app '{}' at {}", name, app_dir);
     println!(
@@ -171,17 +177,21 @@ fn add_to_workspace(name: &str) -> error::Result<()> {
     Ok(())
 }
 
-fn add_to_registry(name: &str, pascal_name: &str) -> error::Result<()> {
-    let path = "crates/runtime/src/registered_apps.rs";
-    let contents = fs::read_to_string(path)?;
-    let app_line = format!("        Box::new({name}::{pascal_name}App),");
+fn add_to_apps_json(name: &str) -> error::Result<()> {
+    let path = "rust_apps/apps.json";
+    let mut config: AppsConfig = if Path::new(path).exists() {
+        let contents = fs::read_to_string(path)?;
+        serde_json::from_str(&contents).unwrap_or_else(|_| AppsConfig { apps: vec![] })
+    } else {
+        AppsConfig { apps: vec![] }
+    };
 
-    if contents.contains(&app_line) {
-        return Ok(());
+    if !config.apps.contains(&name.to_string()) {
+        config.apps.push(name.to_string());
     }
 
-    let new_contents = contents.replacen("    vec![\n", &format!("    vec![\n{app_line}\n"), 1);
-    fs::write(path, new_contents)?;
+    let contents = serde_json::to_string_pretty(&config)?;
+    fs::write(path, contents)?;
     Ok(())
 }
 

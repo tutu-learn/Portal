@@ -801,8 +801,24 @@ async fn build_boot_info(
         }
     }
 
+    // Use the real permission engine for the user's role list. The fallback
+    // used to hardcode ["Administrator"], which hid permlevel-1 fields on the
+    // User form (Roles / Modules) because the client never matched the
+    // "System Manager" permission rules.
     let roles: Value = if is_guest {
         json!([])
+    } else if let Some(ref pool) = pool {
+        match state.permissions.get_roles(pool, user_name).await {
+            Ok(roles) => json!(roles),
+            Err(e) => {
+                tracing::warn!(
+                    "failed to load roles for bootinfo user {}: {}, falling back",
+                    user_name,
+                    e
+                );
+                json!(["Administrator"])
+            }
+        }
     } else {
         json!(["Administrator"])
     };

@@ -98,10 +98,15 @@ pub fn get_list(
         _ => None,
     };
 
+    let order_by: Option<(String, bool)> = match order_by.as_deref() {
+        Some(raw) => parse_order_by(raw).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?,
+        None => None,
+    };
+
     let docs = rt()
         .block_on(async {
             pool()
-                .get_list(&doctype, filters, fields, order_by.as_deref(), limit)
+                .get_list(&doctype, filters, fields, order_by, None, limit)
                 .await
         })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
@@ -155,6 +160,7 @@ pub fn get_value(
                     &doctype,
                     Some(filters_map),
                     Some(vec![fieldname.clone()]),
+                    None,
                     None,
                     Some(1),
                 )
@@ -343,6 +349,30 @@ pub fn db_rollback(_py: Python<'_>) -> PyResult<()> {
     rt().block_on(async { pool().rollback().await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
     Ok(())
+}
+
+fn parse_order_by(raw: &str) -> Result<Option<(String, bool)>, String> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let mut parts = raw.split_whitespace();
+    let field = parts
+        .next()
+        .ok_or_else(|| "order_by is empty".to_string())?
+        .to_string();
+    let mut desc = false;
+    if let Some(dir) = parts.next() {
+        match dir.to_ascii_uppercase().as_str() {
+            "ASC" => desc = false,
+            "DESC" => desc = true,
+            _ => return Err(format!("invalid order_by direction: {}", dir)),
+        }
+    }
+    if parts.next().is_some() {
+        return Err("order_by must be '<field> [ASC|DESC]'".to_string());
+    }
+    Ok(Some((field, desc)))
 }
 
 fn table_name(doctype: &str) -> String {

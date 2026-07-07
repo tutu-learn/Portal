@@ -246,6 +246,38 @@ impl Migrator {
                 ALTER TABLE __kiff_docperm ADD COLUMN "amend" INTEGER NOT NULL DEFAULT 0;
                 "#,
             ),
+            (
+                "005_fieldperm_table",
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_fieldperm (
+                    name TEXT PRIMARY KEY,
+                    parent TEXT NOT NULL,
+                    fieldname TEXT NOT NULL,
+                    permlevel INTEGER NOT NULL DEFAULT 0,
+                    role TEXT NOT NULL,
+                    "read" INTEGER NOT NULL DEFAULT 0,
+                    "write" INTEGER NOT NULL DEFAULT 0,
+                    creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_fieldperm_parent_field ON __kiff_fieldperm(parent, fieldname);
+                CREATE INDEX IF NOT EXISTS idx_fieldperm_role ON __kiff_fieldperm(role);
+                "#,
+            ),
+            (
+                "006_sod_table",
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_sod (
+                    name TEXT PRIMARY KEY,
+                    doctype TEXT NOT NULL,
+                    role_a TEXT NOT NULL,
+                    role_b TEXT NOT NULL,
+                    creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_sod_doctype ON __kiff_sod(doctype);
+                "#,
+            ),
         ];
 
         for (name, sql) in migrations {

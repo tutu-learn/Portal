@@ -8,6 +8,12 @@ use dashmap::DashMap;
 use error::Result;
 use orm::DatabasePool;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+/// Default TTL for the per-user roles cache. Role changes made outside the
+/// native Rust handlers (e.g. through Python controllers) may not invalidate
+/// the cache explicitly, so this bounds the stale window.
+const ROLES_CACHE_TTL: Duration = Duration::from_secs(60);
 
 /// Map a permission type to the boolean flag on a DocPerm row.
 ///
@@ -38,7 +44,7 @@ fn ptype_allowed(perm: &DocPerm, ptype: &str) -> bool {
 
 #[derive(Debug, Clone)]
 pub struct PermissionEngine {
-    roles_cache: Arc<DashMap<String, Vec<String>>>,
+    roles_cache: Arc<DashMap<String, (Vec<String>, Instant)>>,
     perm_cache: Arc<DashMap<String, Vec<DocPerm>>>,
 }
 
@@ -113,7 +119,9 @@ impl PermissionEngine {
 
     pub async fn get_roles(&self, pool: &DatabasePool, user: &str) -> Result<Vec<String>> {
         if let Some(entry) = self.roles_cache.get(user) {
-            return Ok(entry.clone());
+            if entry.1.elapsed() < ROLES_CACHE_TTL {
+                return Ok(entry.0.clone());
+            }
         }
 
         let mut roles = if user == "Guest" {
@@ -200,8 +208,19 @@ impl PermissionEngine {
 
         roles.sort_unstable();
         roles.dedup();
-        self.roles_cache.insert(user.into(), roles.clone());
+        self.roles_cache
+            .insert(user.into(), (roles.clone(), Instant::now()));
         Ok(roles)
+    }
+
+    /// Invalidate the cached role list for a specific user.
+    pub fn clear_roles_cache(&self, user: &str) {
+        self.roles_cache.remove(user);
+    }
+
+    /// Invalidate the cached role list for every user.
+    pub fn clear_roles_cache_all(&self) {
+        self.roles_cache.clear();
     }
 
     pub async fn get_permission_query_conditions(
@@ -245,28 +264,6 @@ impl PermissionEngine {
         } else {
             Ok(Some(format!("({})", conditions.join(" OR "))))
         }
-    }
-
-    pub async fn check_field_permission(
-        &self,
-        _pool: &DatabasePool,
-        user: &str,
-        doctype: &str,
-        field: &str,
-        ptype: &str,
-    ) -> Result<bool> {
-        if user == "Administrator" {
-            return Ok(true);
-        }
-        // TODO: read field-level permissions from __kiff_fieldperm table
-        tracing::debug!(
-            "field permission: {} {}.{} {} — allowed",
-            user,
-            doctype,
-            field,
-            ptype
-        );
-        Ok(true)
     }
 
     pub async fn get_docperms(&self, pool: &DatabasePool, doctype: &str) -> Result<Vec<DocPerm>> {
@@ -376,33 +373,6 @@ impl PermissionEngine {
 }
 
 impl Default for PermissionEngine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SodEngine;
-
-impl SodEngine {
-    pub fn new() -> Self {
-        Self
-    }
-
-    pub async fn check_sod(
-        &self,
-        _pool: &DatabasePool,
-        user: &str,
-        doctype: &str,
-        action: &str,
-    ) -> Result<bool> {
-        // TODO: enforce separation of duties rules from __kiff_sod table
-        tracing::debug!("SOD check: {} {} {} — allowed", user, doctype, action);
-        Ok(true)
-    }
-}
-
-impl Default for SodEngine {
     fn default() -> Self {
         Self::new()
     }

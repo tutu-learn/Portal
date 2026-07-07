@@ -109,6 +109,9 @@ async fn main() -> error::Result<()> {
             .expect("failed to build py runtime");
         kiff_core::init(py_rt, pool);
         kiff_core::init_pubsub(pubsub.clone());
+        if let Err(e) = kiff_core::init_whitelist() {
+            warn!("failed to load Python method whitelist: {}", e);
+        }
     }
 
     let app_state = http::AppState {

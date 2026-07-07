@@ -40,7 +40,7 @@ async fn test_create_journal_entry() -> Result<()> {
     );
 
     let list = pool
-        .get_list("Journal Entry", None, None, None, None)
+        .get_list("Journal Entry", None, None, None, None, None)
         .await?;
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].name, "JE-2024-001");

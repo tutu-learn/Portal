@@ -135,6 +135,9 @@ async fn test_api_get_list_empty() {
     crate::common::create_doctype_table(&pool, "EmptyDoc")
         .await
         .unwrap();
+    crate::common::grant_permission(&pool, "EmptyDoc", "Guest", true, false, false, false)
+        .await
+        .unwrap();
 
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -161,6 +164,9 @@ async fn test_api_get_list_empty() {
 async fn test_api_insert_and_get_doc() {
     let pool = crate::common::setup_test_db().await.unwrap();
     crate::common::create_doctype_table(&pool, "ApiDoc")
+        .await
+        .unwrap();
+    crate::common::grant_permission(&pool, "ApiDoc", "Guest", true, false, true, false)
         .await
         .unwrap();
 
@@ -367,4 +373,107 @@ async fn test_login_endpoint() {
         }
     }
     assert!(has_sid, "Response should set sid cookie");
+}
+
+#[tokio::test]
+async fn test_get_list_rejects_sql_injection_in_order_by() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    crate::common::create_doctype_table(&pool, "SqlDoc")
+        .await
+        .unwrap();
+    crate::common::grant_permission(&pool, "SqlDoc", "Guest", true, false, false, false)
+        .await
+        .unwrap();
+
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/resource/SqlDoc?order_by=name%3B%20DROP%20TABLE%20user")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_get_list_rejects_unknown_fields() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    crate::common::create_doctype_table(&pool, "FieldDoc")
+        .await
+        .unwrap();
+    crate::common::grant_permission(&pool, "FieldDoc", "Guest", true, false, false, false)
+        .await
+        .unwrap();
+
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/resource/FieldDoc?fields=name,harmful_column")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_get_doc_requires_read_permission() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    crate::common::create_doctype_table(&pool, "SecretDoc")
+        .await
+        .unwrap();
+
+    // Insert a document as Administrator so it exists.
+    let mut doc = orm::Document::new("SecretDoc", "SEC-001".to_string());
+    doc.set_field("title", "Secret");
+    pool.insert_doc(&doc).await.unwrap();
+
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/resource/SecretDoc/SEC-001")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_get_list_requires_read_permission() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    crate::common::create_doctype_table(&pool, "SecretListDoc")
+        .await
+        .unwrap();
+
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/resource/SecretListDoc")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }

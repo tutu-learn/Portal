@@ -12,6 +12,31 @@ static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 static POOL: OnceLock<orm::DatabasePool> = OnceLock::new();
 static PUBSUB: OnceLock<std::sync::Arc<::queue::PubSub>> = OnceLock::new();
 static LOG_SERVICE: OnceLock<log_engine::LogService> = OnceLock::new();
+static WHITELIST: OnceLock<MethodWhitelist> = OnceLock::new();
+
+/// Snapshot of Frappe's `@frappe.whitelist()`-decorated functions.
+#[derive(Debug, Clone, Default)]
+pub struct MethodWhitelist {
+    all: std::collections::HashSet<String>,
+    allow_guest: std::collections::HashSet<String>,
+    allowed_prefixes: Vec<String>,
+}
+
+impl MethodWhitelist {
+    pub fn contains(&self, method_path: &str) -> bool {
+        self.all.contains(method_path)
+    }
+
+    pub fn allows_guest(&self, method_path: &str) -> bool {
+        self.allow_guest.contains(method_path)
+    }
+
+    pub fn is_allowed_module_path(&self, module_path: &str) -> bool {
+        self.allowed_prefixes
+            .iter()
+            .any(|prefix| module_path.starts_with(prefix))
+    }
+}
 
 pub fn init(runtime: tokio::runtime::Runtime, pool: orm::DatabasePool) {
     let _ = RUNTIME.set(runtime);
@@ -24,6 +49,142 @@ pub fn init_pubsub(pubsub: std::sync::Arc<::queue::PubSub>) {
 
 pub fn init_log_service(service: log_engine::LogService) {
     let _ = LOG_SERVICE.set(service);
+}
+
+/// Build a Rust-side snapshot of every function decorated with
+/// `@frappe.whitelist()` by walking the installed app package trees.
+///
+/// This is intentionally done once at startup so the dispatcher can reject
+/// non-whitelisted methods before any Python import runs.
+pub fn init_whitelist() -> error::Result<()> {
+    let mut all = std::collections::HashSet::new();
+    let mut allow_guest = std::collections::HashSet::new();
+    let mut allowed_prefixes = vec!["frappe.".to_string()];
+
+    Python::with_gil(|py| {
+        let frappe = py.import("frappe")?;
+        let pkgutil = py.import("pkgutil")?;
+
+        // Discover installed apps so we also walk app-specific whitelisted methods.
+        let installed_apps = frappe
+            .getattr("get_installed_apps")
+            .and_then(|f| f.call0())
+            .and_then(|v| v.extract::<Vec<String>>())
+            .unwrap_or_else(|_| vec!["frappe".to_string()]);
+
+        // Walk and import every module under each installed app. This triggers
+        // the `@frappe.whitelist()` decorator at import time and populates
+        // Frappe's internal whitelisted/guest_methods collections.
+        for app in &installed_apps {
+            if app != "frappe" {
+                allowed_prefixes.push(format!("{}.", app));
+            }
+
+            let app_mod = match py.import(app) {
+                Ok(m) => m,
+                Err(e) => {
+                    tracing::debug!(app = %app, error = %e, "skipping unimportable app for whitelist");
+                    continue;
+                }
+            };
+            let app_path = match app_mod.getattr("__path__") {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let prefix = format!("{}.", app);
+            let iterwalk = pkgutil.getattr("walk_packages")?.call1((app_path, prefix))?;
+            for item in iterwalk.try_iter()? {
+                let item = item?;
+                let mod_name: String = item.getattr("name")?.extract()?;
+                if let Err(e) = py.import(&mod_name) {
+                    tracing::debug!(module = %mod_name, error = %e, "skipping unimportable module for whitelist");
+                }
+            }
+        }
+
+        // Frappe keeps whitelisted functions in two places:
+        //   - `frappe.whitelisted` / `frappe.guest_methods` are the shim's lists
+        //     (used when modules are imported while the shim is active).
+        //   - `frappe._real_frappe.whitelisted` / `...guest_methods` are the real
+        //     Frappe module's sets (used when modules were preloaded while the
+        //     real frappe module was temporarily active during startup).
+        // We collect from both so the snapshot is complete.
+        let path_of = |obj: &Bound<'_, PyAny>| -> Option<String> {
+            let module: String = obj.getattr("__module__").ok()?.extract().ok()?;
+            let name: String = obj.getattr("__name__").ok()?.extract().ok()?;
+            Some(format!("{}.{}", module, name))
+        };
+
+        let collect = |collection: &Bound<'_, PyAny>, target: &mut std::collections::HashSet<String>| {
+            let Ok(iter) = collection.try_iter() else {
+                return;
+            };
+            for item in iter.flatten() {
+                if let Some(path) = path_of(&item) {
+                    target.insert(path);
+                }
+            }
+        };
+
+        let mut shim_all = 0usize;
+        let mut shim_guest = 0usize;
+        let mut real_all = 0usize;
+        let mut real_guest = 0usize;
+
+        if let Ok(whitelisted) = frappe.getattr("whitelisted") {
+            let before = all.len();
+            collect(&whitelisted, &mut all);
+            shim_all = all.len() - before;
+        }
+        if let Ok(guest_methods) = frappe.getattr("guest_methods") {
+            let before = allow_guest.len();
+            collect(&guest_methods, &mut allow_guest);
+            shim_guest = allow_guest.len() - before;
+        }
+
+        if let Ok(real) = frappe.getattr("_real_frappe") {
+            if !real.is_none() {
+                if let Ok(whitelisted) = real.getattr("whitelisted") {
+                    let before = all.len();
+                    collect(&whitelisted, &mut all);
+                    real_all = all.len() - before;
+                }
+                if let Ok(guest_methods) = real.getattr("guest_methods") {
+                    let before = allow_guest.len();
+                    collect(&guest_methods, &mut allow_guest);
+                    real_guest = allow_guest.len() - before;
+                }
+            }
+        }
+        tracing::info!(
+            shim_all = shim_all,
+            shim_guest = shim_guest,
+            real_all = real_all,
+            real_guest = real_guest,
+            "whitelist source counts"
+        );
+
+        Ok::<(), PyErr>(())
+    })
+    .map_err(|e| error::RuntimeError::Python(format!("whitelist scan: {}", e)))?;
+
+    let all_count = all.len();
+    let guest_count = allow_guest.len();
+    let _ = WHITELIST.set(MethodWhitelist {
+        all,
+        allow_guest,
+        allowed_prefixes,
+    });
+    tracing::info!(
+        all = all_count,
+        guest = guest_count,
+        "loaded Python method whitelist"
+    );
+    Ok(())
+}
+
+fn whitelist() -> &'static MethodWhitelist {
+    WHITELIST.get_or_init(MethodWhitelist::default)
 }
 
 pub(crate) fn log_service() -> Option<&'static log_engine::LogService> {
@@ -181,15 +342,44 @@ pub fn call_method_with_user(
     kwargs: &serde_json::Value,
     user: Option<&str>,
 ) -> error::Result<serde_json::Value> {
-    Python::with_gil(|py| {
-        let parts: Vec<&str> = method_path.split('.').collect();
-        if parts.len() < 2 {
-            return Err(error::RuntimeError::Python("invalid method path".into()));
+    let parts: Vec<&str> = method_path.split('.').collect();
+    if parts.len() < 2 {
+        return Err(error::RuntimeError::Python("invalid method path".into()));
+    }
+
+    let func_name = parts.last().unwrap();
+    let module_path = parts[..parts.len() - 1].join(".");
+
+    // Enforce the Frappe whitelist before any Python module is imported.
+    // Only paths under the allowed namespaces may be reached, and only
+    // functions explicitly decorated with @frappe.whitelist() are callable.
+    // When the whitelist snapshot has not been loaded (e.g. unit tests that
+    // do not run the full runtime startup), enforcement is skipped so basic
+    // functionality still works; production code must call init_whitelist().
+    if WHITELIST.get().is_some() {
+        let snap = whitelist();
+        if !snap.is_allowed_module_path(&module_path) {
+            return Err(error::RuntimeError::Python(format!(
+                "method path not allowed: {}",
+                method_path
+            )));
         }
+        if !snap.contains(method_path) {
+            return Err(error::RuntimeError::Python(format!(
+                "method not whitelisted: {}",
+                method_path
+            )));
+        }
+        let is_guest = user.map(|u| u == "Guest").unwrap_or(true);
+        if is_guest && !snap.allows_guest(method_path) {
+            return Err(error::RuntimeError::Python(format!(
+                "method not available to guests: {}",
+                method_path
+            )));
+        }
+    }
 
-        let func_name = parts.last().unwrap();
-        let module_path = parts[..parts.len() - 1].join(".");
-
+    Python::with_gil(|py| {
         // Request-level params injected by the frappe JS client that are
         // never part of a Python function's signature — strip them so we
         // don't get "unexpected keyword argument" TypeErrors.

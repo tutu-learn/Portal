@@ -52,14 +52,14 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
     // cross-app aggregation.
     pool.execute_sql(
         r#"INSERT OR REPLACE INTO "module_def" (name, module_name, app_name)
-           VALUES ('Audit Ready', 'Audit Ready', 'audit_ready')"#,
+           VALUES ('Sebrus Logger Extra', 'Sebrus Logger Extra', 'sebrus_logger')"#,
         vec![],
     )
     .await
     .unwrap();
     pool.execute_sql(
         r#"INSERT OR REPLACE INTO "workspace" (name, label, module, public)
-           VALUES ('audit-ready-dashboard', 'Audit Ready Dashboard', 'Audit Ready', 1)"#,
+           VALUES ('sebrus-logger-extra', 'Sebrus Logger Extra', 'Sebrus Logger Extra', 1)"#,
         vec![],
     )
     .await
@@ -138,8 +138,8 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         .expect("module_app should be an object");
     assert_eq!(module_app.get("core"), Some(&serde_json::json!("frappe")));
     assert_eq!(
-        module_app.get("audit_ready"),
-        Some(&serde_json::json!("audit_ready"))
+        module_app.get("sebrus_logger_extra"),
+        Some(&serde_json::json!("sebrus_logger"))
     );
 
     // app_data contains frappe and any Rust apps.
@@ -173,27 +173,27 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         "Core module should belong to frappe"
     );
 
-    let audit_app = app_data
+    let sebrus_app = app_data
         .iter()
-        .find(|a| a.get("app_name") == Some(&serde_json::json!("audit_ready")))
-        .expect("audit_ready app_data entry");
-    let audit_modules = audit_app
+        .find(|a| a.get("app_name") == Some(&serde_json::json!("sebrus_logger")))
+        .expect("sebrus_logger app_data entry");
+    let sebrus_modules = sebrus_app
         .get("modules")
         .and_then(|v| v.as_array())
-        .expect("audit_ready modules should be an array");
+        .expect("sebrus_logger modules should be an array");
     assert!(
-        audit_modules.iter().any(|m| m == "Audit Ready"),
-        "Audit Ready module should belong to audit_ready"
+        sebrus_modules.iter().any(|m| m == "Sebrus Logger Extra"),
+        "Sebrus Logger Extra module should belong to sebrus_logger"
     );
-    let audit_workspaces = audit_app
+    let sebrus_workspaces = sebrus_app
         .get("workspaces")
         .and_then(|v| v.as_array())
-        .expect("audit_ready workspaces should be an array");
+        .expect("sebrus_logger workspaces should be an array");
     assert!(
-        audit_workspaces
+        sebrus_workspaces
             .iter()
-            .any(|w| w == "audit-ready-dashboard"),
-        "audit-ready-dashboard should belong to audit_ready"
+            .any(|w| w == "sebrus-logger-extra"),
+        "sebrus-logger-extra should belong to sebrus_logger"
     );
 
     // allowed_modules is populated for the desktop.
@@ -217,5 +217,17 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
     assert!(
         allow_modules.iter().any(|m| m == "Core"),
         "Core should be in user.allow_modules"
+    );
+
+    // Administrator must see System Manager in boot.user.roles so that
+    // permlevel-1 fields (User roles/modules) are visible in the desk.
+    let user_roles = boot
+        .get("user")
+        .and_then(|v| v.get("roles"))
+        .and_then(|v| v.as_array())
+        .expect("user.roles should be an array");
+    assert!(
+        user_roles.iter().any(|r| r == "System Manager"),
+        "Administrator boot user.roles should include System Manager"
     );
 }

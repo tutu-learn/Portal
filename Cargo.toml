@@ -14,10 +14,9 @@ members = [
     "crates/runtime",
     "crates/log_engine",
     "cli",
-    "rust_apps/core",
-    "rust_apps/audit_ready",
-    "rust_apps/sebrus_logger",
     "crates/kiff_logger",
+    "rust_apps/core",
+    "rust_apps/sebrus_logger",
 ]
 
 [workspace.dependencies]
@@ -94,7 +93,7 @@ queue          = { path = "crates/queue" }
 metadata       = { path = "crates/metadata" }
 http           = { path = "crates/http" }
 sql-translator = { path = "crates/sql-translator" }
-rust_apps_core = { path = "rust_apps/core" }
+
 tokio          = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
@@ -105,6 +104,6 @@ tower          = { workspace = true }
 dashmap        = { workspace = true }
 
 [dev-dependencies]
+sebrus_logger = { path = "rust_apps/sebrus_logger" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
-audit_ready = { path = "rust_apps/audit_ready" }

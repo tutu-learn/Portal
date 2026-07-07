@@ -270,14 +270,29 @@ class _Database:
         try:
             rows = _rust.db_sql(translated, values or [])
         except Exception as e:
+            err = str(e).lower()
+            is_missing_table = "no such table" in err
             if stripped.startswith("SELECT") or stripped.startswith("SHOW"):
+                # For SELECT/SHOW, try the translated query via raw sqlite3 first.
                 try:
                     rows = _sqlite_query(translated, values or [])
                 except Exception:
                     pass
                 else:
                     return self._wrap_rows(rows, as_dict, as_list)
-                print(f"[DB WARNING] SELECT failed, returning []: {e}\n  Query: {translated[:200]}")
+
+                # If the failure looks like a missing table and the original query
+                # referenced a real Frappe "tabXxx" table, try the original query
+                # verbatim. _translate_query strips the "tab" prefix for kiff's
+                # DocType tables, but tables like "tabSessions" actually exist with
+                # the prefix and SQLite accepts the backtick-quoted original.
+                if is_missing_table and "tab" in query.lower():
+                    try:
+                        rows = _sqlite_query(query, values or [])
+                    except Exception:
+                        pass
+                    else:
+                        return self._wrap_rows(rows, as_dict, as_list)
                 return []
             raise
 

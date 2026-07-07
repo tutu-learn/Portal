@@ -6,7 +6,7 @@ async fn test_get_list_empty() -> Result<()> {
     crate::common::create_doctype_table(&pool, "EmptyDocType").await?;
 
     let docs = pool
-        .get_list("EmptyDocType", None, None, None, None)
+        .get_list("EmptyDocType", None, None, None, None, None)
         .await?;
     assert!(docs.is_empty());
 
@@ -25,7 +25,7 @@ async fn test_get_list_with_results() -> Result<()> {
         pool.insert_doc(&doc).await?;
     }
 
-    let docs = pool.get_list("TestDocType", None, None, None, None).await?;
+    let docs = pool.get_list("TestDocType", None, None, None, None, None).await?;
     assert_eq!(docs.len(), 3);
 
     let filtered = pool
@@ -35,13 +35,14 @@ async fn test_get_list_with_results() -> Result<()> {
             None,
             None,
             None,
+            None,
         )
         .await?;
     assert_eq!(filtered.len(), 1);
     assert_eq!(filtered[0].name, "DOC-LIST-2");
 
     let limited = pool
-        .get_list("TestDocType", None, None, None, Some(2))
+        .get_list("TestDocType", None, None, None, None, Some(2))
         .await?;
     assert_eq!(limited.len(), 2);
 
