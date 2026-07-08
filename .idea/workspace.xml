@@ -56,21 +56,20 @@
       <package file="$PROJECT_DIR$/crates/sql-translator">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/Strongroom">
+        <feature name="default" enabled="true" />
+      </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/db-forest-config.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/open_frappe .iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Run_Tests.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Start_Server.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/assets/desk-template.html" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/desk-template.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/build.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,24 +77,26 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19446" />
+    <option name="cachedIndexableFilesCount" value="19620" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "nefdtie101"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;nefdtie101&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/tutu-learn/Portal",
-    "accountId": "08aba313-b204-4eb6-ae2d-b8068f0822df"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal&quot;,
+    &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
   }
-}]]></component>
+}</component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="IP9ele17" />
   </component>
@@ -105,67 +106,67 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3862842487000773" />
-      <entry key="MS500" value="2.84687228458929" />
-      <entry key="S2" value="4.815769128148878" />
-      <entry key="S5" value="7.042585540256266" />
-      <entry key="S10" value="10.756951663352842" />
-      <entry key="S30" value="19.34812172762459" />
-      <entry key="S60" value="23.773795243529015" />
-      <entry key="M2" value="26.653783495332714" />
-      <entry key="M5" value="29.192179756835966" />
-      <entry key="M10" value="30.8463285185925" />
-      <entry key="M15" value="31.659389433168073" />
-      <entry key="M30" value="32.685054876246596" />
-      <entry key="H1" value="33.30058593825733" />
-      <entry key="H2" value="33.63898270298082" />
-      <entry key="H4" value="33.81655351624255" />
-      <entry key="D1" value="33.96900784080786" />
-      <entry key="W1" value="33.9955621890899" />
+      <entry key="MS100" value="1.0063972293418282" />
+      <entry key="MS500" value="1.4580753089629632" />
+      <entry key="S2" value="2.330562225070768" />
+      <entry key="S5" value="2.6933719088671504" />
+      <entry key="S10" value="2.8392596833232666" />
+      <entry key="S30" value="2.9446695658020747" />
+      <entry key="S60" value="2.9721094173120046" />
+      <entry key="M2" value="2.986477125336503" />
+      <entry key="M5" value="3.4705231726861965" />
+      <entry key="M10" value="8.001303851274958" />
+      <entry key="M15" value="14.05498426011541" />
+      <entry key="M30" value="27.57178102649302" />
+      <entry key="H1" value="39.726076983635544" />
+      <entry key="H2" value="47.93206078051459" />
+      <entry key="H4" value="52.70850035987867" />
+      <entry key="D1" value="57.07999084626792" />
+      <entry key="W1" value="57.867605315511085" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.5976094280141756E-29" />
-      <entry key="MS500" value="1.7406835118892219E-6" />
-      <entry key="S2" value="0.04019221428809179" />
-      <entry key="S5" value="0.4275933695841073" />
-      <entry key="S10" value="1.1523694325739708" />
-      <entry key="S30" value="2.5428243792891396" />
-      <entry key="S60" value="3.1719148050121753" />
-      <entry key="M2" value="3.556959735010519" />
-      <entry key="M5" value="3.815208920548065" />
-      <entry key="M10" value="3.9062864732976617" />
-      <entry key="M15" value="3.9372271586830054" />
-      <entry key="M30" value="3.968463917235681" />
-      <entry key="H1" value="3.9841943383833502" />
-      <entry key="H2" value="3.992087738410821" />
-      <entry key="H4" value="3.99604150828652" />
-      <entry key="D1" value="3.999339923201681" />
-      <entry key="W1" value="3.9999056952739034" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="5.442065002559143E-276" />
+      <entry key="S5" value="7.839809140668704E-111" />
+      <entry key="S10" value="8.85429458438309E-56" />
+      <entry key="S30" value="4.547952434177431E-19" />
+      <entry key="S60" value="8.522515585328834E-10" />
+      <entry key="M2" value="5.524359998281029E-5" />
+      <entry key="M5" value="0.0547707588049493" />
+      <entry key="M10" value="0.5684836002637269" />
+      <entry key="M15" value="1.2448176584790283" />
+      <entry key="M30" value="2.730631000034559" />
+      <entry key="H1" value="4.046859941838603" />
+      <entry key="H2" value="4.927342751556086" />
+      <entry key="H4" value="5.437215730548659" />
+      <entry key="D1" value="5.902301397741139" />
+      <entry key="W1" value="5.985944411626058" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2995822273046167" />
-      <entry key="MS500" value="2.7913589701313235" />
-      <entry key="S2" value="4.823454761970695" />
-      <entry key="S5" value="7.396988789206129" />
-      <entry key="S10" value="11.796400397872173" />
-      <entry key="S30" value="21.794834646541485" />
-      <entry key="S60" value="26.883533294191032" />
-      <entry key="M2" value="30.175256087105065" />
-      <entry key="M5" value="32.991988524635815" />
-      <entry key="M10" value="34.7446911692308" />
-      <entry key="M15" value="35.59128099806156" />
-      <entry key="M30" value="36.65082326080318" />
-      <entry key="H1" value="37.28342529540222" />
-      <entry key="H2" value="37.630391106164744" />
-      <entry key="H4" value="37.812254890238144" />
-      <entry key="D1" value="37.96829100965492" />
-      <entry key="W1" value="37.995459774992995" />
+      <entry key="MS100" value="0.9922012963020681" />
+      <entry key="MS500" value="1.4483592050886223" />
+      <entry key="S2" value="2.32431036675409" />
+      <entry key="S5" value="2.6902025149117645" />
+      <entry key="S10" value="2.837538951607786" />
+      <entry key="S30" value="2.944063064909527" />
+      <entry key="S60" value="2.971801872173324" />
+      <entry key="M2" value="2.9863768840812934" />
+      <entry key="M5" value="3.524983534520667" />
+      <entry key="M10" value="8.568469312935902" />
+      <entry key="M15" value="15.297902762821574" />
+      <entry key="M30" value="30.3003415542657" />
+      <entry key="H1" value="43.771405105572676" />
+      <entry key="H2" value="52.85847149779327" />
+      <entry key="H4" value="58.145201967615485" />
+      <entry key="D1" value="62.98219924292031" />
+      <entry key="W1" value="63.85353625334815" />
     </decayedShown>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 4,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3GDlWNud9lzF5IvpxhrI9tHQY1r" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -190,6 +191,7 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "yarn",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
     "vue.rearranger.settings.migration": "true"
   }
@@ -259,11 +261,25 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1783514050462</updated>
-      <workItem from="1783514051586" duration="2197000" />
+      <workItem from="1783514051586" duration="7833000" />
+      <workItem from="1783525353057" duration="6940000" />
     </task>
+    <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
+      <option name="closed" value="true" />
+      <created>1783516287347</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1783516287347</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository." />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository." />
   </component>
 </project>

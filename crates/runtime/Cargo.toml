@@ -8,7 +8,7 @@ name = "kiff-runtime"
 path = "src/main.rs"
 
 [dependencies]
-sebrus_logger = { path = "../../rust_apps/sebrus_logger" }
+strongroom     = { path = "../../rust_apps/Strongroom" }
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
@@ -37,3 +37,4 @@ tower-http     = { workspace = true }
 [build-dependencies]
 serde          = { workspace = true, features = ["derive"] }
 serde_json     = { workspace = true }
+toml_edit      = "0.22"

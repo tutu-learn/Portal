@@ -16,7 +16,7 @@ members = [
     "cli",
     "crates/kiff_logger",
     "rust_apps/core",
-    "rust_apps/sebrus_logger",
+    "rust_apps/Strongroom",
 ]
 
 [workspace.dependencies]

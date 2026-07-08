@@ -3,6 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/apps/frappe" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/rust_apps/Strongroom" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/rust_apps/sebrus_logger" vcs="Git" />
   </component>
 </project>
