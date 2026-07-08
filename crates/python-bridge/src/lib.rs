@@ -32,9 +32,11 @@ impl MethodWhitelist {
     }
 
     pub fn is_allowed_module_path(&self, module_path: &str) -> bool {
-        self.allowed_prefixes
-            .iter()
-            .any(|prefix| module_path.starts_with(prefix))
+        self.allowed_prefixes.iter().any(|prefix| {
+            // Allow exact module names (e.g. "frappe" for frappe.ping) as well
+            // as dotted prefixes (e.g. "frappe.desk" for frappe.desk.page).
+            module_path == prefix.trim_end_matches('.') || module_path.starts_with(prefix)
+        })
     }
 }
 

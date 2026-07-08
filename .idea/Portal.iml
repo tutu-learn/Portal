@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/config/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/error/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/http/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/kiff_logger/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/log_engine/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/metadata/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/orm/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/permissions/src" isTestSource="false" />
@@ -14,18 +16,11 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/runtime/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/session/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/sql-translator/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sebrus_logger/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/python" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rust_apps/core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sample/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/log_engine/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/kiff_logger/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/kiff_logger/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sebrus_logger/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
-      <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

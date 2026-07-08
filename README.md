@@ -19,16 +19,45 @@ A high-performance Rust runtime for ERPNext/Frappe apps.
 
 ## Quick Start
 
-```bash
-# Build the runtime
-cargo build --release
+Kiff needs the upstream Frappe framework source and its Python dependencies available to the embedded Python interpreter.
 
-# Create a new site
+### Prerequisites
+
+- **Rust** toolchain
+- **Python 3.14** (Frappe v16 requirement)
+- macOS: `pkg-config` and a MariaDB client library for building `mysqlclient`
+
+### Setup
+
+```bash
+# 1. Clone Frappe into the expected app path
+git clone https://github.com/frappe/frappe.git apps/frappe
+
+# 2. Create a Python virtual environment and install Frappe's dependencies
+python3.14 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip setuptools wheel
+
+# On macOS you may need Homebrew build dependencies for mysqlclient:
+# brew install pkg-config mariadb-connector-c
+export PKG_CONFIG_PATH="/opt/homebrew/opt/mariadb-connector-c/lib/pkgconfig"
+pip install -e apps/frappe
+
+# 3. Build the Kiff runtime
+cargo build -p runtime --release
+cargo build -p kiff --release
+
+# 4. Create a new site
 ./target/release/kiff new-site mysite.com
 
-# Start the runtime
+# 5. Start the runtime with the venv site-packages on PYTHONPATH
+export PYTHONPATH="$(pwd)/.venv/lib/python3.14/site-packages"
 ./target/release/kiff start
 ```
+
+The server listens on `0.0.0.0:8000`.
+
+> **Note:** `python/frappe/` is Kiff's drop-in shim. Do **not** overwrite it with upstream Frappe; clone upstream Frappe into `apps/frappe/` instead.
 
 ## Architecture
 
@@ -93,6 +122,10 @@ Enabled apps are declared in `rust_apps/apps.json`:
   ]
 }
 ```
+
+## Recent Fixes
+
+- **Top-level Frappe method whitelist** — methods such as `frappe.ping` are now correctly allowed by the request dispatcher. Previously the whitelist only matched dotted module prefixes (e.g. `frappe.desk.*`), so top-level `frappe` functions were rejected.
 
 ## License
 

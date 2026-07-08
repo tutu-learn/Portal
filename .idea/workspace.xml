@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/crates/config">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/error">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/http">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/cli">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/kiff_logger">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/log_engine">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/metadata">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/orm">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/permissions">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/python-bridge">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/queue">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/runtime">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rust_apps/core">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/session">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/sql-translator">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/db-forest-config.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/open_frappe .iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Run_Tests.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Start_Server.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/assets/desk-template.html" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/desk-template.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="19446" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "nefdtie101"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/tutu-learn/Portal",
+    "accountId": "08aba313-b204-4eb6-ae2d-b8068f0822df"
+  }
+}]]></component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="IP9ele17" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.3862842487000773" />
+      <entry key="MS500" value="2.84687228458929" />
+      <entry key="S2" value="4.815769128148878" />
+      <entry key="S5" value="7.042585540256266" />
+      <entry key="S10" value="10.756951663352842" />
+      <entry key="S30" value="19.34812172762459" />
+      <entry key="S60" value="23.773795243529015" />
+      <entry key="M2" value="26.653783495332714" />
+      <entry key="M5" value="29.192179756835966" />
+      <entry key="M10" value="30.8463285185925" />
+      <entry key="M15" value="31.659389433168073" />
+      <entry key="M30" value="32.685054876246596" />
+      <entry key="H1" value="33.30058593825733" />
+      <entry key="H2" value="33.63898270298082" />
+      <entry key="H4" value="33.81655351624255" />
+      <entry key="D1" value="33.96900784080786" />
+      <entry key="W1" value="33.9955621890899" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.5976094280141756E-29" />
+      <entry key="MS500" value="1.7406835118892219E-6" />
+      <entry key="S2" value="0.04019221428809179" />
+      <entry key="S5" value="0.4275933695841073" />
+      <entry key="S10" value="1.1523694325739708" />
+      <entry key="S30" value="2.5428243792891396" />
+      <entry key="S60" value="3.1719148050121753" />
+      <entry key="M2" value="3.556959735010519" />
+      <entry key="M5" value="3.815208920548065" />
+      <entry key="M10" value="3.9062864732976617" />
+      <entry key="M15" value="3.9372271586830054" />
+      <entry key="M30" value="3.968463917235681" />
+      <entry key="H1" value="3.9841943383833502" />
+      <entry key="H2" value="3.992087738410821" />
+      <entry key="H4" value="3.99604150828652" />
+      <entry key="D1" value="3.999339923201681" />
+      <entry key="W1" value="3.9999056952739034" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.2995822273046167" />
+      <entry key="MS500" value="2.7913589701313235" />
+      <entry key="S2" value="4.823454761970695" />
+      <entry key="S5" value="7.396988789206129" />
+      <entry key="S10" value="11.796400397872173" />
+      <entry key="S30" value="21.794834646541485" />
+      <entry key="S60" value="26.883533294191032" />
+      <entry key="M2" value="30.175256087105065" />
+      <entry key="M5" value="32.991988524635815" />
+      <entry key="M10" value="34.7446911692308" />
+      <entry key="M15" value="35.59128099806156" />
+      <entry key="M30" value="36.65082326080318" />
+      <entry key="H1" value="37.28342529540222" />
+      <entry key="H2" value="37.630391106164744" />
+      <entry key="H4" value="37.812254890238144" />
+      <entry key="D1" value="37.96829100965492" />
+      <entry key="W1" value="37.995459774992995" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 4,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3GDlWNud9lzF5IvpxhrI9tHQY1r" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run kiff-runtime.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/Portal",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "yarn",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager" selected="Cargo.Run kiff-runtime">
+    <configuration name="Run kiff-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="run --package runtime --bin kiff-runtime" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run kiff" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run --package kiff --bin kiff" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test open_frappe" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --workspace" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="" />
+      <created>1783514050462</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1783514050462</updated>
+      <workItem from="1783514051586" duration="2197000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
