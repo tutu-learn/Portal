@@ -13,6 +13,7 @@ members = [
     "crates/http",
     "crates/runtime",
     "crates/log_engine",
+    "crates/email",
     "cli",
     "crates/kiff_logger",
     "rust_apps/core",

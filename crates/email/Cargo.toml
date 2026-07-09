@@ -1,0 +1,23 @@
+[package]
+name = "email"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+error = { path = "../error" }
+config = { path = "../config" }
+orm = { path = "../orm" }
+queue = { path = "../queue" }
+
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+
+mail-parser = "0.9"
+imap = "2.4"
+lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls"] }
+native-tls = "0.2"

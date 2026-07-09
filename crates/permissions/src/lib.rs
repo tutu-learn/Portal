@@ -7,6 +7,7 @@ pub mod user_perms;
 use dashmap::DashMap;
 use error::Result;
 use orm::DatabasePool;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -272,99 +273,157 @@ impl PermissionEngine {
             return Ok(entry.clone());
         }
 
-        let sql = r#"
-            SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel",
-                   if_owner, "select", "report", "export", "import", "share", "print", "email", "mask", "amend"
-            FROM __kiff_docperm
-            WHERE parent = ? OR parent = '*'
-        "#;
-        let rows = pool
-            .execute_sql(sql, vec![serde_json::Value::String(doctype.into())])
-            .await?;
-        let perms: Vec<DocPerm> = rows
-            .into_iter()
-            .map(|mut row| DocPerm {
-                parent: row
-                    .remove("parent")
-                    .and_then(|v| v.as_str().map(String::from))
-                    .unwrap_or_default(),
-                role: row
-                    .remove("role")
-                    .and_then(|v| v.as_str().map(String::from))
-                    .unwrap_or_default(),
-                permlevel: row
-                    .remove("permlevel")
-                    .and_then(|v| v.as_i64().map(|i| i as i32))
-                    .unwrap_or(0),
-                read: row
-                    .remove("read")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                write: row
-                    .remove("write")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                create: row
-                    .remove("create")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                delete: row
-                    .remove("delete")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                submit: row
-                    .remove("submit")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                cancel: row
-                    .remove("cancel")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                if_owner: row
-                    .remove("if_owner")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                select: row
-                    .remove("select")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                report: row
-                    .remove("report")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                export: row
-                    .remove("export")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                import: row
-                    .remove("import")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                share: row
-                    .remove("share")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                print: row
-                    .remove("print")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                email: row
-                    .remove("email")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                mask: row
-                    .remove("mask")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-                amend: row
-                    .remove("amend")
-                    .and_then(|v| v.as_i64().map(|i| i != 0))
-                    .unwrap_or(false),
-            })
-            .collect();
+        // Merge permissions from three sources, lowest to highest precedence:
+        //   1. Frappe `docperm` (DocType JSON defaults)
+        //   2. `__kiff_docperm` (Kiff/Strongroom runtime defaults)
+        //   3. Frappe `custom_docperm` (user overrides via Permission Manager)
+        // This lets the generic REST layer respect changes made through Frappe's
+        // Permission Manager while still falling back to seeded defaults.
+        let mut merged: HashMap<(String, String, i32, bool), DocPerm> = HashMap::new();
 
+        let docperm_rows = pool
+            .execute_sql(
+                r#"
+                SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel",
+                       if_owner, "select", "report", "export", "import", "share", "print", "email", "mask", "amend"
+                FROM docperm
+                WHERE parenttype = 'DocType' AND parent = ?
+                "#,
+                vec![serde_json::Value::String(doctype.into())],
+            )
+            .await
+            .unwrap_or_default();
+        for row in docperm_rows {
+            let perm = Self::row_to_docperm(row);
+            merged.insert(
+                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                perm,
+            );
+        }
+
+        let kiff_rows = pool
+            .execute_sql(
+                r#"
+                SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel",
+                       if_owner, "select", "report", "export", "import", "share", "print", "email", "mask", "amend"
+                FROM __kiff_docperm
+                WHERE parent = ? OR parent = '*'
+                "#,
+                vec![serde_json::Value::String(doctype.into())],
+            )
+            .await?;
+        for row in kiff_rows {
+            let perm = Self::row_to_docperm(row);
+            merged.insert(
+                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                perm,
+            );
+        }
+
+        let custom_rows = pool
+            .execute_sql(
+                r#"
+                SELECT parent, role, permlevel, "read", "write", "create", "delete", "submit", "cancel",
+                       if_owner, "select", "report", "export", "import", "share", "print", "email", "mask", "amend"
+                FROM custom_docperm
+                WHERE parent = ?
+                "#,
+                vec![serde_json::Value::String(doctype.into())],
+            )
+            .await
+            .unwrap_or_default();
+        for row in custom_rows {
+            let perm = Self::row_to_docperm(row);
+            merged.insert(
+                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                perm,
+            );
+        }
+
+        let perms: Vec<DocPerm> = merged.into_values().collect();
         self.perm_cache.insert(cache_key, perms.clone());
         Ok(perms)
+    }
+
+    fn row_to_docperm(mut row: HashMap<String, serde_json::Value>) -> DocPerm {
+        DocPerm {
+            parent: row
+                .remove("parent")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            role: row
+                .remove("role")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            permlevel: row
+                .remove("permlevel")
+                .and_then(|v| v.as_i64().map(|i| i as i32))
+                .unwrap_or(0),
+            read: row
+                .remove("read")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            write: row
+                .remove("write")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            create: row
+                .remove("create")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            delete: row
+                .remove("delete")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            submit: row
+                .remove("submit")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            cancel: row
+                .remove("cancel")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            if_owner: row
+                .remove("if_owner")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            select: row
+                .remove("select")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            report: row
+                .remove("report")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            export: row
+                .remove("export")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            import: row
+                .remove("import")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            share: row
+                .remove("share")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            print: row
+                .remove("print")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            email: row
+                .remove("email")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            mask: row
+                .remove("mask")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+            amend: row
+                .remove("amend")
+                .and_then(|v| v.as_i64().map(|i| i != 0))
+                .unwrap_or(false),
+        }
     }
 
     pub fn clear_perm_cache(&self, doctype: &str) {
@@ -483,6 +542,138 @@ mod tests {
         assert!(
             !can_report,
             "report should not be allowed when read is false and report is unset"
+        );
+
+        Ok(())
+    }
+
+    async fn create_frappe_docperm_tables(pool: &orm::DatabasePool) -> Result<()> {
+        pool.execute_sql(
+            r#"
+            CREATE TABLE IF NOT EXISTS "docperm" (
+                name TEXT PRIMARY KEY,
+                creation TEXT,
+                modified TEXT,
+                modified_by TEXT,
+                owner TEXT,
+                docstatus INTEGER DEFAULT 0,
+                idx INTEGER DEFAULT 0,
+                _user_tags TEXT,
+                _comments TEXT,
+                _assign TEXT,
+                _liked_by TEXT,
+                _seen TEXT,
+                parent TEXT,
+                parentfield TEXT,
+                parenttype TEXT,
+                role TEXT,
+                if_owner INTEGER DEFAULT 0,
+                permlevel INTEGER DEFAULT 0,
+                "read" INTEGER DEFAULT 0,
+                "write" INTEGER DEFAULT 0,
+                "create" INTEGER DEFAULT 0,
+                "delete" INTEGER DEFAULT 0,
+                submit INTEGER DEFAULT 0,
+                cancel INTEGER DEFAULT 0,
+                amend INTEGER DEFAULT 0,
+                report INTEGER DEFAULT 0,
+                export INTEGER DEFAULT 0,
+                import INTEGER DEFAULT 0,
+                share INTEGER DEFAULT 0,
+                print INTEGER DEFAULT 0,
+                email INTEGER DEFAULT 0,
+                "select" INTEGER DEFAULT 0,
+                mask INTEGER DEFAULT 0
+            )
+            "#,
+            vec![],
+        )
+        .await?;
+        pool.execute_sql(
+            r#"
+            CREATE TABLE IF NOT EXISTS "custom_docperm" (
+                name TEXT PRIMARY KEY,
+                creation TEXT,
+                modified TEXT,
+                modified_by TEXT,
+                owner TEXT,
+                docstatus INTEGER DEFAULT 0,
+                idx INTEGER DEFAULT 0,
+                _user_tags TEXT,
+                _comments TEXT,
+                _assign TEXT,
+                _liked_by TEXT,
+                _seen TEXT,
+                role TEXT,
+                if_owner INTEGER DEFAULT 0,
+                permlevel INTEGER DEFAULT 0,
+                "read" INTEGER DEFAULT 0,
+                "write" INTEGER DEFAULT 0,
+                "create" INTEGER DEFAULT 0,
+                "delete" INTEGER DEFAULT 0,
+                submit INTEGER DEFAULT 0,
+                cancel INTEGER DEFAULT 0,
+                amend INTEGER DEFAULT 0,
+                mask INTEGER DEFAULT 0,
+                report INTEGER DEFAULT 0,
+                export INTEGER DEFAULT 0,
+                import INTEGER DEFAULT 0,
+                share INTEGER DEFAULT 0,
+                print INTEGER DEFAULT 0,
+                email INTEGER DEFAULT 0,
+                parent TEXT,
+                "select" INTEGER DEFAULT 0
+            )
+            "#,
+            vec![],
+        )
+        .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn custom_docperm_overrides_kiff_docperm() -> Result<()> {
+        let pool = setup_test_db().await?;
+        create_doctype_table(&pool, "MergeDoc").await?;
+        create_frappe_docperm_tables(&pool).await?;
+
+        // Kiff default: Guest can read but not create.
+        pool.execute_sql(
+            r#"
+            INSERT INTO __kiff_docperm (
+                "parent", "role", "permlevel", "read", "write", "create", "delete",
+                "submit", "cancel", "if_owner", "select", "report", "export", "import",
+                "share", "print", "email", "mask", "amend"
+            ) VALUES ('MergeDoc', 'All', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            "#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let can_create_before = engine
+            .has_permission(&pool, "Guest", "MergeDoc", "create", None)
+            .await?;
+        assert!(!can_create_before, "Kiff default should deny create");
+
+        // Frappe custom_docperm override: Guest can create.
+        pool.execute_sql(
+            r#"
+            INSERT INTO custom_docperm (
+                name, parent, role, permlevel, "read", "write", "create", "delete"
+            ) VALUES ('merge-all', 'MergeDoc', 'All', 0, 1, 0, 1, 0)
+            "#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let can_create_after = engine
+            .has_permission(&pool, "Guest", "MergeDoc", "create", None)
+            .await?;
+        assert!(
+            can_create_after,
+            "custom_docperm override should grant create"
         );
 
         Ok(())

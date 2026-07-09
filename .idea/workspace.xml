@@ -8,6 +8,9 @@
       <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/crates/email">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/error">
         <feature name="default" enabled="true" />
       </package>
@@ -62,14 +65,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests.">
+      <change beforePath="$PROJECT_DIR$/.idea/Portal.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Portal.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/build.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/permissions/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/permissions/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +84,7 @@
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/Strongroom" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -106,61 +108,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0063972293418282" />
-      <entry key="MS500" value="1.4580753089629632" />
-      <entry key="S2" value="2.330562225070768" />
-      <entry key="S5" value="2.6933719088671504" />
-      <entry key="S10" value="2.8392596833232666" />
-      <entry key="S30" value="2.9446695658020747" />
-      <entry key="S60" value="2.9721094173120046" />
-      <entry key="M2" value="2.986477125336503" />
-      <entry key="M5" value="3.4705231726861965" />
-      <entry key="M10" value="8.001303851274958" />
-      <entry key="M15" value="14.05498426011541" />
-      <entry key="M30" value="27.57178102649302" />
-      <entry key="H1" value="39.726076983635544" />
-      <entry key="H2" value="47.93206078051459" />
-      <entry key="H4" value="52.70850035987867" />
-      <entry key="D1" value="57.07999084626792" />
-      <entry key="W1" value="57.867605315511085" />
+      <entry key="MS100" value="1.4781572820613327" />
+      <entry key="MS500" value="2.9412014988096704" />
+      <entry key="S2" value="3.680905895559361" />
+      <entry key="S5" value="3.867202686921662" />
+      <entry key="S10" value="3.9327068215565615" />
+      <entry key="S30" value="3.9773668366634087" />
+      <entry key="S60" value="3.9886579447419668" />
+      <entry key="M2" value="3.9943225880628206" />
+      <entry key="M5" value="3.9977275009498574" />
+      <entry key="M10" value="3.998864955569204" />
+      <entry key="M15" value="3.9996946341949466" />
+      <entry key="M30" value="4.156041143808748" />
+      <entry key="H1" value="6.992002564558694" />
+      <entry key="H2" value="17.154667160547074" />
+      <entry key="H4" value="31.61266729463551" />
+      <entry key="D1" value="55.249374447571654" />
+      <entry key="W1" value="60.983676403324644" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
-      <entry key="S2" value="5.442065002559143E-276" />
-      <entry key="S5" value="7.839809140668704E-111" />
-      <entry key="S10" value="8.85429458438309E-56" />
-      <entry key="S30" value="4.547952434177431E-19" />
-      <entry key="S60" value="8.522515585328834E-10" />
-      <entry key="M2" value="5.524359998281029E-5" />
-      <entry key="M5" value="0.0547707588049493" />
-      <entry key="M10" value="0.5684836002637269" />
-      <entry key="M15" value="1.2448176584790283" />
-      <entry key="M30" value="2.730631000034559" />
-      <entry key="H1" value="4.046859941838603" />
-      <entry key="H2" value="4.927342751556086" />
-      <entry key="H4" value="5.437215730548659" />
-      <entry key="D1" value="5.902301397741139" />
-      <entry key="W1" value="5.985944411626058" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="7.717373742682195E-154" />
+      <entry key="S60" value="3.510707230483705E-77" />
+      <entry key="M2" value="1.1212317228624835E-38" />
+      <entry key="M5" value="1.8260561164786234E-15" />
+      <entry key="M10" value="1.0380078109013021E-7" />
+      <entry key="M15" value="4.0064604603316476E-5" />
+      <entry key="M30" value="0.015491396744935382" />
+      <entry key="H1" value="0.3048119254164888" />
+      <entry key="H2" value="1.3522894610863125" />
+      <entry key="H4" value="2.8484264489281426" />
+      <entry key="D1" value="5.299392949162912" />
+      <entry key="W1" value="5.8945090990233675" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9922012963020681" />
-      <entry key="MS500" value="1.4483592050886223" />
-      <entry key="S2" value="2.32431036675409" />
-      <entry key="S5" value="2.6902025149117645" />
-      <entry key="S10" value="2.837538951607786" />
-      <entry key="S30" value="2.944063064909527" />
-      <entry key="S60" value="2.971801872173324" />
-      <entry key="M2" value="2.9863768840812934" />
-      <entry key="M5" value="3.524983534520667" />
-      <entry key="M10" value="8.568469312935902" />
-      <entry key="M15" value="15.297902762821574" />
-      <entry key="M30" value="30.3003415542657" />
-      <entry key="H1" value="43.771405105572676" />
-      <entry key="H2" value="52.85847149779327" />
-      <entry key="H4" value="58.145201967615485" />
-      <entry key="D1" value="62.98219924292031" />
-      <entry key="W1" value="63.85353625334815" />
+      <entry key="MS100" value="1.4338303923888969" />
+      <entry key="MS500" value="2.9224356218897216" />
+      <entry key="S2" value="3.6753508357510145" />
+      <entry key="S5" value="3.864901180041881" />
+      <entry key="S10" value="3.9315423831375504" />
+      <entry key="S30" value="3.9769756075162332" />
+      <entry key="S60" value="3.9884619421390846" />
+      <entry key="M2" value="3.9942244895537415" />
+      <entry key="M5" value="3.9976882381906997" />
+      <entry key="M10" value="3.9988454238549913" />
+      <entry key="M15" value="3.999721546626465" />
+      <entry key="M30" value="4.171514248407756" />
+      <entry key="H1" value="7.2966958392918695" />
+      <entry key="H2" value="18.506699191992663" />
+      <entry key="H4" value="34.46082358870532" />
+      <entry key="D1" value="60.54868375914071" />
+      <entry key="W1" value="66.87817221488787" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -183,7 +185,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/Portal",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -193,6 +195,7 @@
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
+    "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -262,7 +265,7 @@
       <option name="presentableId" value="Default" />
       <updated>1783514050462</updated>
       <workItem from="1783514051586" duration="7833000" />
-      <workItem from="1783525353057" duration="6940000" />
+      <workItem from="1783525353057" duration="26005000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -272,7 +275,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783516287347</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests.">
+      <option name="closed" value="true" />
+      <created>1783532335345</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1783532335345</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -280,6 +291,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository." />
+    <MESSAGE value="setting suSync `apps.json` with Cargo.toml manifests&#10;&#10;- Replace `sebrus_logger` with `strongroom` app across `apps.json`, `Cargo.toml`, and `crate` references.&#10;- Ensure `Cargo.toml` manifests for both runtime and workspace reflect `apps.json` changes.&#10;- Update registered app list and resolve directory names for case-sensitive consistency.&#10;- Add utilities for syncing app dependencies and workspace members dynamically." />
+    <MESSAGE value="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests." />
+    <option name="LAST_COMMIT_MESSAGE" value="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests." />
   </component>
 </project>
