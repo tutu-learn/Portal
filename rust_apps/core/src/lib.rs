@@ -339,13 +339,23 @@ pub trait RustApp: Send + Sync + 'static {
 #[derive(Clone, Default)]
 pub struct RustAppRegistry {
     apps: Arc<Vec<Box<dyn RustApp>>>,
+    /// Runtime state available after the HTTP layer is built. Stored here so
+    /// document lifecycle hooks can access DB pools and other shared state.
+    state: Option<Arc<AppState>>,
 }
 
 impl RustAppRegistry {
     pub fn new(apps: Vec<Box<dyn RustApp>>) -> Self {
         Self {
             apps: Arc::new(apps),
+            state: None,
         }
+    }
+
+    /// Attach the shared runtime state so hooks can use pools, permissions,
+    /// etc. This must be called before `set_hook_runner` registers the runner.
+    pub fn set_state(&mut self, state: AppState) {
+        self.state = Some(Arc::new(state));
     }
 
     pub fn apps(&self) -> &[Box<dyn RustApp>] {
@@ -431,21 +441,19 @@ impl orm::DocHookRunner for RustAppRegistry {
         for app in self.apps.iter() {
             for hook in app.doc_hooks() {
                 if hook.event.as_str() == event && hook.doctype == doctype {
-                    let ctx = AppContext::new(
-                        app.name(),
-                        AppState {
-                            config: Arc::new(config::RuntimeConfig::default()),
-                            site_manager: Arc::new(config::SiteManager::default()),
-                            pools: Arc::new(DashMap::new()),
-                            sessions: Arc::new(session::SessionStore::new()),
-                            permissions: Arc::new(permissions::PermissionEngine::new()),
-                            metadata: Arc::new(metadata::Meta::new()),
-                            pubsub: Arc::new(queue::PubSub::new()),
-                            translator: Arc::new(sql_translator::SqlTranslator::default()),
-                            rust_apps: RustAppRegistry::default(),
-                            logger: Arc::new(std::sync::OnceLock::new()),
-                        },
-                    );
+                    let state = self.state.as_ref().map(|s| (**s).clone()).unwrap_or_else(|| AppState {
+                        config: Arc::new(config::RuntimeConfig::default()),
+                        site_manager: Arc::new(config::SiteManager::default()),
+                        pools: Arc::new(DashMap::new()),
+                        sessions: Arc::new(session::SessionStore::new()),
+                        permissions: Arc::new(permissions::PermissionEngine::new()),
+                        metadata: Arc::new(metadata::Meta::new()),
+                        pubsub: Arc::new(queue::PubSub::new()),
+                        translator: Arc::new(sql_translator::SqlTranslator::default()),
+                        rust_apps: RustAppRegistry::default(),
+                        logger: Arc::new(std::sync::OnceLock::new()),
+                    });
+                    let ctx = AppContext::new(app.name(), state);
                     (hook.handler)(&ctx, doc)?;
                 }
             }

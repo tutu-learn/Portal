@@ -1040,8 +1040,15 @@ fn blank_doc_with_defaults(
     doctype: &str,
     name: &str,
     meta: &serde_json::Value,
+    owner: &str,
 ) -> orm::Document {
     let mut doc = orm::Document::new(doctype, name);
+    doc.owner = owner.into();
+    // Frappe Desk relies on these UI-state flags to treat the document as
+    // editable/unsaved and to wire up the Save action correctly.
+    doc.set_field("__islocal", 1);
+    doc.set_field("__unsaved", 1);
+    doc.set_field("idx", 0);
     if let Some(fields) = meta.get("fields").and_then(|f| f.as_array()) {
         for field in fields {
             let fieldname = field
@@ -1070,10 +1077,11 @@ async fn getdoc_new(
         Err(_) => json!({}),
     };
 
-    let doc = blank_doc_with_defaults(doctype, name, &meta);
-
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     let user = authenticate_request(&state, headers).await.map(|u| u.user);
+    let owner = user.as_deref().unwrap_or("Administrator");
+
+    let doc = blank_doc_with_defaults(doctype, name, &meta, owner);
 
     let permissions = if let (Some(ref pool), Some(ref user)) = (&pool, &user) {
         let ptypes = vec![
@@ -2356,7 +2364,8 @@ async fn desk_form_save(
         doc.docstatus = ds as i32;
     }
 
-    // Copy remaining fields, skipping internal UI state.
+    // Copy remaining fields, skipping internal UI state and Frappe sync
+    // metadata that are not real columns.
     let skip_fields: std::collections::HashSet<&str> = [
         "doctype",
         "name",
@@ -2369,6 +2378,9 @@ async fn desk_form_save(
         "__islocal",
         "__unsaved",
         "__deleted",
+        "__last_sync_on",
+        "__original_name",
+        "__trigger_commit",
         "_user_tags",
         "_comments",
         "_assign",
@@ -2483,6 +2495,13 @@ async fn desk_form_save(
     // otherwise the form still behaves as if it is a new unsaved document.
     saved.insert("__islocal".to_string(), json!(0));
     saved.insert("__unsaved".to_string(), json!(0));
+
+    // For newly-created documents, include the original temporary name so
+    // Frappe's form JS can rename the route from /new-<doctype>-<random>
+    // to the persisted document name.
+    if is_new {
+        saved.insert("localname".to_string(), json!(name));
+    }
 
     let mut resp = serde_json::Map::new();
     resp.insert("docs".to_string(), json!([Value::Object(saved)]));

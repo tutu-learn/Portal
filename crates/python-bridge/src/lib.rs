@@ -243,26 +243,29 @@ pub(crate) fn py_to_json(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> 
         return Ok(Value::String(s));
     }
 
-    // Collections.
+    // Collections.  Defensively treat any unconvertible item as null so one
+    // bad value (e.g. a dict with None keys or broken __repr__) does not
+    // fail the whole response.
     if let Ok(list) = obj.downcast::<pyo3::types::PyList>() {
         let mut arr = Vec::new();
         for item in list.iter() {
-            arr.push(py_to_json(&item)?);
+            arr.push(py_to_json(&item).unwrap_or(Value::Null));
         }
         return Ok(Value::Array(arr));
     }
     if let Ok(tuple) = obj.downcast::<pyo3::types::PyTuple>() {
         let mut arr = Vec::new();
         for item in tuple.iter() {
-            arr.push(py_to_json(&item)?);
+            arr.push(py_to_json(&item).unwrap_or(Value::Null));
         }
         return Ok(Value::Array(arr));
     }
     if let Ok(dict) = obj.downcast::<pyo3::types::PyDict>() {
         let mut map = serde_json::Map::new();
         for (k, v) in dict {
-            let key: String = k.extract()?;
-            map.insert(key, py_to_json(&v)?);
+            if let Ok(key) = k.extract::<String>() {
+                map.insert(key, py_to_json(&v).unwrap_or(Value::Null));
+            }
         }
         return Ok(Value::Object(map));
     }
@@ -284,8 +287,15 @@ pub(crate) fn py_to_json(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> 
         }
     }
 
-    // Fallback: string representation.
-    Ok(Value::String(obj.str()?.to_string()))
+    // Fallback: string representation. Some Python objects (e.g. cached
+    // responses or objects with a broken __repr__) raise when converted to a
+    // string, so fall back to null rather than failing the whole API response.
+    if let Ok(s) = obj.str() {
+        if let Ok(s) = s.extract::<String>() {
+            return Ok(Value::String(s));
+        }
+    }
+    Ok(Value::Null)
 }
 
 pub fn json_to_py(py: Python<'_>, val: &serde_json::Value) -> PyResult<PyObject> {

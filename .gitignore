@@ -12,6 +12,15 @@ python/frappe/**/*.pyc
 /apps/frappe/
 /.venv/
 
+# Playwright e2e artifacts
+/node_modules/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/playwright/.auth/
+/playwright/.e2e-server.lock
+/sites-e2e/
+
 # Independently managed repos checked out under rust_apps/ (own git history/remote)
 /rust_apps/Strongroom/
 /rust_apps/sebrus_logger/

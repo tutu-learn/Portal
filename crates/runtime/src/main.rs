@@ -15,7 +15,8 @@ async fn main() -> error::Result<()> {
     logging::init_tracing();
     info!("kiff runtime starting");
 
-    let config = config::RuntimeConfig::from_file("runtime.toml")?;
+    let config_path = std::env::var("KIFF_RUNTIME_CONFIG").unwrap_or_else(|_| "runtime.toml".into());
+    let config = config::RuntimeConfig::from_file(&config_path)?;
     let mut site_manager = config::SiteManager::load(&config.runtime.sites_path).await?;
 
     // Ensure a default site exists so the Python shim and desk frontend can find
@@ -143,8 +144,11 @@ async fn main() -> error::Result<()> {
     // reusable logging primitives.
     init_log_engine(&config, &app_state).await;
 
-    // Register Rust app hooks with the ORM so document lifecycle events invoke them.
-    orm::set_hook_runner(Some(Arc::new(rust_app_registry.clone())));
+    // Attach runtime state to the registry so document lifecycle hooks can use
+    // DB pools and other shared services, then register the hook runner.
+    let mut rust_app_registry_for_hooks = rust_app_registry.clone();
+    rust_app_registry_for_hooks.set_state(app_state.clone());
+    orm::set_hook_runner(Some(Arc::new(rust_app_registry_for_hooks)));
 
     // Run Rust app startup hooks.
     for app in rust_app_registry.apps() {
