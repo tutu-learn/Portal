@@ -134,6 +134,22 @@ impl PageFixture {
     }
 }
 
+/// A Client Script fixture that adds a custom script to a DocType form or list.
+#[derive(Debug, Clone, Default)]
+pub struct ClientScriptFixture {
+    pub name: String,
+    pub json: String,
+}
+
+impl ClientScriptFixture {
+    pub fn new(name: &str, json: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            json: json.to_string(),
+        }
+    }
+}
+
 /// Document lifecycle event kinds supported for Rust hooks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DocEvent {
@@ -288,6 +304,11 @@ pub trait RustApp: Send + Sync + 'static {
         vec![]
     }
 
+    /// Return Client Script fixtures to inject into Desk forms/lists.
+    fn client_scripts(&self) -> Vec<ClientScriptFixture> {
+        vec![]
+    }
+
     /// Register Rust handlers for document lifecycle events.
     fn doc_hooks(&self) -> Vec<DocHook> {
         vec![]
@@ -382,6 +403,10 @@ impl RustAppRegistry {
 
     pub fn all_pages(&self) -> Vec<PageFixture> {
         self.apps.iter().flat_map(|app| app.pages()).collect()
+    }
+
+    pub fn all_client_scripts(&self) -> Vec<ClientScriptFixture> {
+        self.apps.iter().flat_map(|app| app.client_scripts()).collect()
     }
 
     pub fn all_doc_hooks(&self) -> Vec<DocHook> {

@@ -98,6 +98,13 @@ pub fn create_router() -> Router<AppState> {
         // The bundled Frappe Desk JS only strips the /desk prefix. Redirect
         // /app so the SPA sees a URL it can route correctly.
         .route("/app", get(|| async { Redirect::temporary("/desk") }))
+        .route(
+            "/app/*path",
+            get(|path: axum::extract::Path<String>| async move {
+                Redirect::temporary(&format!("/desk/{}", *path))
+            }),
+        )
         .route("/desk", get(desk::serve_desk))
+        .route("/desk/*path", get(desk::serve_desk))
         .fallback(desk::serve_desk)
 }

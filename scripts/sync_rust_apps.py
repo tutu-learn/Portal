@@ -35,6 +35,17 @@ CORE_CRATES = [
 ]
 
 
+def resolve_app_dir(app: str) -> str:
+    """Return the actual directory name under rust_apps/ for `app`."""
+    rust_apps_dir = WORKSPACE_ROOT / "rust_apps"
+    if not rust_apps_dir.is_dir():
+        return app
+    for entry in rust_apps_dir.iterdir():
+        if entry.is_dir() and entry.name.lower() == app.lower():
+            return entry.name
+    return app
+
+
 def read_apps() -> list[str]:
     data = json.loads(APPS_JSON.read_text())
     apps = data.get("apps", [])
@@ -65,7 +76,7 @@ def replace_dependencies_table(text: str, section: str, deps: dict[str, str]) ->
     # rust_apps/core but crate name is rust_apps_core.
     app_pattern = re.compile(
         r'^(?P<name>[a-zA-Z0-9_]+)\s*=\s*\{\s*path\s*=\s*"(?:\.\./\.\./)?rust_apps/(?P=name)"\s*\}\s*$',
-        re.MULTILINE,
+        re.MULTILINE | re.IGNORECASE,
     )
 
     # Remove existing app entries (and any blank lines they leave behind).
@@ -97,11 +108,13 @@ def sync_root_cargo(apps: list[str]) -> None:
     text = ROOT_CARGO.read_text()
 
     # Workspace members: core crates + rust_apps/core + each configured app.
-    members = CORE_CRATES + ["rust_apps/core"] + [f"rust_apps/{a}" for a in apps]
+    members = CORE_CRATES + ["rust_apps/core"] + [
+        f"rust_apps/{resolve_app_dir(a)}" for a in apps
+    ]
     text = replace_array_block(text, "members", members)
 
     # Dev-dependencies: keep rust_apps_core and any configured apps.
-    app_dev_deps = {a: f"rust_apps/{a}" for a in apps}
+    app_dev_deps = {a: f"rust_apps/{resolve_app_dir(a)}" for a in apps}
     text = replace_dependencies_table(text, "dev-dependencies", app_dev_deps)
 
     ROOT_CARGO.write_text(text)
@@ -109,7 +122,7 @@ def sync_root_cargo(apps: list[str]) -> None:
 
 def sync_runtime_cargo(apps: list[str]) -> None:
     text = RUNTIME_CARGO.read_text()
-    app_deps = {a: f"../../rust_apps/{a}" for a in apps}
+    app_deps = {a: f"../../rust_apps/{resolve_app_dir(a)}" for a in apps}
     text = replace_dependencies_table(text, "dependencies", app_deps)
     RUNTIME_CARGO.write_text(text)
 

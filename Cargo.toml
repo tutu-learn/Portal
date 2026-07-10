@@ -13,11 +13,10 @@ members = [
     "crates/http",
     "crates/runtime",
     "crates/log_engine",
-    "crates/email",
     "cli",
     "crates/kiff_logger",
     "rust_apps/core",
-    "rust_apps/Strongroom",
+    "rust_apps/audit_ready",
 ]
 
 [workspace.dependencies]
@@ -105,6 +104,7 @@ tower          = { workspace = true }
 dashmap        = { workspace = true }
 
 [dev-dependencies]
-sebrus_logger = { path = "rust_apps/sebrus_logger" }
+
+audit_ready = { path = "rust_apps/audit_ready" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }

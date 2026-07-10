@@ -601,6 +601,30 @@ fn build_allowed_modules(modules_map: &Map<String, Value>) -> Vec<Value> {
 /// Compute permission-type -> [doctype] lists for a user from the Rust
 /// permission engine. Used to fix the desk bootinfo when the Python shim
 /// leaves can_create/write/delete/etc. empty.
+/// Return all non-table DocType names from the metadata table.
+async fn get_all_doctype_names(pool: &orm::DatabasePool) -> Vec<String> {
+    let rows = match pool
+        .execute_sql(
+            r#"SELECT name FROM "doctype" WHERE istable = 0 ORDER BY name"#,
+            vec![],
+        )
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::warn!("failed to load doctype names for bootinfo: {}", e);
+            return vec![];
+        }
+    };
+
+    rows.into_iter()
+        .filter_map(|mut row| {
+            row.remove("name")
+                .and_then(|v| v.as_str().map(String::from))
+        })
+        .collect()
+}
+
 async fn compute_user_permission_lists(
     state: &AppState,
     pool: &orm::DatabasePool,
@@ -769,8 +793,11 @@ async fn build_boot_info(
                 // other permission lists empty, so the desk hides actions like
                 // Create / Save / Delete. Recompute them from the Rust
                 // permission engine so the UI reflects the real DocPerms.
+                // Include all DocTypes known to the Rust metadata DB so Rust-
+                // contributed DocTypes (e.g. from audit_ready) are visible.
                 if let Some(ref pool) = pool {
-                    let doctypes: Vec<String> = user_obj
+                    let mut all_doctypes = get_all_doctype_names(pool).await;
+                    let python_can_read: Vec<String> = user_obj
                         .get("can_read")
                         .and_then(|v| v.as_array())
                         .map(|arr| {
@@ -779,8 +806,13 @@ async fn build_boot_info(
                                 .collect()
                         })
                         .unwrap_or_default();
+                    for dt in python_can_read {
+                        if !all_doctypes.contains(&dt) {
+                            all_doctypes.push(dt);
+                        }
+                    }
                     let perms =
-                        compute_user_permission_lists(state, pool, user_name, &doctypes).await;
+                        compute_user_permission_lists(state, pool, user_name, &all_doctypes).await;
                     for (ptype, list) in &perms {
                         user_obj.insert(format!("can_{}", ptype), json!(list));
                     }
@@ -985,6 +1017,22 @@ async fn build_boot_info(
     ];
     let core_doctypes = json!(core_doctypes);
 
+    // In fallback bootinfo, use every non-table DocType from the metadata DB
+    // so Rust-contributed DocTypes are available without the Python shim.
+    let all_doctypes: Vec<String> = if let Some(ref pool) = pool {
+        get_all_doctype_names(pool).await
+    } else {
+        core_doctypes
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let all_doctypes_json = json!(all_doctypes);
+
     let mut user_obj = Map::new();
     user_obj.insert("name".to_string(), json!(user_name));
     user_obj.insert("email".to_string(), json!(user_name));
@@ -996,23 +1044,23 @@ async fn build_boot_info(
     user_obj.insert("roles".to_string(), roles);
     user_obj.insert("language".to_string(), json!("en"));
     user_obj.insert("timezone".to_string(), json!("UTC"));
-    user_obj.insert("can_read".to_string(), core_doctypes.clone());
-    user_obj.insert("can_create".to_string(), core_doctypes.clone());
-    user_obj.insert("can_write".to_string(), core_doctypes.clone());
-    user_obj.insert("can_select".to_string(), core_doctypes.clone());
+    user_obj.insert("can_read".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_create".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_write".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_select".to_string(), all_doctypes_json.clone());
     user_obj.insert("can_submit".to_string(), json!([]));
     user_obj.insert("can_cancel".to_string(), json!([]));
-    user_obj.insert("can_delete".to_string(), core_doctypes.clone());
-    user_obj.insert("can_get_report".to_string(), core_doctypes.clone());
+    user_obj.insert("can_delete".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_get_report".to_string(), all_doctypes_json.clone());
     user_obj.insert("allow_modules".to_string(), json!(module_list.clone()));
-    user_obj.insert("all_read".to_string(), core_doctypes.clone());
-    user_obj.insert("can_search".to_string(), core_doctypes.clone());
-    user_obj.insert("in_create".to_string(), json!([]));
-    user_obj.insert("can_export".to_string(), core_doctypes.clone());
-    user_obj.insert("can_import".to_string(), core_doctypes.clone());
-    user_obj.insert("can_print".to_string(), core_doctypes.clone());
-    user_obj.insert("can_email".to_string(), core_doctypes.clone());
-    user_obj.insert("can_share".to_string(), core_doctypes.clone());
+    user_obj.insert("all_read".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_search".to_string(), all_doctypes_json.clone());
+    user_obj.insert("in_create".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_export".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_import".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_print".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_email".to_string(), all_doctypes_json.clone());
+    user_obj.insert("can_share".to_string(), all_doctypes_json.clone());
     user_obj.insert("all_reports".to_string(), json!({}));
     user_obj.insert("defaults".to_string(), json!({}));
     user_obj.insert("recent".to_string(), json!("[]"));

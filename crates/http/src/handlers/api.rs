@@ -258,40 +258,6 @@ pub async fn insert_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    // Prefer the real Frappe Document.insert() path so DocType controllers,
-    // validation hooks and child-table handling run. Fall back to the native
-    // ORM insert when Python cannot handle the DocType yet.
-    let mut py_doc = body.fields.clone();
-    py_doc.insert(
-        "doctype".to_string(),
-        serde_json::Value::String(doctype.clone()),
-    );
-    let mut params = std::collections::HashMap::new();
-    params.insert(
-        "doc".to_string(),
-        serde_json::Value::Object(py_doc.into_iter().collect()),
-    );
-
-    match call_rust_or_python_method(&state, "frappe.client.insert", params, &headers).await {
-        Ok(MethodResponse::Json(value)) => {
-            let payload = value.get("message").cloned().unwrap_or(value);
-            return (
-                StatusCode::CREATED,
-                Json(serde_json::json!({ "data": payload })),
-            );
-        }
-        Ok(_) => {
-            return (
-                StatusCode::CREATED,
-                Json(serde_json::json!({ "message": "created" })),
-            )
-        }
-        Err(error::RuntimeError::Python(e)) => {
-            warn!(doctype = %doctype, error = %e, "Python frappe.client.insert failed, falling back to native ORM insert");
-        }
-        Err(e) => return frappe_error_response(e),
-    }
-
     let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
         Some(p) => p,
         None => {
@@ -323,9 +289,12 @@ pub async fn insert_doc(
         }
     }
 
+    // Try the native ORM first. Rust app DocTypes are fully supported there and
+    // this avoids the Python path returning a fake success without persisting
+    // when the real Frappe controller cannot handle the DocType.
     let is_user_doctype = doctype == "User";
-    let mut doc = orm::Document::new(doctype, uuid::Uuid::new_v4().to_string());
-    for (k, v) in body.fields {
+    let mut doc = orm::Document::new(doctype.clone(), uuid::Uuid::new_v4().to_string());
+    for (k, v) in body.fields.clone() {
         doc.set_field(k, v);
     }
     match pool.insert_doc(&doc).await {
@@ -333,15 +302,46 @@ pub async fn insert_doc(
             if is_user_doctype {
                 state.permissions.clear_roles_cache(&name);
             }
-            (
+            return (
                 StatusCode::CREATED,
                 Json(serde_json::json!({ "data": { "name": name } })),
+            );
+        }
+        Err(e) => {
+            warn!(
+                doctype = %doctype,
+                error = %e,
+                "native ORM insert failed, falling back to Python frappe.client.insert"
+            );
+        }
+    }
+
+    // Fall back to the real Frappe Document.insert() path for core DocTypes
+    // that need controllers/validation hooks the native ORM does not provide.
+    let mut py_doc = body.fields;
+    py_doc.insert(
+        "doctype".to_string(),
+        serde_json::Value::String(doctype.clone()),
+    );
+    let mut params = std::collections::HashMap::new();
+    params.insert(
+        "doc".to_string(),
+        serde_json::Value::Object(py_doc.into_iter().collect()),
+    );
+
+    match call_rust_or_python_method(&state, "frappe.client.insert", params, &headers).await {
+        Ok(MethodResponse::Json(value)) => {
+            let payload = value.get("message").cloned().unwrap_or(value);
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "data": payload })),
             )
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": format!("{}", e) })),
+        Ok(_) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({ "message": "created" })),
         ),
+        Err(e) => frappe_error_response(e),
     }
 }
 
@@ -355,13 +355,80 @@ pub async fn update_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    // Keep a copy for the native ORM fallback path.
-    let body_for_fallback = body.clone();
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
+        }
+    };
 
-    // Prefer the real Frappe Document.save() path so DocType controllers and
-    // validation hooks run (e.g. User.validate_allowed_modules).
-    // Load the full document (including child tables and mandatory fields)
-    // from Python first, then overlay the request body before saving.
+    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+
+    // Try native ORM update first so Rust app DocTypes persist reliably.
+    match pool.get_doc(&doctype, &name).await {
+        Ok(mut doc) => {
+            match state
+                .permissions
+                .has_permission(&pool, &user, &doctype, "write", Some(&doc))
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(serde_json::json!({ "error": "permission denied" })),
+                    );
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("{}", e) })),
+                    );
+                }
+            }
+
+            for (k, v) in body.clone() {
+                doc.set_field(k, v);
+            }
+            match pool.save_doc(&doc).await {
+                Ok(_) => {
+                    if doctype == "User" {
+                        state.permissions.clear_roles_cache(&name);
+                    }
+                    return (StatusCode::OK, Json(serde_json::json!({ "data": doc })));
+                }
+                Err(e) => {
+                    warn!(
+                        doctype = %doctype,
+                        name = %name,
+                        error = %e,
+                        "native ORM update failed, falling back to Python frappe.client.save"
+                    );
+                }
+            }
+        }
+        Err(error::RuntimeError::NotFound(_)) => {
+            // Document does not exist; Python path cannot save it either.
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": format!("{} {} not found", doctype, name) })),
+            );
+        }
+        Err(e) => {
+            warn!(
+                doctype = %doctype,
+                name = %name,
+                error = %e,
+                "native ORM get_doc failed, falling back to Python frappe.client.save"
+            );
+        }
+    }
+
+    // Fall back to the real Frappe Document.save() path for core DocTypes that
+    // need controllers/validation hooks the native ORM does not provide.
     let mut get_params = std::collections::HashMap::new();
     get_params.insert(
         "doctype".to_string(),
@@ -389,75 +456,13 @@ pub async fn update_doc(
     match call_rust_or_python_method(&state, "frappe.client.save", save_params, &headers).await {
         Ok(MethodResponse::Json(value)) => {
             let payload = value.get("message").cloned().unwrap_or(value);
-            return (StatusCode::OK, Json(serde_json::json!({ "data": payload })));
+            (StatusCode::OK, Json(serde_json::json!({ "data": payload })))
         }
-        Ok(_) => {
-            return (
-                StatusCode::OK,
-                Json(serde_json::json!({ "message": "updated" })),
-            )
-        }
-        Err(error::RuntimeError::Python(e)) => {
-            warn!(doctype = %doctype, name = %name, error = %e, "Python frappe.client.save failed, falling back to native ORM update");
-        }
-        Err(e) => return frappe_error_response(e),
-    }
-
-    // Fall back to the native ORM update when Python cannot handle the DocType yet.
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
-        None => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({ "error": "no database pool" })),
-            );
-        }
-    };
-
-    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
-
-    match pool.get_doc(&doctype, &name).await {
-        Ok(mut doc) => {
-            match state
-                .permissions
-                .has_permission(&pool, &user, &doctype, "write", Some(&doc))
-                .await
-            {
-                Ok(true) => {}
-                Ok(false) => {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(serde_json::json!({ "error": "permission denied" })),
-                    );
-                }
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({ "error": format!("{}", e) })),
-                    );
-                }
-            }
-
-            for (k, v) in body_for_fallback {
-                doc.set_field(k, v);
-            }
-            match pool.save_doc(&doc).await {
-                Ok(_) => {
-                    if doctype == "User" {
-                        state.permissions.clear_roles_cache(&name);
-                    }
-                    (StatusCode::OK, Json(serde_json::json!({ "data": doc })))
-                }
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": format!("{}", e) })),
-                ),
-            }
-        }
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("{}", e) })),
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "message": "updated" })),
         ),
+        Err(e) => frappe_error_response(e),
     }
 }
 
@@ -920,6 +925,13 @@ pub async fn getdoc_native(
         return get_kiff_log_doc(state, &name).await;
     }
 
+    // New/unsaved documents are named `new-<scrubbed>-<random>`. Return a blank
+    // document with field defaults so the Desk form builder can render without
+    // hitting a 404 for a row that does not exist yet.
+    if is_new_doc_name(&name) {
+        return getdoc_new(state, &doctype, &name, &headers).await;
+    }
+
     let pool = state.pools.iter().next().map(|e| e.value().clone());
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
@@ -1016,6 +1028,99 @@ pub async fn getdoc_native(
             Json(json!({ "error": "no database pool" })),
         ),
     }
+}
+
+fn is_new_doc_name(name: &str) -> bool {
+    name.starts_with("new-")
+}
+
+/// Build a blank document for a new/unsaved record, applying field defaults
+/// from the doctype metadata so Desk forms render correctly.
+fn blank_doc_with_defaults(
+    doctype: &str,
+    name: &str,
+    meta: &serde_json::Value,
+) -> orm::Document {
+    let mut doc = orm::Document::new(doctype, name);
+    if let Some(fields) = meta.get("fields").and_then(|f| f.as_array()) {
+        for field in fields {
+            let fieldname = field
+                .get("fieldname")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            if fieldname.is_empty() {
+                continue;
+            }
+            if let Some(default) = field.get("default").and_then(|v| v.as_str()) {
+                doc.set_field(fieldname, default);
+            }
+        }
+    }
+    doc
+}
+
+async fn getdoc_new(
+    state: AppState,
+    doctype: &str,
+    name: &str,
+    headers: &axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let meta = match load_doctype_metadata(&state, doctype, "").await {
+        Ok(docs) => docs.into_iter().next().unwrap_or_else(|| json!({})),
+        Err(_) => json!({}),
+    };
+
+    let doc = blank_doc_with_defaults(doctype, name, &meta);
+
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let user = authenticate_request(&state, headers).await.map(|u| u.user);
+
+    let permissions = if let (Some(ref pool), Some(ref user)) = (&pool, &user) {
+        let ptypes = vec![
+            "read", "write", "create", "delete", "submit", "cancel", "select", "report",
+            "export", "import", "print", "email", "share",
+        ];
+        let mut perms = serde_json::Map::new();
+        for ptype in ptypes {
+            let allowed = state
+                .permissions
+                .has_permission(pool, user, doctype, ptype, Some(&doc))
+                .await
+                .unwrap_or(false);
+            perms.insert(ptype.to_string(), json!(if allowed { 1 } else { 0 }));
+        }
+        Value::Object(perms)
+    } else {
+        Value::Object(serde_json::Map::new())
+    };
+
+    let docinfo = json!({
+        "doctype": doctype,
+        "name": name,
+        "attachments": [],
+        "communications": [],
+        "automated_messages": [],
+        "versions": [],
+        "assignments": [],
+        "permissions": permissions,
+        "shared": [],
+        "views": [],
+        "additional_timeline_content": [],
+        "milestones": [],
+        "is_document_followed": false,
+        "tags": [],
+        "document_email": Value::Null,
+        "custom_perm_types": [],
+        "comments": [],
+        "assignment_logs": [],
+        "attachment_logs": [],
+        "user_info": {},
+    });
+
+    let mut resp = serde_json::Map::new();
+    resp.insert("docs".to_string(), json!([doc]));
+    resp.insert("docinfo".to_string(), docinfo);
+    (StatusCode::OK, Json(Value::Object(resp)))
 }
 
 /// Native Rust implementation of frappe.desk.form.load.getdoctype.
@@ -1503,8 +1608,10 @@ fn reportview_table_name(doctype: &str) -> String {
 }
 
 /// Strip SQL aliases / table prefixes from the desk list-view field list so
-/// the native ORM can fetch them. For example `sop.name as sop_name` becomes
-/// `sop`.
+/// the native ORM can fetch them.
+///
+/// - `` `tabDoctype`.`name` `` becomes `name` (table-prefixed regular field).
+/// - `sop.name as sop_name` becomes `sop` (link-field title expression).
 fn sanitize_reportview_fields(fields: &[String]) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     fields
@@ -1519,7 +1626,15 @@ fn sanitize_reportview_fields(fields: &[String]) -> Vec<String> {
                 f.trim()
             };
             let base = base.trim_start_matches('`').trim_end_matches('`');
-            let base = base.split('.').next().unwrap_or(base).to_string();
+            let parts: Vec<&str> = base.split('.').collect();
+            let base = if parts.len() >= 2 && f.contains('`') {
+                // Table-prefixed field: take the actual column name.
+                parts.last().copied().unwrap_or(base)
+            } else {
+                // Link-field title expression or plain field: take the first segment.
+                parts.first().copied().unwrap_or(base)
+            }
+            .to_string();
             if base.is_empty() || !seen.insert(base.clone()) {
                 None
             } else {
@@ -2142,6 +2257,239 @@ impl IntoResponse for MethodResponse {
     }
 }
 
+/// Native handler for `frappe.desk.form.save`.
+///
+/// The Desk form builder sends the full document (as a JSON object or string)
+/// plus an action. New documents have names like `new-<doctype>-<random>` and
+/// must be inserted with a real name; existing documents are updated.
+async fn desk_form_save(
+    state: &AppState,
+    params: HashMap<String, Value>,
+    headers: &axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let raw_doc = match params.get("doc") {
+        Some(Value::String(s)) => match serde_json::from_str::<Value>(s) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": format!("invalid doc json: {}", e) })),
+                )
+            }
+        },
+        Some(v) => v.clone(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "doc is required" })),
+            )
+        }
+    };
+
+    let mut doc_map = match raw_doc {
+        Value::Object(m) => m,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "doc must be an object" })),
+            )
+        }
+    };
+
+    let doctype = match doc_map.remove("doctype").and_then(|v| v.as_str().map(String::from)) {
+        Some(d) => d,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "doctype is required" })),
+            )
+        }
+    };
+
+    if doctype == "Kiff Log Entry" {
+        return virtual_doctype_error(&doctype);
+    }
+
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "error": "no database pool" })),
+            )
+        }
+    };
+
+    let user = session_user_from_request(state, headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+
+    let name = doc_map
+        .remove("name")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    let is_new = is_new_doc_name(&name);
+
+    let real_name = if is_new {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        name.clone()
+    };
+
+    let now = chrono::Utc::now();
+    let mut doc = orm::Document::new(&doctype, &real_name);
+    doc.owner = doc_map
+        .remove("owner")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| user.clone());
+    doc.modified = now;
+    if let Some(creation) = doc_map
+        .remove("creation")
+        .and_then(|v| v.as_str().map(String::from))
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+    {
+        doc.creation = creation.with_timezone(&chrono::Utc);
+    } else {
+        doc.creation = now;
+    }
+    if let Some(ds) = doc_map.remove("docstatus").and_then(|v| v.as_i64()) {
+        doc.docstatus = ds as i32;
+    }
+
+    // Copy remaining fields, skipping internal UI state.
+    let skip_fields: std::collections::HashSet<&str> = [
+        "doctype",
+        "name",
+        "owner",
+        "creation",
+        "modified",
+        "modified_by",
+        "docstatus",
+        "idx",
+        "__islocal",
+        "__unsaved",
+        "__deleted",
+        "_user_tags",
+        "_comments",
+        "_assign",
+        "_liked_by",
+    ]
+    .into_iter()
+    .collect();
+    for (k, v) in doc_map {
+        if skip_fields.contains(k.as_str()) {
+            continue;
+        }
+        doc.set_field(k, v);
+    }
+
+    let ptype = if is_new { "create" } else { "write" };
+    match state
+        .permissions
+        .has_permission(&pool, &user, &doctype, ptype, Some(&doc))
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "error": "permission denied" })),
+            )
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("{}", e) })),
+            )
+        }
+    }
+
+    if is_new {
+        match pool.insert_doc(&doc).await {
+            Ok(saved_name) => doc.name = saved_name,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": format!("{}", e) })),
+                )
+            }
+        }
+    } else {
+        if let Err(e) = pool.save_doc(&doc).await {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("{}", e) })),
+            );
+        }
+    }
+
+    let permissions = {
+        let ptypes = vec![
+            "read", "write", "create", "delete", "submit", "cancel", "select", "report",
+            "export", "import", "print", "email", "share",
+        ];
+        let mut perms = serde_json::Map::new();
+        for ptype in ptypes {
+            let allowed = state
+                .permissions
+                .has_permission(&pool, &user, &doctype, ptype, Some(&doc))
+                .await
+                .unwrap_or(false);
+            perms.insert(ptype.to_string(), json!(if allowed { 1 } else { 0 }));
+        }
+        Value::Object(perms)
+    };
+
+    let docinfo = json!({
+        "doctype": doctype,
+        "name": doc.name,
+        "attachments": [],
+        "communications": [],
+        "automated_messages": [],
+        "versions": [],
+        "assignments": [],
+        "permissions": permissions,
+        "shared": [],
+        "views": [],
+        "additional_timeline_content": [],
+        "milestones": [],
+        "is_document_followed": false,
+        "tags": [],
+        "document_email": Value::Null,
+        "custom_perm_types": [],
+        "comments": [],
+        "assignment_logs": [],
+        "attachment_logs": [],
+        "user_info": {},
+    });
+
+    let mut saved = match serde_json::to_value(&doc) {
+        Ok(Value::Object(m)) => m,
+        Ok(v) => {
+            let mut resp = serde_json::Map::new();
+            resp.insert("docs".to_string(), json!([v]));
+            resp.insert("docinfo".to_string(), docinfo);
+            return (StatusCode::OK, Json(Value::Object(resp)));
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("{}", e) })),
+            )
+        }
+    };
+
+    // Desk needs these UI state flags cleared after a successful save,
+    // otherwise the form still behaves as if it is a new unsaved document.
+    saved.insert("__islocal".to_string(), json!(0));
+    saved.insert("__unsaved".to_string(), json!(0));
+
+    let mut resp = serde_json::Map::new();
+    resp.insert("docs".to_string(), json!([Value::Object(saved)]));
+    resp.insert("docinfo".to_string(), docinfo);
+    (StatusCode::OK, Json(Value::Object(resp)))
+}
+
 async fn method_response(
     state: &AppState,
     method: &str,
@@ -2163,6 +2511,10 @@ async fn method_response(
                 .await
                 .into_response();
         }
+    }
+
+    if method == "frappe.desk.form.save" || method == "frappe.desk.form.save.savedocs" {
+        return desk_form_save(state, params, headers).await.into_response();
     }
 
     match call_rust_or_python_method(state, method, params, headers).await {

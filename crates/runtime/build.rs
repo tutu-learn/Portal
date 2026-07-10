@@ -250,7 +250,9 @@ fn replace_table_array(text: &str, key: &str, replacement: &str) -> String {
 fn is_app_dependency(key: &str, value: &toml_edit::Item) -> bool {
     if let Some(table) = value.as_inline_table() {
         if let Some(path) = table.get("path").and_then(|v| v.as_str()) {
-            return path == format!("../../rust_apps/{key}");
+            if let Some(dir) = path.strip_prefix("../../rust_apps/") {
+                return dir.to_lowercase() == key.to_lowercase();
+            }
         }
     }
     false

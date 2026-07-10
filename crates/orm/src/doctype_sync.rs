@@ -61,12 +61,14 @@ pub async fn sync_all(
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
     module_fixtures: Vec<ModuleFixture>,
+    client_script_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
     info!("syncing frappe doctypes");
     sync_metadata(pool, fixtures.clone()).await?;
     sync_data_tables(pool).await?;
     ensure_docperm_defaults(pool).await?;
     insert_seed_data(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
+    insert_client_script_fixtures(pool, client_script_fixtures).await?;
     info!("doctype sync complete");
     Ok(())
 }
@@ -473,15 +475,13 @@ async fn insert_docperms(
         _ => return Ok(()),
     };
 
-    let existing = pool
-        .execute_sql(
-            r#"SELECT 1 FROM __kiff_docperm WHERE parent = ? LIMIT 1"#,
-            vec![serde_json::Value::String(doctype_name.into())],
-        )
-        .await?;
-    if !existing.is_empty() {
-        return Ok(());
-    }
+    // Replace existing permissions so changes to fixture JSON are applied on
+    // every sync. Manual edits made directly in the database will be overwritten.
+    pool.execute_sql(
+        r#"DELETE FROM __kiff_docperm WHERE parent = ?"#,
+        vec![serde_json::Value::String(doctype_name.into())],
+    )
+    .await?;
 
     let sql = r#"
         INSERT INTO __kiff_docperm (
@@ -1014,6 +1014,85 @@ async fn insert_seed_data(
     Ok(())
 }
 
+/// Insert Client Script fixtures contributed by Rust apps.
+///
+/// These are upserted into the `client_script` table so Desk forms can add
+/// custom buttons and handlers. Existing records with the same name are
+/// overwritten so fixture changes are applied on every sync.
+async fn insert_client_script_fixtures(
+    pool: &DatabasePool,
+    fixtures: Vec<(String, String)>,
+) -> Result<()> {
+    if fixtures.is_empty() {
+        return Ok(());
+    }
+
+    let now_fn = match pool.dialect() {
+        "postgres" => "NOW()",
+        _ => "datetime('now')",
+    };
+
+    for (name, json) in fixtures {
+        let doc: serde_json::Value = match serde_json::from_str(&json) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("failed to parse client script fixture {}: {}", name, e);
+                continue;
+            }
+        };
+
+        let dt = json_str(&doc, "dt");
+        let script = json_str(&doc, "script");
+        let view = json_str(&doc, "view");
+        let module = json_str(&doc, "module");
+        let enabled = json_i64(&doc, "enabled");
+
+        if dt.is_empty() || script.is_empty() {
+            warn!("skipping client script fixture {}: dt and script are required", name);
+            continue;
+        }
+
+        let sql = format!(
+            r#"INSERT INTO "client_script" (
+                name, creation, modified, modified_by, owner, docstatus,
+                dt, script, view, module, enabled
+            ) VALUES ({}, {now_fn}, {now_fn}, 'Administrator', 'Administrator', 0,
+                      {}, {}, {}, {}, {})
+            ON CONFLICT(name) DO UPDATE SET
+                creation=EXCLUDED.creation, modified=EXCLUDED.modified, modified_by=EXCLUDED.modified_by,
+                owner=EXCLUDED.owner, docstatus=EXCLUDED.docstatus, dt=EXCLUDED.dt,
+                script=EXCLUDED.script, view=EXCLUDED.view, module=EXCLUDED.module,
+                enabled=EXCLUDED.enabled"#,
+            pool.placeholder(1),
+            pool.placeholder(2),
+            pool.placeholder(3),
+            pool.placeholder(4),
+            pool.placeholder(5),
+            pool.placeholder(6),
+        );
+
+        if let Err(e) = pool
+            .execute_sql(
+                &sql,
+                vec![
+                    serde_json::Value::String(name),
+                    serde_json::Value::String(dt),
+                    serde_json::Value::String(script),
+                    serde_json::Value::String(if view.is_empty() { "Form".into() } else { view }),
+                    serde_json::Value::String(module),
+                    serde_json::Value::Number(enabled.into()),
+                ],
+            )
+            .await
+        {
+            warn!("failed to insert client script fixture: {}", e);
+        }
+    }
+
+    info!("client script fixtures inserted");
+    Ok(())
+}
+
 /// Ensure the core users, roles, and Administrator role links exist.
 ///
 /// This is safe to call on every startup: it upserts the default records and
@@ -1108,6 +1187,8 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Kiff Logs Admin", 1),
         ("Sebrus Log Rule Admin", 1),
         ("Sebrus Log Rule Viewer", 1),
+        ("Server Admin", 1),
+        ("Infrastructure Viewer", 1),
     ] {
         pool.execute_sql(
             &format!(
@@ -1616,8 +1697,8 @@ async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Resul
     let sql = r#"
         INSERT OR REPLACE INTO "workspace" (
             name, creation, modified, modified_by, owner, docstatus,
-            label, title, icon, public, is_hidden, content, sequence_id, module, parent_page, for_user, app, restrict_to_domain
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            label, title, icon, public, is_hidden, content, sequence_id, module, parent_page, for_user, app, type, restrict_to_domain
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     "#;
 
     let params = vec![
@@ -1640,6 +1721,7 @@ async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Resul
         val(json_str(doc, "parent_page")),
         val(json_str(doc, "for_user")),
         val(json_str(doc, "app")),
+        val(json_str(doc, "type")),
         json_str_or_null(doc, "restrict_to_domain"),
     ];
 

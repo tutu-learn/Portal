@@ -55,9 +55,19 @@ async fn main() -> error::Result<()> {
                     .map(|w| (w.name.to_string(), w.json.to_string(), w.app.to_string()))
                     .collect();
                 let module_fixtures = rust_app_registry.all_modules();
-                if let Err(e) =
-                    orm::doctype_sync::sync_all(&p, fixtures, workspace_fixtures, module_fixtures)
-                        .await
+                let client_script_fixtures: Vec<(String, String)> = rust_app_registry
+                    .all_client_scripts()
+                    .into_iter()
+                    .map(|c| (c.name.to_string(), c.json.to_string()))
+                    .collect();
+                if let Err(e) = orm::doctype_sync::sync_all(
+                    &p,
+                    fixtures,
+                    workspace_fixtures,
+                    module_fixtures,
+                    client_script_fixtures,
+                )
+                .await
                 {
                     error!("doctype sync failed for site {}: {}", name, e);
                 }

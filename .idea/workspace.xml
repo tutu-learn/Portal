@@ -5,10 +5,10 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/crates/config">
+      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/email">
+      <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/error">
@@ -50,121 +50,37 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/session">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/sql-translator">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/Strongroom">
-        <feature name="default" enabled="true" />
-      </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions.">
+      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/doctypes/infrastructure/client_machine.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/doctypes/infrastructure/infrastructure_server.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/doctypes/infrastructure/kubernetes_cluster.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/workspaces/infrastructure/infrastructure.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Portal.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Portal.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/email/src/imap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/email/src/imap.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/email/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/email/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/email/src/parse.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/email/src/parse.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/error/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/error/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/migrations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/migrations.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/components/sidebar.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/components/sidebar.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/bank-reconciliation.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/bank-reconciliation.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/bank-reconciliation.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/bank-reconciliation.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/billing.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/billing.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/billing.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/billing.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/chart-of-accounts.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/chart-of-accounts.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/chart-of-accounts.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/chart-of-accounts.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/client-detail.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/client-detail.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/clients.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/clients.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/dashboard.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/dashboard.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/dashboard.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/diary.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/diary.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/diary.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/diary.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/documents.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/documents.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/documents.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/documents.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/filed-emails.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/filed-emails.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/financial-statements.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/financial-statements.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/financial-statements.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/financial-statements.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/invoice-detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/invoice-detail.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/invoice-detail.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/invoice-detail.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/journal-entries.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/journal-entries.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/journal-entries.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/journal-entries.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/matter-detail.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/matter-detail.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/matters.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/matters.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/section86-investments.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/section86-investments.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/section86-investments.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/section86-investments.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/settings.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/settings.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/tasks.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/tasks.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/tasks.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/tasks.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trust-ledger.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trust-ledger.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/vat-returns.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/vat-returns.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/vat-returns.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/vat-returns.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/bank.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/bank.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/chart_of_accounts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/chart_of_accounts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/fidelity_fund.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/fidelity_fund.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/journal_entry.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/journal_entry.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/section86.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/section86.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/section87.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/section87.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/trial_balance.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/trial_balance.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/vat.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/accounting/vat.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/invoice.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/invoice.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/settlement.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/settlement.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/time_entry.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/billing/time_entry.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/clients.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/clients.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/daily_summary.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/daily_summary.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/ics_feed.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/ics_feed.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/diary/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/case_matter/case_matter.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/case_matter/case_matter.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/client/client.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/client/client.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/document/document.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/document/document.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/filed_email/filed_email.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/filed_email/filed_email.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/journal_entry_line/journal_entry_line.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/journal_entry_line/journal_entry_line.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/section86_investment/section86_investment.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/section86_investment/section86_investment.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/task/task.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/task/task.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/trust_transaction/trust_transaction.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/trust_transaction/trust_transaction.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/filing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/filing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/followup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/followup.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/email/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/ledger/constants.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/ledger/constants.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/ledger/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/ledger/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/matters.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/matters.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/permissions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/permissions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/accounts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/accounts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/interest.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/interest.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/transfers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust/transfers.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/users.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/users.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/capabilities/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/capabilities/default.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/bridge.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/bridge.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/run" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/run" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/run-aarch64-apple-darwin" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/sidecars/tigerbeetle-bridge/run-aarch64-apple-darwin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/accounting.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/accounting.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/bank.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/bank.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/billing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/billing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/diary.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/diary.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/documents.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/documents.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/filed_emails.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/filed_emails.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/tasks.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/tasks.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/trust.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/trust.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/sidecar.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/sidecar.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/tauri.conf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/router.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/router.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/build.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/sync_rust_apps.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/sync_rust_apps.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/common/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -173,12 +89,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="26071" />
+    <option name="cachedIndexableFilesCount" value="19444" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/Strongroom" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -189,7 +105,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal&quot;,
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
     &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
   }
 }</component>
@@ -202,61 +118,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4230246950478074" />
-      <entry key="MS500" value="2.8881439365660864" />
-      <entry key="S2" value="3.6623617510721416" />
-      <entry key="S5" value="3.8592587247203665" />
-      <entry key="S10" value="3.9286425782558254" />
-      <entry key="S30" value="3.975991428836184" />
-      <entry key="S60" value="3.9890287723872597" />
-      <entry key="M2" value="4.0591323624634486" />
-      <entry key="M5" value="4.768167335894594" />
-      <entry key="M10" value="5.7544459874013585" />
-      <entry key="M15" value="6.309374803448237" />
-      <entry key="M30" value="7.039453397107104" />
-      <entry key="H1" value="7.48885299978225" />
-      <entry key="H2" value="7.853764751783479" />
-      <entry key="H4" value="9.716485922155986" />
-      <entry key="D1" value="49.12758465633219" />
-      <entry key="W1" value="82.23171611246983" />
+      <entry key="MS100" value="1.4149420771723806" />
+      <entry key="MS500" value="3.062213112577993" />
+      <entry key="S2" value="5.823941020545486" />
+      <entry key="S5" value="11.759960968349775" />
+      <entry key="S10" value="18.19385508131947" />
+      <entry key="S30" value="26.880144843980624" />
+      <entry key="S60" value="31.457140046014295" />
+      <entry key="M2" value="35.28072931043842" />
+      <entry key="M5" value="40.45837939594926" />
+      <entry key="M10" value="46.69022311660092" />
+      <entry key="M15" value="51.38837120966933" />
+      <entry key="M30" value="60.108310910723894" />
+      <entry key="H1" value="67.59215921733984" />
+      <entry key="H2" value="72.76223147347268" />
+      <entry key="H4" value="77.2766609273942" />
+      <entry key="D1" value="118.65345199080805" />
+      <entry key="W1" value="152.9132733928325" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="1.1331966226540802E-239" />
-      <entry key="M5" value="7.300591990278053E-96" />
-      <entry key="M10" value="6.563305210079841E-48" />
-      <entry key="M15" value="6.358805097250244E-32" />
-      <entry key="M30" value="6.171601884390002E-16" />
-      <entry key="H1" value="6.083949736897095E-8" />
-      <entry key="H2" value="6.04152386006326E-4" />
-      <entry key="H4" value="0.060206506174519385" />
-      <entry key="D1" value="2.7865437081378177" />
-      <entry key="W1" value="5.377341333153527" />
+      <entry key="S2" value="5.233760966722252E-169" />
+      <entry key="S5" value="4.869961788166409E-68" />
+      <entry key="S10" value="2.2067989913370907E-34" />
+      <entry key="S30" value="6.043023163257177E-12" />
+      <entry key="S60" value="2.4582561450922875E-6" />
+      <entry key="M2" value="0.0015680333677404938" />
+      <entry key="M5" value="0.07739836849989969" />
+      <entry key="M10" value="0.3180417727507511" />
+      <entry key="M15" value="0.5458516537812363" />
+      <entry key="M30" value="1.001077424789481" />
+      <entry key="H1" value="1.398707647888734" />
+      <entry key="H2" value="1.6680814099030663" />
+      <entry key="H4" value="1.877530548969238" />
+      <entry key="D1" value="4.694182165312083" />
+      <entry key="W1" value="7.355733301514944" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.371886805572093" />
-      <entry key="MS500" value="2.8650786454569754" />
-      <entry key="S2" value="3.6548259873112077" />
-      <entry key="S5" value="3.856062273703658" />
-      <entry key="S10" value="3.9270121700288554" />
-      <entry key="S30" value="3.975440630104656" />
-      <entry key="S60" value="3.988752362827711" />
-      <entry key="M2" value="4.058991426266152" />
-      <entry key="M5" value="4.768099904302463" />
-      <entry key="M10" value="5.754404580802237" />
-      <entry key="M15" value="6.309344314178437" />
-      <entry key="M30" value="7.039436254749395" />
-      <entry key="H1" value="7.488843905808852" />
-      <entry key="H2" value="7.854363982152635" />
-      <entry key="H4" value="9.776683797781416" />
-      <entry key="D1" value="51.91408273368412" />
-      <entry key="W1" value="87.60904497529158" />
+      <entry key="MS100" value="0.7392439571572683" />
+      <entry key="MS500" value="2.8545066694184205" />
+      <entry key="S2" value="5.763587774084367" />
+      <entry key="S5" value="11.73176932166109" />
+      <entry key="S10" value="18.177697960155825" />
+      <entry key="S30" value="26.873839921350562" />
+      <entry key="S60" value="31.453744810634117" />
+      <entry key="M2" value="35.28048811817004" />
+      <entry key="M5" value="40.53488653008778" />
+      <entry key="M10" value="47.00760755135008" />
+      <entry key="M15" value="51.93364821934238" />
+      <entry key="M30" value="61.108958895954466" />
+      <entry key="H1" value="68.99058786495182" />
+      <entry key="H2" value="74.43015109903516" />
+      <entry key="H4" value="79.15409868167629" />
+      <entry key="D1" value="123.34757436993391" />
+      <entry key="W1" value="160.26899207223184" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -279,8 +195,8 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/Portal",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -289,10 +205,16 @@
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
     "ts.external.directory.path": "/Users/johannnefdt/RustroverProjects/Portal/rust_apps/Strongroom/e2e-tauri/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/apps" />
+    </key>
+  </component>
   <component name="RunManager" selected="Cargo.Run kiff-runtime">
     <configuration name="Run kiff-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
@@ -361,6 +283,9 @@
       <workItem from="1783514051586" duration="7833000" />
       <workItem from="1783525353057" duration="26213000" />
       <workItem from="1783585354201" duration="38163000" />
+      <workItem from="1783670437523" duration="6505000" />
+      <workItem from="1783678568811" duration="154000" />
+      <workItem from="1783679184532" duration="14912000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
