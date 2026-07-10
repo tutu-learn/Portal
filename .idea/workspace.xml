@@ -59,25 +59,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly.">
-      <change afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/e2e/auth.setup.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/e2e/global-setup.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/e2e/global-teardown.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/e2e/helpers/db.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/playwright.config.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/runtime.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
       <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test-results/.last-run.json" beforeDir="false" afterPath="$PROJECT_DIR$/test-results/.last-run.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -281,7 +265,7 @@
       <workItem from="1783585354201" duration="38163000" />
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
-      <workItem from="1783679184532" duration="19275000" />
+      <workItem from="1783679184532" duration="21014000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -323,7 +307,23 @@
       <option name="project" value="LOCAL" />
       <updated>1783701589796</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
+      <option name="closed" value="true" />
+      <created>1783709174937</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1783709174937</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
+      <option name="closed" value="true" />
+      <created>1783710512504</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1783710512504</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -336,6 +336,7 @@
     <MESSAGE value="Introduce `email` crate with IMAP/SMTP utilities and configuration support&#10;&#10;- Add `email` crate to provide generic email configuration, connection testing, email parsing, and send/fetch operations using IMAP and SMTP. &#10;- Implement `EmailConfig`, `SmtpConfig`, and `ImapConfig` for managing email settings with camelCase serialization support.&#10;- Introduce utility functions for testing email credentials, sending emails, and parsing raw RFC-822 messages.&#10;- Include comprehensive tests to validate email configuration parsing, roundtrip serialization, and connectivity." />
     <MESSAGE value="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions." />
     <MESSAGE value="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly." />
+    <MESSAGE value="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime." />
   </component>
 </project>
