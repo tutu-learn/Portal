@@ -1,6 +1,7 @@
 //! Raw RFC-822 e-mail parsing.
 
 use chrono::Utc;
+use mail_parser::MimeHeaders;
 
 /// A lightweight representation of a parsed e-mail.
 #[derive(Debug, Clone)]
@@ -12,6 +13,14 @@ pub struct ParsedEmail {
     pub body_text: String,
     pub received_at: String,
     pub raw_eml: Vec<u8>,
+}
+
+/// A single attachment extracted from a parsed e-mail.
+#[derive(Debug, Clone)]
+pub struct ParsedAttachment {
+    pub filename: String,
+    pub content_type: String,
+    pub body: Vec<u8>,
 }
 
 fn address_to_string(addr: &mail_parser::Address) -> String {
@@ -63,6 +72,53 @@ pub fn parse_raw_email(raw: &[u8]) -> Option<ParsedEmail> {
         received_at,
         raw_eml: raw.to_vec(),
     })
+}
+
+/// Extract attachments from a raw RFC-822 message.
+///
+/// Attachments are identified by `mail-parser`'s attachment list (MIME parts
+/// with `Content-Disposition: attachment` or otherwise marked as attachments).
+/// Filenames are sanitised so the returned names are safe to use as local file
+/// names.
+pub fn parse_attachments(raw: &[u8]) -> Vec<ParsedAttachment> {
+    let Some(msg) = mail_parser::MessageParser::default().parse(raw) else {
+        return Vec::new();
+    };
+
+    msg.attachments()
+        .filter_map(|part| {
+            let filename = part
+                .attachment_name()
+                .map(sanitise_filename)
+                .unwrap_or_else(|| format!("attachment-{}.bin", uuid::Uuid::new_v4()));
+            let content_type = part
+                .content_type()
+                .map(|ct| {
+                    let subtype = ct.subtype().unwrap_or("octet-stream");
+                    format!("{}/{}", ct.ctype(), subtype)
+                })
+                .unwrap_or_else(|| "application/octet-stream".to_string());
+            Some(ParsedAttachment {
+                filename,
+                content_type,
+                body: part.contents().to_vec(),
+            })
+        })
+        .collect()
+}
+
+fn sanitise_filename(name: &str) -> String {
+    let mut out = String::new();
+    for ch in name.chars().take(128) {
+        match ch {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '.' | '-' | '_' | ' ' => out.push(ch),
+            _ => out.push('_'),
+        }
+    }
+    if out.is_empty() {
+        out = format!("attachment-{}.bin", uuid::Uuid::new_v4());
+    }
+    out
 }
 
 #[cfg(test)]

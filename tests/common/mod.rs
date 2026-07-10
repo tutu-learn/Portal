@@ -69,6 +69,13 @@ pub async fn grant_permission(
 }
 
 pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
+    build_state_with_apps(pool, vec![Box::new(sebrus_logger::SebrusLoggerApp)])
+}
+
+fn build_state_with_apps(
+    pool: orm::DatabasePool,
+    apps: Vec<Box<dyn rust_apps_core::RustApp>>,
+) -> http::AppState {
     use dashmap::DashMap;
     use std::sync::Arc;
 
@@ -86,7 +93,7 @@ pub fn build_app_state(pool: orm::DatabasePool) -> http::AppState {
         translator: Arc::new(sql_translator::SqlTranslator::new(
             sql_translator::TargetDialect::Sqlite,
         )),
-        rust_apps: rust_apps_core::RustAppRegistry::new(vec![Box::new(sebrus_logger::SebrusLoggerApp)]),
+        rust_apps: rust_apps_core::RustAppRegistry::new(apps),
         logger: Arc::new(std::sync::OnceLock::new()),
     }
 }

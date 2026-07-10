@@ -278,6 +278,22 @@ impl Migrator {
                 CREATE INDEX IF NOT EXISTS idx_sod_doctype ON __kiff_sod(doctype);
                 "#,
             ),
+            // These columns are now part of the Strongroom DocType JSON fixtures and
+            // are created by doctype_sync before migrations run. Keep the migration
+            // records so existing databases do not re-apply them, but use no-op SQL
+            // so fresh databases do not fail with "duplicate column" errors.
+            (
+                "007_journal_entry_line_tb_transfer_id",
+                "SELECT 1",
+            ),
+            (
+                "008_trust_transaction_tb_transfer_id",
+                "SELECT 1",
+            ),
+            (
+                "009_invoice_settlement_columns",
+                "SELECT 1",
+            ),
         ];
 
         for (name, sql) in migrations {

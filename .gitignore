@@ -11,3 +11,7 @@ python/frappe/**/*.pyc
 .DS_Store
 /apps/frappe/
 /.venv/
+
+# Independently managed repos checked out under rust_apps/ (own git history/remote)
+/rust_apps/Strongroom/
+/rust_apps/sebrus_logger/

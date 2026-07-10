@@ -10,7 +10,7 @@ pub mod parse;
 pub mod smtp;
 
 pub use config::{EmailConfig, ImapConfig, SmtpConfig};
-pub use parse::{parse_raw_email, ParsedEmail};
+pub use parse::{parse_attachments, parse_raw_email, ParsedAttachment, ParsedEmail};
 
 /// Result of testing SMTP and IMAP credentials.
 #[derive(Debug, Clone, serde::Serialize)]

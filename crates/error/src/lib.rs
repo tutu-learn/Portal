@@ -14,6 +14,9 @@ pub enum RuntimeError {
     #[error("permission denied: {0}")]
     Permission(String),
 
+    #[error("permission denied: {0}")]
+    PermissionDenied(String),
+
     #[error("not found: {0}")]
     NotFound(String),
 
