@@ -2265,6 +2265,40 @@ impl IntoResponse for MethodResponse {
     }
 }
 
+/// Strip internal UI-state keys from child-table rows and assign real names to
+/// newly-created rows (names starting with `new-`). Returns the cleaned value.
+fn clean_child_rows(value: Value) -> Value {
+    let mut arr = match value {
+        Value::Array(a) => a,
+        _ => return value,
+    };
+
+    for item in arr.iter_mut() {
+        let Some(obj) = item.as_object_mut() else { continue };
+        // Only treat objects that look like Frappe child rows.
+        if !obj.contains_key("doctype") {
+            continue;
+        }
+        let is_new = obj
+            .get("__islocal")
+            .and_then(|v| v.as_i64())
+            .map(|n| n == 1)
+            .unwrap_or_else(|| {
+                obj.get("name")
+                    .and_then(|v| v.as_str())
+                    .map(|n| is_new_doc_name(n))
+                    .unwrap_or(false)
+            });
+        if is_new {
+            obj.insert("name".to_string(), json!(uuid::Uuid::new_v4().to_string()));
+        }
+        // Strip any internal UI-state keys from the child row.
+        obj.retain(|k, _| !k.starts_with('_') && !k.starts_with("__"));
+    }
+
+    Value::Array(arr)
+}
+
 /// Native handler for `frappe.desk.form.save`.
 ///
 /// The Desk form builder sends the full document (as a JSON object or string)
@@ -2365,33 +2399,22 @@ async fn desk_form_save(
     }
 
     // Copy remaining fields, skipping internal UI state and Frappe sync
-    // metadata that are not real columns.
-    let skip_fields: std::collections::HashSet<&str> = [
-        "doctype",
-        "name",
-        "owner",
-        "creation",
-        "modified",
-        "modified_by",
-        "docstatus",
-        "idx",
-        "__islocal",
-        "__unsaved",
-        "__deleted",
-        "__last_sync_on",
-        "__original_name",
-        "__trigger_commit",
-        "_user_tags",
-        "_comments",
-        "_assign",
-        "_liked_by",
-    ]
-    .into_iter()
-    .collect();
+    // metadata that are not real columns. Any key starting with `_` or `__`
+    // is internal bookkeeping from Desk and should never be persisted.
+    fn is_internal_field(k: &str) -> bool {
+        k.starts_with('_') || k.starts_with("__")
+    }
     for (k, v) in doc_map {
-        if skip_fields.contains(k.as_str()) {
+        if is_internal_field(&k) {
             continue;
         }
+        // Child table fields arrive as arrays of objects carrying internal UI
+        // flags and temporary names; clean them before persistence.
+        let v = if v.is_array() {
+            clean_child_rows(v)
+        } else {
+            v
+        };
         doc.set_field(k, v);
     }
 

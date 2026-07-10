@@ -167,6 +167,76 @@ test.describe('User creation and role assignment', () => {
     expect(roles).toContain('Infrastructure Viewer');
   });
 
+  test('admin can assign roles to existing Administrator user via Desk save', async ({ page }) => {
+    const roleName = 'Server Admin';
+
+    // Ensure we are on the site origin so fetch URLs resolve correctly.
+    await page.goto('/desk');
+    await page.locator('body').waitFor({ state: 'visible' });
+
+    // Load the current Administrator document via the same GET endpoint Desk uses.
+    const loadRes = await page.evaluate(async () => {
+      try {
+        const r = await fetch('/api/method/frappe.desk.form.load.getdoc?doctype=User&name=Administrator', {
+          credentials: 'include',
+        });
+        const json = await r.json();
+        if (!r.ok) return { ok: false, error: JSON.stringify(json) };
+        return { ok: true, docs: json.docs || [] };
+      } catch (e) {
+        return { ok: false, error: JSON.stringify(e) };
+      }
+    });
+    expect(loadRes.ok, `failed to load Administrator: ${loadRes.error}`).toBe(true);
+    const adminDoc = loadRes.docs.find((d) => d.doctype === 'User');
+    expect(adminDoc).toBeTruthy();
+
+    // Append a new role child row using the temporary name / __islocal flags
+    // that Desk uses for new child rows.
+    adminDoc.roles.push({
+      doctype: 'Has Role',
+      name: `new-has-role-${Math.random().toString(36).slice(2, 12)}`,
+      __islocal: 1,
+      __unsaved: 1,
+      owner: 'Administrator',
+      parent: 'Administrator',
+      parentfield: 'roles',
+      parenttype: 'User',
+      idx: adminDoc.roles.length + 1,
+      role: roleName,
+    });
+    adminDoc.__unsaved = 1;
+
+    // Call the same savedocs endpoint the Desk Save button uses.
+    const saveRes = await page.evaluate(async (doc) => {
+      try {
+        const body = new URLSearchParams();
+        body.append('doc', JSON.stringify(doc));
+        body.append('action', 'Save');
+        const r = await fetch('/api/method/frappe.desk.form.save.savedocs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'include',
+          body,
+        });
+        const json = await r.json();
+        if (!r.ok) return { ok: false, error: JSON.stringify(json) };
+        return { ok: true, docs: json.docs || [] };
+      } catch (e) {
+        return { ok: false, error: JSON.stringify(e) };
+      }
+    }, adminDoc);
+    expect(saveRes.ok, `savedocs failed: ${saveRes.error}`).toBe(true);
+
+    // Verify the role assignment persisted.
+    const rows = queryRows(`SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = 'Administrator'`);
+    const roles = rows.map((r) => r.role);
+    expect(roles).toContain(roleName);
+  });
+
   test('Infrastructure Viewer can view infrastructure servers', async ({ page, context, browser }) => {
     const email = uniqueEmail('vieweraccess');
     const password = 'TestPass123!';
