@@ -138,3 +138,104 @@ test.describe('Kubernetes Cluster creation from Desk', () => {
     await expect(page.locator('.list-row-container, .list-row').filter({ hasText: title }).first()).toBeVisible();
   });
 });
+
+test.describe('Telemetry ingestion endpoint', () => {
+  test('server token can submit telemetry and logs are immediately queryable', async ({ page }) => {
+    // 1. Create a server so a token record exists.
+    const title = uniqueLabel('srv-telemetry');
+    const newName = randomNewName('infrastructure-server');
+
+    await page.goto(`/desk/infrastructure-server/${newName}`);
+    await page.locator('.form-page-header, .form-layout').first().waitFor({ state: 'visible' });
+
+    await fillDataField(page, 'title', title);
+    await fillDataField(page, 'hostname', `${title}.example.com`);
+    await fillSelect(page, 'server_type', 'Linux Worker');
+    await fillSelect(page, 'operating_system', 'Linux');
+    await fillSelect(page, 'environment', 'Production');
+    await fillSelect(page, 'business_criticality', 'Medium');
+
+    await saveFullForm(page, newName);
+
+    const serverName = query(`SELECT name FROM "infrastructure_server" WHERE title = '${title}'`);
+    expect(serverName).toBeTruthy();
+
+    // 2. Generate a fresh bearer token for the server.
+    const tokenRes = await page.request.post('/api/method/audit_ready.generate_server_token', {
+      data: { server: serverName, token_name: 'Telemetry token' },
+    });
+    expect(tokenRes.ok()).toBeTruthy();
+    const tokenJson = await tokenRes.json();
+    expect(tokenJson.message?.ok || tokenJson.ok).toBeTruthy();
+    const bearerToken = tokenJson.message?.token || tokenJson.token;
+    expect(bearerToken).toBeTruthy();
+
+    // 3. POST a telemetry snapshot.
+    const telemetryPayload = {
+      hostname: `${title}.example.com`,
+      endpoint_type: 'server',
+      installed_software: {
+        packages: [
+          { name: 'openssl', version: '3.0.0', source: 'apt' },
+          { name: 'nginx', version: '1.24.0', source: 'apt' },
+        ],
+      },
+      compliance: {
+        pass: 2,
+        fail: 1,
+        warn: 0,
+        checks: [
+          { name: 'Firewall', status: 'PASS', message: 'Firewall is active' },
+          { name: 'Disk Encryption', status: 'FAIL', message: 'Disk encryption disabled' },
+        ],
+      },
+      running_processes: {
+        total: 42,
+        flagged: 1,
+        killed: 0,
+        processes: [
+          { pid: 1, ppid: 0, name: 'systemd', elevated: true, verdict: 'OK', command: '/sbin/init' },
+          { pid: 999, ppid: 1, name: 'suspicious', elevated: false, verdict: 'FLAGGED', command: '/tmp/suspicious' },
+        ],
+      },
+      network_traffic: {
+        interfaces: [{ name: 'eth0', addresses: ['10.0.0.5'] }],
+        connections: [{ proto: 'TCP', local: '10.0.0.5:22', remote: '1.2.3.4:12345', state: 'ESTABLISHED' }],
+        dns_servers: ['10.0.0.1'],
+      },
+    };
+
+    const telemRes = await page.request.post('/audit_ready/telemetry', {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+      data: telemetryPayload,
+    });
+    expect(telemRes.ok()).toBeTruthy();
+    const telemJson = await telemRes.json();
+    expect(telemJson.ok).toBe(true);
+    expect(telemJson.records).toBeGreaterThanOrEqual(3); // summary + 2 compliance + 1 flagged process
+
+    // 4. Query the log engine immediately and confirm the batch was committed.
+    const queryRes = await page.request.post('/api/method/kiff_logger.query', {
+      data: {
+        q: 'service:audit_ready.telemetry OR service:audit_ready.telemetry.compliance OR service:audit_ready.telemetry.process',
+        limit: 20,
+      },
+    });
+    expect(queryRes.ok()).toBeTruthy();
+    const queryJson = await queryRes.json();
+    const records = queryJson.message?.records || queryJson.records || [];
+    const hostnames = records.map((r) => r.fields?.hostname);
+    expect(hostnames).toContain(`${title}.example.com`);
+    const services = records.map((r) => r.service);
+    expect(services).toContain('audit_ready.telemetry');
+    expect(services).toContain('audit_ready.telemetry.compliance');
+    expect(services).toContain('audit_ready.telemetry.process');
+  });
+
+  test('telemetry rejects unauthenticated requests', async ({ page }) => {
+    const res = await page.request.post('/audit_ready/telemetry', {
+      data: { hostname: 'unauth.example.com' },
+    });
+    expect(res.status()).toBe(401);
+  });
+});

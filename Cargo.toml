@@ -15,6 +15,7 @@ members = [
     "crates/log_engine",
     "cli",
     "crates/kiff_logger",
+    "crates/protocol",
     "rust_apps/core",
     "rust_apps/audit_ready",
 ]
