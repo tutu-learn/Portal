@@ -739,6 +739,7 @@ def _patch_real_module(mod):
             _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
 
             def _kiff_get_oauth2_providers():
+                import frappe
                 import os
                 import re
 

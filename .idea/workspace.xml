@@ -62,20 +62,14 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/vuln/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/vuln/mod.rs" afterDir="false" />
-    </list>
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19609" />
+    <option name="cachedIndexableFilesCount" value="19622" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -104,61 +98,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4149420771723806" />
-      <entry key="MS500" value="3.062213112577993" />
-      <entry key="S2" value="5.823941020545486" />
-      <entry key="S5" value="11.759960968349775" />
-      <entry key="S10" value="18.19385508131947" />
-      <entry key="S30" value="26.880144843980624" />
-      <entry key="S60" value="31.457140046014295" />
-      <entry key="M2" value="35.28072931043842" />
-      <entry key="M5" value="40.45837939594926" />
-      <entry key="M10" value="46.69022311660092" />
-      <entry key="M15" value="51.38837120966933" />
-      <entry key="M30" value="60.108310910723894" />
-      <entry key="H1" value="67.59215921733984" />
-      <entry key="H2" value="72.76223147347268" />
-      <entry key="H4" value="77.2766609273942" />
-      <entry key="D1" value="118.65345199080805" />
-      <entry key="W1" value="152.9132733928325" />
+      <entry key="MS100" value="1.0000091360374803" />
+      <entry key="MS500" value="1.0982090645834475" />
+      <entry key="S2" value="1.5598064443271198" />
+      <entry key="S5" value="1.7928940474463637" />
+      <entry key="S10" value="1.890445982329284" />
+      <entry key="S30" value="1.9620608153690415" />
+      <entry key="S60" value="1.9808469887648341" />
+      <entry key="M2" value="1.9903772316262165" />
+      <entry key="M5" value="1.997745043626916" />
+      <entry key="M10" value="2.0567170533542702" />
+      <entry key="M15" value="2.2075003480550306" />
+      <entry key="M30" value="2.871488056893275" />
+      <entry key="H1" value="3.9913087796626936" />
+      <entry key="H2" value="5.1377158355920765" />
+      <entry key="H4" value="7.222575690588904" />
+      <entry key="D1" value="66.75750592729497" />
+      <entry key="W1" value="145.6769770070574" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
-      <entry key="S2" value="5.233760966722252E-169" />
-      <entry key="S5" value="4.869961788166409E-68" />
-      <entry key="S10" value="2.2067989913370907E-34" />
-      <entry key="S30" value="6.043023163257177E-12" />
-      <entry key="S60" value="2.4582561450922875E-6" />
-      <entry key="M2" value="0.0015680333677404938" />
-      <entry key="M5" value="0.07739836849989969" />
-      <entry key="M10" value="0.3180417727507511" />
-      <entry key="M15" value="0.5458516537812363" />
-      <entry key="M30" value="1.001077424789481" />
-      <entry key="H1" value="1.398707647888734" />
-      <entry key="H2" value="1.6680814099030663" />
-      <entry key="H4" value="1.877530548969238" />
-      <entry key="D1" value="4.694182165312083" />
-      <entry key="W1" value="7.355733301514944" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="5.585947055353665E-217" />
+      <entry key="M5" value="3.2316804582766904E-87" />
+      <entry key="M10" value="6.498789475776355E-44" />
+      <entry key="M15" value="1.893681046462181E-29" />
+      <entry key="M30" value="5.896356977688468E-15" />
+      <entry key="H1" value="1.0734578593125482E-7" />
+      <entry key="H2" value="4.621109586027153E-4" />
+      <entry key="H4" value="0.03125010815018327" />
+      <entry key="D1" value="2.371941777739149" />
+      <entry key="W1" value="6.672293313491795" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.7392439571572683" />
-      <entry key="MS500" value="2.8545066694184205" />
-      <entry key="S2" value="5.763587774084367" />
-      <entry key="S5" value="11.73176932166109" />
-      <entry key="S10" value="18.177697960155825" />
-      <entry key="S30" value="26.873839921350562" />
-      <entry key="S60" value="31.453744810634117" />
-      <entry key="M2" value="35.28048811817004" />
-      <entry key="M5" value="40.53488653008778" />
-      <entry key="M10" value="47.00760755135008" />
-      <entry key="M15" value="51.93364821934238" />
-      <entry key="M30" value="61.108958895954466" />
-      <entry key="H1" value="68.99058786495182" />
-      <entry key="H2" value="74.43015109903516" />
-      <entry key="H4" value="79.15409868167629" />
-      <entry key="D1" value="123.34757436993391" />
-      <entry key="W1" value="160.26899207223184" />
+      <entry key="MS100" value="0.9659452151369006" />
+      <entry key="MS500" value="1.0907584804585757" />
+      <entry key="S2" value="1.5572995580803235" />
+      <entry key="S5" value="1.7917615884989782" />
+      <entry key="S10" value="1.8898526189620901" />
+      <entry key="S30" value="1.9618563883212967" />
+      <entry key="S60" value="1.9807439044602149" />
+      <entry key="M2" value="1.9903254686023426" />
+      <entry key="M5" value="1.997724272008578" />
+      <entry key="M10" value="2.056706421399953" />
+      <entry key="M15" value="2.2074928076598757" />
+      <entry key="M30" value="2.8714831303129977" />
+      <entry key="H1" value="3.991305328116127" />
+      <entry key="H2" value="5.13817553979985" />
+      <entry key="H4" value="7.2538228561131355" />
+      <entry key="D1" value="69.12941722356439" />
+      <entry key="W1" value="152.34925701708468" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -272,7 +266,7 @@
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="31665000" />
+      <workItem from="1783773069519" duration="54742000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -354,7 +348,111 @@
       <option name="project" value="LOCAL" />
       <updated>1783806367627</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="fixed bugs">
+      <option name="closed" value="true" />
+      <created>1783861706505</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1783861706505</updated>
+    </task>
+    <task id="LOCAL-00012" summary="fixed bugs">
+      <option name="closed" value="true" />
+      <created>1783863442876</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1783863442876</updated>
+    </task>
+    <task id="LOCAL-00013" summary="fixee">
+      <option name="closed" value="true" />
+      <created>1783864940643</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1783864940643</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Enhance OAuth handling with improved error logging and input validation">
+      <option name="closed" value="true" />
+      <created>1783868056759</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1783868056759</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers.">
+      <option name="closed" value="true" />
+      <created>1783870573315</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1783870573315</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement.">
+      <option name="closed" value="true" />
+      <created>1783872272112</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1783872272112</updated>
+    </task>
+    <task id="LOCAL-00017" summary="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration.">
+      <option name="closed" value="true" />
+      <created>1783873644289</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1783873644289</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts.">
+      <option name="closed" value="true" />
+      <created>1783878638724</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1783878638724</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases.">
+      <option name="closed" value="true" />
+      <created>1783880249820</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1783880249820</updated>
+    </task>
+    <task id="LOCAL-00020" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783881458014</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1783881458014</updated>
+    </task>
+    <task id="LOCAL-00021" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783883019878</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1783883019878</updated>
+    </task>
+    <task id="LOCAL-00022" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783886013566</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1783886013566</updated>
+    </task>
+    <task id="LOCAL-00023" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
+      <option name="closed" value="true" />
+      <created>1783888820229</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1783888820230</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -373,6 +471,18 @@
     <MESSAGE value="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime." />
     <MESSAGE value="Add Playwright E2E tests for Infrastructure Server and Kubernetes Cluster creation&#10;&#10;Introduced end-to-end tests to validate the creation and persistence of Infrastructure Servers and Kubernetes Clusters via the UI, ensuring backend data integrity and expected UI behavior." />
     <MESSAGE value="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward." />
-    <option name="LAST_COMMIT_MESSAGE" value="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward." />
+    <MESSAGE value="fixed bugs" />
+    <MESSAGE value="fixee" />
+    <MESSAGE value="Enhance OAuth handling with improved error logging and input validation" />
+    <MESSAGE value="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers." />
+    <MESSAGE value="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement." />
+    <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
+    <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
+    <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
+    <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
+    <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
+    <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
+    <MESSAGE value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
   </component>
 </project>
