@@ -641,6 +641,25 @@ def _patch_real_module(mod):
                         return key.name
                 return provider
 
+            def _oauth_provider_key(login_key):
+                """Map a Social Login Key name to the OAuth provider config key.
+
+                Frappe's oauth2_providers dict is keyed by the provider type
+                (e.g. "office_365"), not the Social Login Key document name
+                (e.g. "microsoft").  We need the config key for get_oauth2_flow
+                and for reading provider settings like api_endpoint.
+                """
+                import frappe
+
+                try:
+                    doc = frappe.get_doc("Social Login Key", login_key)
+                    provider = doc.get("social_login_provider")
+                    if provider:
+                        return frappe.scrub(provider)
+                except Exception:
+                    pass
+                return login_key
+
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
             _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
 
@@ -663,7 +682,11 @@ def _patch_real_module(mod):
                 import json as _json
                 import jwt
 
-                flow = _oauth_mod.get_oauth2_flow(provider)
+                # provider is the Social Login Key document name; get_oauth2_flow
+                # and oauth2_providers are keyed by the OAuth provider type.
+                provider_key = _oauth_provider_key(provider)
+
+                flow = _oauth_mod.get_oauth2_flow(provider_key)
                 oauth2_providers = _oauth_mod.get_oauth2_providers()
 
                 args = {
@@ -674,11 +697,11 @@ def _patch_real_module(mod):
                     }
                 }
 
-                access_token_url = oauth2_providers[provider]["flow_params"].get(
+                access_token_url = oauth2_providers[provider_key]["flow_params"].get(
                     "access_token_url", ""
                 )
                 if "login.microsoftonline.com" in access_token_url:
-                    auth_url_data = oauth2_providers[provider].get("auth_url_data") or {}
+                    auth_url_data = oauth2_providers[provider_key].get("auth_url_data") or {}
                     if isinstance(auth_url_data, str):
                         auth_url_data = _json.loads(auth_url_data)
                     if scope := auth_url_data.get("scope"):
@@ -696,11 +719,11 @@ def _patch_real_module(mod):
                         token, flow.client_secret, options={"verify_signature": False}
                     )
                 else:
-                    api_endpoint = oauth2_providers[provider].get("api_endpoint")
-                    api_endpoint_args = oauth2_providers[provider].get("api_endpoint_args")
+                    api_endpoint = oauth2_providers[provider_key].get("api_endpoint")
+                    api_endpoint_args = oauth2_providers[provider_key].get("api_endpoint_args")
                     info = session.get(api_endpoint, params=api_endpoint_args).json()
 
-                    if provider == "github" and not info.get("email"):
+                    if provider_key == "github" and not info.get("email"):
                         emails = session.get("/user/emails", params=api_endpoint_args).json()
                         email_dict = next(filter(lambda x: x.get("primary"), emails))
                         info["email"] = email_dict.get("email")
