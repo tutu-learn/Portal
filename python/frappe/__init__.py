@@ -629,16 +629,22 @@ def _patch_real_module(mod):
                 """
                 import frappe
 
-                if frappe.db.exists("Social Login Key", provider):
-                    return provider
-                for key in frappe.get_all(
-                    "Social Login Key",
-                    fields=["name", "social_login_provider"],
-                ):
-                    if key.social_login_provider and frappe.scrub(
-                        key.social_login_provider
-                    ) == provider:
-                        return key.name
+                try:
+                    if frappe.db.exists("Social Login Key", provider):
+                        return provider
+                    for key in frappe.get_all(
+                        "Social Login Key",
+                        fields=["name", "social_login_provider"],
+                    ):
+                        if key.social_login_provider and frappe.scrub(
+                            key.social_login_provider
+                        ) == provider:
+                            return key.name
+                except Exception as e:
+                    import logging
+                    logging.getLogger("kiff.oauth").warning(
+                        "_resolve_oauth_provider failed for %r: %s", provider, e
+                    )
                 return provider
 
             def _oauth_provider_key(login_key):
@@ -704,7 +710,14 @@ def _patch_real_module(mod):
             def _kiff_get_oauth_keys(provider):
                 # provider is the OAuth provider config key; resolve to the Social
                 # Login Key document name so the stored password can be found.
-                return _orig_get_oauth_keys(_oauth_login_key(provider))
+                try:
+                    return _orig_get_oauth_keys(_oauth_login_key(provider))
+                except Exception as e:
+                    import logging
+                    logging.getLogger("kiff.oauth").error(
+                        "get_oauth_keys failed for provider %r: %s", provider, e
+                    )
+                    raise
 
             _oauth_mod.get_oauth_keys = _kiff_get_oauth_keys
 
@@ -712,8 +725,12 @@ def _patch_real_module(mod):
 
             def _kiff_get_oauth2_providers():
                 providers = _orig_get_oauth2_providers()
+                if not isinstance(providers, dict):
+                    providers = dict(providers) if providers is not None else {}
+                else:
+                    providers = dict(providers)
                 has_microsoft = any(
-                    "login.microsoftonline.com" in (p.get("flow_params") or {}).get("access_token_url", "")
+                    "login.microsoftonline.com" in (((p or {}).get("flow_params") or {}).get("access_token_url") or "")
                     for p in providers.values()
                 )
                 if not has_microsoft:
@@ -740,77 +757,121 @@ def _patch_real_module(mod):
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
                 import json as _json
                 import jwt
+                import logging
 
-                # provider is the Social Login Key document name; get_oauth2_flow
-                # and oauth2_providers are keyed by the OAuth provider type.
-                provider_key = _oauth_provider_key(provider)
-                oauth2_providers = _oauth_mod.get_oauth2_providers()
+                _log = logging.getLogger("kiff.oauth")
 
-                # The server's Frappe build may use a different provider key than
-                # the standard "office_365".  If the resolved key is missing, try
-                # to find the Microsoft provider by its token endpoint.
-                if provider_key not in oauth2_providers:
-                    for key, cfg in oauth2_providers.items():
-                        flow_params = cfg.get("flow_params") or {}
-                        token_url = flow_params.get("access_token_url", "")
-                        if "login.microsoftonline.com" in token_url:
-                            provider_key = key
-                            break
-                    else:
-                        raise KeyError(
-                            "OAuth provider '{}' not found in oauth2_providers. "
-                            "Available keys: {}".format(
-                                provider_key, list(oauth2_providers.keys())
-                            )
+                try:
+                    # provider is the Social Login Key document name; get_oauth2_flow
+                    # and oauth2_providers are keyed by the OAuth provider type.
+                    provider_key = _oauth_provider_key(provider)
+                    oauth2_providers = _oauth_mod.get_oauth2_providers()
+                    if not isinstance(oauth2_providers, dict):
+                        raise RuntimeError(
+                            "get_oauth2_providers() returned %s, expected dict"
+                            % type(oauth2_providers).__name__
                         )
 
-                flow = _oauth_mod.get_oauth2_flow(provider_key)
+                    # The server's Frappe build may use a different provider key than
+                    # the standard "office_365".  If the resolved key is missing, try
+                    # to find the Microsoft provider by its token endpoint.
+                    if provider_key not in oauth2_providers:
+                        for key, cfg in oauth2_providers.items():
+                            if not isinstance(cfg, dict):
+                                continue
+                            token_url = (
+                                (cfg.get("flow_params") or {}).get("access_token_url")
+                                or ""
+                            )
+                            if "login.microsoftonline.com" in token_url:
+                                provider_key = key
+                                break
+                        else:
+                            raise KeyError(
+                                "OAuth provider '{}' not found in oauth2_providers. "
+                                "Available keys: {}".format(
+                                    provider_key, list(oauth2_providers.keys())
+                                )
+                            )
 
-                args = {
-                    "data": {
-                        "code": code,
-                        "redirect_uri": _oauth_mod.get_redirect_uri(provider_key),
-                        "grant_type": "authorization_code",
+                    provider_cfg = oauth2_providers[provider_key]
+                    if not isinstance(provider_cfg, dict):
+                        raise RuntimeError(
+                            "OAuth provider config for '{}' is not a dict".format(provider_key)
+                        )
+
+                    flow = _oauth_mod.get_oauth2_flow(provider_key)
+
+                    args = {
+                        "data": {
+                            "code": code,
+                            "redirect_uri": _oauth_mod.get_redirect_uri(provider_key),
+                            "grant_type": "authorization_code",
+                        }
                     }
-                }
 
-                access_token_url = oauth2_providers[provider_key]["flow_params"].get(
-                    "access_token_url", ""
-                )
-                if "login.microsoftonline.com" in access_token_url:
-                    auth_url_data = oauth2_providers[provider_key].get("auth_url_data") or {}
-                    if isinstance(auth_url_data, str):
-                        auth_url_data = _json.loads(auth_url_data)
-                    if scope := auth_url_data.get("scope"):
-                        args["data"]["scope"] = scope
+                    access_token_url = (
+                        provider_cfg.get("flow_params") or {}
+                    ).get("access_token_url") or ""
+                    if "login.microsoftonline.com" in access_token_url:
+                        auth_url_data = provider_cfg.get("auth_url_data") or {}
+                        if isinstance(auth_url_data, str):
+                            auth_url_data = _json.loads(auth_url_data) or {}
+                        if not isinstance(auth_url_data, dict):
+                            auth_url_data = {}
+                        scope = auth_url_data.get("scope")
+                        if scope:
+                            args["data"]["scope"] = scope
 
-                if decoder:
-                    args["decoder"] = decoder
+                    if decoder:
+                        args["decoder"] = decoder
 
-                session = flow.get_auth_session(**args)
+                    _log.debug("OAuth token exchange: provider_key=%s", provider_key)
+                    session = flow.get_auth_session(**args)
 
-                if id_token:
-                    parsed_access = _json.loads(session.access_token_response.text)
-                    token = parsed_access["id_token"]
-                    info = jwt.decode(
-                        token, flow.client_secret, options={"verify_signature": False}
-                    )
-                else:
-                    api_endpoint = oauth2_providers[provider_key].get("api_endpoint")
-                    api_endpoint_args = oauth2_providers[provider_key].get("api_endpoint_args")
-                    info = session.get(api_endpoint, params=api_endpoint_args).json()
+                    if id_token:
+                        parsed_access = _json.loads(
+                            getattr(session, "access_token_response", None)
+                            and session.access_token_response.text
+                            or "{}"
+                        )
+                        token = parsed_access.get("id_token")
+                        if not token:
+                            raise RuntimeError("id_token missing in OAuth response")
+                        info = jwt.decode(
+                            token,
+                            getattr(flow, "client_secret", None) or "",
+                            options={"verify_signature": False},
+                        )
+                    else:
+                        api_endpoint = provider_cfg.get("api_endpoint")
+                        if not api_endpoint:
+                            raise RuntimeError(
+                                "api_endpoint missing for provider '{}'".format(provider_key)
+                            )
+                        api_endpoint_args = provider_cfg.get("api_endpoint_args")
+                        resp = session.get(api_endpoint, params=api_endpoint_args)
+                        info = resp.json() if callable(getattr(resp, "json", None)) else {}
 
-                    if provider_key == "github" and not info.get("email"):
-                        emails = session.get("/user/emails", params=api_endpoint_args).json()
-                        email_dict = next(filter(lambda x: x.get("primary"), emails))
-                        info["email"] = email_dict.get("email")
+                        if provider_key == "github" and isinstance(info, dict) and not info.get("email"):
+                            emails_resp = session.get("/user/emails", params=api_endpoint_args)
+                            emails = emails_resp.json() if callable(getattr(emails_resp, "json", None)) else []
+                            email_dict = next((x for x in (emails or []) if x.get("primary")), None)
+                            if email_dict:
+                                info["email"] = email_dict.get("email")
 
-                if not (info.get("email_verified") or _oauth_mod.get_email(info)):
-                    from frappe import throw, _
+                    if not isinstance(info, dict):
+                        raise RuntimeError("OAuth provider returned non-dict user info: %r" % info)
 
-                    throw(_("Email not verified with {0}").format(provider.title()))
+                    if not (info.get("email_verified") or _oauth_mod.get_email(info)):
+                        from frappe import throw, _
 
-                return info
+                        throw(_("Email not verified with {0}").format(provider.title()))
+
+                    return info
+                except Exception as e:
+                    _log.exception("_kiff_get_info_via_oauth failed for provider %r", provider)
+                    raise
 
             _oauth_mod.get_info_via_oauth = _kiff_get_info_via_oauth
             _oauth_mod._kiff_patched = True
