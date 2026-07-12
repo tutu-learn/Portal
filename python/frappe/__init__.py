@@ -660,6 +660,29 @@ def _patch_real_module(mod):
                     pass
                 return login_key
 
+            def _oauth_login_key(provider_key):
+                """Map an OAuth provider config key back to a Social Login Key name.
+
+                Frappe's get_oauth_keys() uses the provider argument as the
+                Social Login Key document name to fetch the client_secret.  When
+                get_oauth2_flow() is called with the config key (office_365),
+                get_oauth_keys() must receive the actual key name (microsoft).
+                """
+                import frappe
+
+                try:
+                    for key in frappe.get_all(
+                        "Social Login Key",
+                        fields=["name", "social_login_provider"],
+                    ):
+                        if key.social_login_provider and frappe.scrub(
+                            key.social_login_provider
+                        ) == provider_key:
+                            return key.name
+                except Exception:
+                    pass
+                return provider_key
+
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
             _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
 
@@ -675,6 +698,15 @@ def _patch_real_module(mod):
 
             _oauth_mod.login_via_oauth2 = _kiff_login_via_oauth2
             _oauth_mod.login_via_oauth2_id_token = _kiff_login_via_oauth2_id_token
+
+            _orig_get_oauth_keys = _oauth_mod.get_oauth_keys
+
+            def _kiff_get_oauth_keys(provider):
+                # provider is the OAuth provider config key; resolve to the Social
+                # Login Key document name so the stored password can be found.
+                return _orig_get_oauth_keys(_oauth_login_key(provider))
+
+            _oauth_mod.get_oauth_keys = _kiff_get_oauth_keys
 
             _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
 
@@ -692,7 +724,7 @@ def _patch_real_module(mod):
                 args = {
                     "data": {
                         "code": code,
-                        "redirect_uri": _oauth_mod.get_redirect_uri(provider),
+                        "redirect_uri": _oauth_mod.get_redirect_uri(provider_key),
                         "grant_type": "authorization_code",
                     }
                 }
