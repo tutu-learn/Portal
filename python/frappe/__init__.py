@@ -666,14 +666,25 @@ def _patch_real_module(mod):
                 """Map any provider slug/name to the OAuth provider config key.
 
                 The Social Login Key name must not matter — only the provider
-                type (e.g. Office 365) matters.
+                type (e.g. Office 365) matters.  The returned value must be a
+                key that exists in the dict returned by get_oauth2_providers().
                 """
                 oauth2_providers = _oauth_mod.get_oauth2_providers()
                 if isinstance(oauth2_providers, dict) and provider in oauth2_providers:
                     return provider
+
+                # provider is likely a slug like "office_365".
+                key_name = _find_social_login_key(provider)
+                if key_name and key_name in oauth2_providers:
+                    return key_name
+
+                # provider may be a Social Login Key name; look up its type.
                 ptype = _oauth_provider_type(provider)
                 if ptype:
-                    return ptype
+                    key_name = _find_social_login_key(ptype)
+                    if key_name and key_name in oauth2_providers:
+                        return key_name
+
                 return provider
 
             def _find_social_login_key(provider_type):
@@ -728,22 +739,70 @@ def _patch_real_module(mod):
             _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
 
             def _kiff_get_oauth2_providers():
+                import os
+                import re
+
                 providers = _orig_get_oauth2_providers()
                 if not isinstance(providers, dict):
                     providers = dict(providers) if providers is not None else {}
                 else:
                     providers = dict(providers)
+
+                # Tenant-specific Microsoft endpoints are required for single-tenant
+                # app registrations created after 10/15/2018.  Read the tenant id
+                # from site_config, an environment variable, or the Social Login Key
+                # authorize_url / access_token_url.
+                tenant_id = (
+                    frappe.conf.get("office_365_tenant_id")
+                    or frappe.conf.get("audit_ready_office_365_tenant_id")
+                    or os.environ.get("OFFICE_365_TENANT_ID")
+                )
+
+                def _ms_tenant_from_url(url):
+                    if not url:
+                        return None
+                    m = re.search(
+                        r"login\.microsoftonline\.com/([^/]+)/oauth2", str(url)
+                    )
+                    if m:
+                        t = m.group(1)
+                        if t and t != "common":
+                            return t
+                    return None
+
+                # Derive tenant id from any Microsoft provider URLs already configured.
+                if not tenant_id:
+                    for cfg in providers.values():
+                        if not isinstance(cfg, dict):
+                            continue
+                        flow_params = cfg.get("flow_params") or {}
+                        for url_key in ("authorize_url", "access_token_url", "base_url"):
+                            t = _ms_tenant_from_url(flow_params.get(url_key))
+                            if t:
+                                tenant_id = t
+                                break
+                        if tenant_id:
+                            break
+
+                if not tenant_id:
+                    tenant_id = "common"
+
+                ms_base = (
+                    "https://login.microsoftonline.com/%s/oauth2/v2.0" % tenant_id
+                )
+
                 has_microsoft = any(
                     "login.microsoftonline.com" in (((p or {}).get("flow_params") or {}).get("access_token_url") or "")
                     for p in providers.values()
                 )
+
                 if not has_microsoft:
                     providers["office_365"] = {
                         "flow_params": {
                             "name": "office_365",
-                            "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-                            "access_token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-                            "base_url": "https://login.microsoftonline.com/common/oauth2/v2.0/",
+                            "authorize_url": ms_base + "/authorize",
+                            "access_token_url": ms_base + "/token",
+                            "base_url": ms_base + "/",
                         },
                         "auth_url_data": {
                             "scope": "https://graph.microsoft.com/User.Read openid email",
@@ -752,6 +811,26 @@ def _patch_real_module(mod):
                         "api_endpoint": "https://graph.microsoft.com/v1.0/me",
                         "api_endpoint_args": {},
                     }
+                else:
+                    # Rewrite any Microsoft /common endpoint to the tenant-specific
+                    # endpoint when a tenant id is configured.
+                    for key, cfg in providers.items():
+                        if not isinstance(cfg, dict):
+                            continue
+                        flow_params = cfg.get("flow_params") or {}
+                        if "login.microsoftonline.com" not in (
+                            flow_params.get("access_token_url") or ""
+                        ):
+                            continue
+                        if tenant_id != "common":
+                            for url_key in ("authorize_url", "access_token_url", "base_url"):
+                                url = flow_params.get(url_key) or ""
+                                if "/common/" in url:
+                                    flow_params[url_key] = url.replace(
+                                        "/common/", "/%s/" % tenant_id
+                                    )
+                            cfg["flow_params"] = flow_params
+
                 return providers
 
             _oauth_mod.get_oauth2_providers = _kiff_get_oauth2_providers
