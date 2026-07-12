@@ -752,9 +752,10 @@ def _patch_real_module(mod):
 
                 Resolution order:
                 1. X-Forwarded-* request headers (reverse proxy override).
-                2. Provider config / Frappe's original get_redirect_uri.
-                3. Current request URL / url_root.
-                4. frappe.utils.get_url() fallback.
+                2. Social Login Key redirect_url field.
+                3. Provider config / Frappe's original get_redirect_uri.
+                4. Current request URL / url_root.
+                5. frappe.utils.get_url() fallback.
                 """
                 import frappe
                 import logging
@@ -802,8 +803,35 @@ def _patch_real_module(mod):
                     except Exception as e:
                         _log.debug("proxy-header redirect_uri failed: %s", e)
 
-                # 2. Provider config / Frappe's default.  This is the most stable source
-                #    when a redirect_uri is configured in the Social Login Key.
+                # 2. Social Login Key redirect_url field.  This is the value the
+                #    operator configured in the Desk UI, and it overrides any
+                #    computed value.
+                try:
+                    key_name = _find_social_login_key(provider)
+                    if key_name:
+                        doc = frappe.get_doc("Social Login Key", key_name)
+                        configured = str(doc.get("redirect_url") or "").strip()
+                        if configured:
+                            # The Desk UI occasionally appends field labels.
+                            for suffix in (
+                                " redirect_url",
+                                "redirect_url",
+                                " redirect_uri",
+                                "redirect_uri",
+                            ):
+                                if configured.lower().endswith(suffix):
+                                    configured = configured[: -len(suffix)].rstrip()
+                            if configured.startswith(("http://", "https://")):
+                                _log.debug(
+                                    "redirect_uri from Social Login Key %r: %s",
+                                    key_name,
+                                    configured,
+                                )
+                                return configured
+                except Exception as e:
+                    _log.debug("Social Login Key redirect_url lookup failed: %s", e)
+
+                # 3. Provider config / Frappe's default.
                 try:
                     orig = _orig_get_redirect_uri(provider)
                     if orig and orig.startswith(("http://", "https://")):
@@ -812,7 +840,7 @@ def _patch_real_module(mod):
                 except Exception as e:
                     _log.debug("orig get_redirect_uri failed: %s", e)
 
-                # 3. Current request context.
+                # 4. Current request context.
                 if req is not None:
                     try:
                         url = getattr(req, "url", None)
@@ -845,7 +873,7 @@ def _patch_real_module(mod):
                     except Exception as e:
                         _log.debug("url_root redirect_uri failed: %s", e)
 
-                # 4. Final fallback to Frappe's site URL.
+                # 5. Final fallback to Frappe's site URL.
                 try:
                     fallback = frappe.utils.get_url(callback_path)
                     if fallback and fallback.startswith(("http://", "https://")):
