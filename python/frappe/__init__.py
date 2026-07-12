@@ -756,16 +756,43 @@ def _patch_real_module(mod):
 
             def _kiff_get_redirect_uri(provider):
                 try:
-                    return _orig_get_redirect_uri(provider)
-                except KeyError:
-                    import frappe
+                    redirect_uri = _orig_get_redirect_uri(provider)
+                except Exception:
+                    redirect_uri = None
 
+                import frappe
+
+                if not redirect_uri:
                     # Frappe's provider config may not include redirect_uri for
                     # injected/custom providers.  Build it from the endpoint name.
                     endpoint = provider.replace("_", "")
-                    return frappe.utils.get_url(
+                    redirect_uri = frappe.utils.get_url(
                         "/api/method/frappe.integrations.oauth2_logins.login_via_" + endpoint
                     )
+
+                # Microsoft requires an absolute URI; if get_url returned a
+                # relative path (common when host_name is not set), prepend the
+                # current request's scheme+host.
+                if redirect_uri and not redirect_uri.startswith(("http://", "https://")):
+                    request_root = ""
+                    try:
+                        request = getattr(frappe, "request", None)
+                        if request is not None:
+                            request_root = getattr(request, "url_root", "") or ""
+                    except Exception:
+                        pass
+                    if request_root:
+                        request_root = request_root.rstrip("/")
+                        redirect_uri = request_root + (
+                            redirect_uri if redirect_uri.startswith("/") else "/" + redirect_uri
+                        )
+
+                if not redirect_uri or not redirect_uri.startswith(("http://", "https://")):
+                    raise RuntimeError(
+                        "Could not determine absolute redirect_uri for provider '%s'" % provider
+                    )
+
+                return redirect_uri
 
             _oauth_mod.get_redirect_uri = _kiff_get_redirect_uri
 
