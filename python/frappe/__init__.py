@@ -708,6 +708,33 @@ def _patch_real_module(mod):
 
             _oauth_mod.get_oauth_keys = _kiff_get_oauth_keys
 
+            _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
+
+            def _kiff_get_oauth2_providers():
+                providers = _orig_get_oauth2_providers()
+                has_microsoft = any(
+                    "login.microsoftonline.com" in (p.get("flow_params") or {}).get("access_token_url", "")
+                    for p in providers.values()
+                )
+                if not has_microsoft:
+                    providers["office_365"] = {
+                        "flow_params": {
+                            "name": "office_365",
+                            "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                            "access_token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                            "base_url": "https://login.microsoftonline.com/common/oauth2/v2.0/",
+                        },
+                        "auth_url_data": {
+                            "scope": "https://graph.microsoft.com/User.Read openid email",
+                            "response_type": "code id_token",
+                        },
+                        "api_endpoint": "https://graph.microsoft.com/v1.0/me",
+                        "api_endpoint_args": {},
+                    }
+                return providers
+
+            _oauth_mod.get_oauth2_providers = _kiff_get_oauth2_providers
+
             _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
 
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
@@ -717,9 +744,27 @@ def _patch_real_module(mod):
                 # provider is the Social Login Key document name; get_oauth2_flow
                 # and oauth2_providers are keyed by the OAuth provider type.
                 provider_key = _oauth_provider_key(provider)
+                oauth2_providers = _oauth_mod.get_oauth2_providers()
+
+                # The server's Frappe build may use a different provider key than
+                # the standard "office_365".  If the resolved key is missing, try
+                # to find the Microsoft provider by its token endpoint.
+                if provider_key not in oauth2_providers:
+                    for key, cfg in oauth2_providers.items():
+                        flow_params = cfg.get("flow_params") or {}
+                        token_url = flow_params.get("access_token_url", "")
+                        if "login.microsoftonline.com" in token_url:
+                            provider_key = key
+                            break
+                    else:
+                        raise KeyError(
+                            "OAuth provider '{}' not found in oauth2_providers. "
+                            "Available keys: {}".format(
+                                provider_key, list(oauth2_providers.keys())
+                            )
+                        )
 
                 flow = _oauth_mod.get_oauth2_flow(provider_key)
-                oauth2_providers = _oauth_mod.get_oauth2_providers()
 
                 args = {
                     "data": {
