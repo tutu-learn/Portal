@@ -744,24 +744,31 @@ def _patch_real_module(mod):
             _orig_get_redirect_uri = _oauth_mod.get_redirect_uri
 
             def _kiff_get_redirect_uri(provider):
-                """Return an absolute redirect URI using the current request's public URL.
+                """Return an absolute redirect URI for the OAuth callback.
 
                 Microsoft Entra ID requires the redirect_uri sent in the token request
-                to exactly match the one used in the authorize request. Frappe's
-                default relies on frappe.utils.get_url(), which can return
-                http://localhost when called outside a request context. We therefore
-                prefer the incoming request's forwarded headers / URL and only fall
-                back to the original implementation when no request context exists.
+                to exactly match the one used in the authorize request. We therefore
+                must return a stable, public URI regardless of Frappe's request context.
+
+                Resolution order:
+                1. X-Forwarded-* request headers (reverse proxy override).
+                2. Provider config / Frappe's original get_redirect_uri.
+                3. Current request URL / url_root.
+                4. frappe.utils.get_url() fallback.
                 """
                 import frappe
+                import logging
                 from urllib.parse import urlparse, urlunparse
 
+                _log = logging.getLogger("kiff.oauth")
                 callback_path = (
                     "/api/method/frappe.integrations.oauth2_logins.login_via_"
                     + provider.replace("_", "")
                 )
 
                 req = getattr(frappe, "request", None)
+
+                # 1. Reverse-proxy headers know the public URL even when Frappe does not.
                 if req is not None:
                     try:
                         headers = getattr(req, "headers", None) or {}
@@ -783,30 +790,45 @@ def _patch_real_module(mod):
                             .strip()
                             .lower()
                         )
-
-                        if not scheme and getattr(req, "url", None):
-                            parsed = urlparse(str(req.url))
-                            scheme = parsed.scheme
-                            if not host:
-                                host = parsed.netloc
-
-                        if not scheme and getattr(req, "environ", None):
-                            environ = req.environ
-                            scheme = environ.get("wsgi.url_scheme", "")
-                            if not host:
-                                host = environ.get("HTTP_HOST", "")
-
-                        if not host:
-                            host = getattr(req, "host", "") or ""
-
                         if scheme and host:
                             redirect_uri = urlunparse(
-                                (scheme, host, callback_path, "", "", "")
+                                (scheme, host.split(",")[0].strip(), callback_path, "", "", "")
                             )
                             if redirect_uri.startswith(("http://", "https://")):
+                                _log.debug(
+                                    "redirect_uri from proxy headers: %s", redirect_uri
+                                )
                                 return redirect_uri
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _log.debug("proxy-header redirect_uri failed: %s", e)
+
+                # 2. Provider config / Frappe's default.  This is the most stable source
+                #    when a redirect_uri is configured in the Social Login Key.
+                try:
+                    orig = _orig_get_redirect_uri(provider)
+                    if orig and orig.startswith(("http://", "https://")):
+                        _log.debug("redirect_uri from provider config: %s", orig)
+                        return orig
+                except Exception as e:
+                    _log.debug("orig get_redirect_uri failed: %s", e)
+
+                # 3. Current request context.
+                if req is not None:
+                    try:
+                        url = getattr(req, "url", None)
+                        if url:
+                            parsed = urlparse(str(url))
+                            if parsed.scheme and parsed.netloc:
+                                redirect_uri = urlunparse(
+                                    (parsed.scheme, parsed.netloc, callback_path, "", "", "")
+                                )
+                                if redirect_uri.startswith(("http://", "https://")):
+                                    _log.debug(
+                                        "redirect_uri from request url: %s", redirect_uri
+                                    )
+                                    return redirect_uri
+                    except Exception as e:
+                        _log.debug("request-url redirect_uri failed: %s", e)
 
                     try:
                         url_root = getattr(req, "url_root", None)
@@ -816,23 +838,21 @@ def _patch_real_module(mod):
                                 (parsed.scheme, parsed.netloc, callback_path, "", "", "")
                             )
                             if redirect_uri.startswith(("http://", "https://")):
+                                _log.debug(
+                                    "redirect_uri from url_root: %s", redirect_uri
+                                )
                                 return redirect_uri
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _log.debug("url_root redirect_uri failed: %s", e)
 
-                try:
-                    orig = _orig_get_redirect_uri(provider)
-                    if orig and orig.startswith(("http://", "https://")):
-                        return orig
-                except Exception:
-                    pass
-
+                # 4. Final fallback to Frappe's site URL.
                 try:
                     fallback = frappe.utils.get_url(callback_path)
                     if fallback and fallback.startswith(("http://", "https://")):
+                        _log.debug("redirect_uri from get_url fallback: %s", fallback)
                         return fallback
-                except Exception:
-                    pass
+                except Exception as e:
+                    _log.debug("get_url fallback failed: %s", e)
 
                 raise RuntimeError(
                     "Could not determine absolute redirect_uri for provider '%s'" % provider
