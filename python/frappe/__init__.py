@@ -752,6 +752,23 @@ def _patch_real_module(mod):
 
             _oauth_mod.get_oauth2_providers = _kiff_get_oauth2_providers
 
+            _orig_get_redirect_uri = _oauth_mod.get_redirect_uri
+
+            def _kiff_get_redirect_uri(provider):
+                try:
+                    return _orig_get_redirect_uri(provider)
+                except KeyError:
+                    import frappe
+
+                    # Frappe's provider config may not include redirect_uri for
+                    # injected/custom providers.  Build it from the endpoint name.
+                    endpoint = provider.replace("_", "")
+                    return frappe.utils.get_url(
+                        "/api/method/frappe.integrations.oauth2_logins.login_via_" + endpoint
+                    )
+
+            _oauth_mod.get_redirect_uri = _kiff_get_redirect_uri
+
             _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
 
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
