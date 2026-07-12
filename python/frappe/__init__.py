@@ -619,6 +619,19 @@ def _patch_real_module(mod):
         import frappe.utils.oauth as _oauth_mod
         if not getattr(_oauth_mod, "_kiff_patched", False):
 
+            def _oauth_provider_slugs(provider_type):
+                """Return the set of equivalent scrubbed slugs for a provider type.
+
+                Office 365 / Microsoft are treated as the same provider regardless
+                of what the Social Login Key is named.
+                """
+                slug = provider_type or ""
+                aliases = {
+                    "office_365": {"office_365", "microsoft"},
+                    "microsoft": {"office_365", "microsoft"},
+                }
+                return aliases.get(slug, {slug})
+
             def _oauth_provider_type(provider):
                 """Return the scrubbed provider type for a Social Login Key.
 
@@ -633,14 +646,15 @@ def _patch_real_module(mod):
                         ptype = doc.get("social_login_provider")
                         if ptype:
                             return frappe.scrub(ptype)
+                    target_slugs = _oauth_provider_slugs(provider)
                     for key in frappe.get_all(
                         "Social Login Key",
                         fields=["name", "social_login_provider"],
                     ):
                         if key.social_login_provider and frappe.scrub(
                             key.social_login_provider
-                        ) == provider:
-                            return provider
+                        ) in target_slugs:
+                            return frappe.scrub(key.social_login_provider)
                 except Exception as e:
                     import logging
                     logging.getLogger("kiff.oauth").warning(
@@ -667,13 +681,14 @@ def _patch_real_module(mod):
                 import frappe
 
                 try:
+                    target_slugs = _oauth_provider_slugs(provider_type)
                     for key in frappe.get_all(
                         "Social Login Key",
                         fields=["name", "social_login_provider"],
                     ):
                         if key.social_login_provider and frappe.scrub(
                             key.social_login_provider
-                        ) == provider_type:
+                        ) in target_slugs:
                             return key.name
                 except Exception as e:
                     import logging
@@ -751,14 +766,16 @@ def _patch_real_module(mod):
                 must return a stable, public URI regardless of Frappe's request context.
 
                 Resolution order:
-                1. X-Forwarded-* request headers (reverse proxy override).
-                2. Social Login Key redirect_url field.
-                3. Provider config / Frappe's original get_redirect_uri.
-                4. Current request URL / url_root.
-                5. frappe.utils.get_url() fallback.
+                1. Session cache (ensures authorize and callback match).
+                2. X-Forwarded-* request headers (reverse proxy override).
+                3. Social Login Key redirect_url field.
+                4. Provider config / Frappe's original get_redirect_uri.
+                5. Current request URL / url_root.
+                6. frappe.utils.get_url() fallback.
                 """
                 import frappe
                 import logging
+                import re
                 from urllib.parse import urlparse, urlunparse
 
                 _log = logging.getLogger("kiff.oauth")
@@ -767,9 +784,36 @@ def _patch_real_module(mod):
                     + provider.replace("_", "")
                 )
 
+                def _is_local_host(host):
+                    host = (host or "").split(":")[0].lower()
+                    if host in ("localhost", "127.0.0.1", "::1", ""):
+                        return True
+                    if host.startswith("127."):
+                        return True
+                    return False
+
+                def _build_uri(scheme, host):
+                    if not scheme or not host:
+                        return None
+                    host = host.split(",")[0].strip()
+                    return urlunparse((scheme.lower(), host, callback_path, "", "", ""))
+
                 req = getattr(frappe, "request", None)
 
-                # 1. Reverse-proxy headers know the public URL even when Frappe does not.
+                # 1. Session cache: the authorize request stored the URI it used, so
+                #    the token-exchange request can reuse the exact same value.
+                try:
+                    cached = frappe.session.data.get("kiff_oauth_redirect_uri")
+                    if cached and cached.startswith(("http://", "https://")):
+                        _log.debug("redirect_uri from session cache: %s", cached)
+                        return cached
+                except Exception as e:
+                    _log.debug("session cache lookup failed: %s", e)
+
+                redirect_uri = None
+                source = None
+
+                # 2. Reverse-proxy headers know the public URL even when Frappe does not.
                 if req is not None:
                     try:
                         headers = getattr(req, "headers", None) or {}
@@ -791,96 +835,101 @@ def _patch_real_module(mod):
                             .strip()
                             .lower()
                         )
-                        if scheme and host:
-                            redirect_uri = urlunparse(
-                                (scheme, host.split(",")[0].strip(), callback_path, "", "", "")
-                            )
-                            if redirect_uri.startswith(("http://", "https://")):
-                                _log.debug(
-                                    "redirect_uri from proxy headers: %s", redirect_uri
-                                )
-                                return redirect_uri
+                        # If we have a public Host but no scheme header, assume https
+                        # (production OAuth is always https).
+                        if host and not scheme and not _is_local_host(host):
+                            scheme = "https"
+                        redirect_uri = _build_uri(scheme, host)
+                        if redirect_uri and redirect_uri.startswith(("http://", "https://")):
+                            source = "proxy headers"
                     except Exception as e:
                         _log.debug("proxy-header redirect_uri failed: %s", e)
 
-                # 2. Social Login Key redirect_url field.  This is the value the
-                #    operator configured in the Desk UI, and it overrides any
-                #    computed value.
-                try:
-                    key_name = _find_social_login_key(provider)
-                    if key_name:
-                        doc = frappe.get_doc("Social Login Key", key_name)
-                        configured = str(doc.get("redirect_url") or "").strip()
-                        if configured:
-                            # The Desk UI occasionally appends field labels.
-                            for suffix in (
-                                " redirect_url",
-                                "redirect_url",
-                                " redirect_uri",
-                                "redirect_uri",
-                            ):
-                                if configured.lower().endswith(suffix):
-                                    configured = configured[: -len(suffix)].rstrip()
-                            if configured.startswith(("http://", "https://")):
-                                _log.debug(
-                                    "redirect_uri from Social Login Key %r: %s",
-                                    key_name,
-                                    configured,
-                                )
-                                return configured
-                except Exception as e:
-                    _log.debug("Social Login Key redirect_url lookup failed: %s", e)
+                # 3. Social Login Key redirect_url field.  This is the value the
+                #    operator configured in the Desk UI.
+                if not redirect_uri:
+                    try:
+                        key_name = _find_social_login_key(provider)
+                        if key_name:
+                            doc = frappe.get_doc("Social Login Key", key_name)
+                            configured = str(doc.get("redirect_url") or "").strip()
+                            if configured:
+                                # The Desk UI occasionally appends field labels.
+                                for suffix in (
+                                    " redirect_url",
+                                    "redirect_url",
+                                    " redirect_uri",
+                                    "redirect_uri",
+                                ):
+                                    if configured.lower().endswith(suffix):
+                                        configured = configured[: -len(suffix)].rstrip()
+                                if configured.startswith(("http://", "https://")):
+                                    redirect_uri = configured
+                                    source = "Social Login Key %r" % key_name
+                    except Exception as e:
+                        _log.debug("Social Login Key redirect_url lookup failed: %s", e)
 
-                # 3. Provider config / Frappe's default.
-                try:
-                    orig = _orig_get_redirect_uri(provider)
-                    if orig and orig.startswith(("http://", "https://")):
-                        _log.debug("redirect_uri from provider config: %s", orig)
-                        return orig
-                except Exception as e:
-                    _log.debug("orig get_redirect_uri failed: %s", e)
+                # 4. Provider config / Frappe's default.
+                if not redirect_uri:
+                    try:
+                        orig = _orig_get_redirect_uri(provider)
+                        if orig and orig.startswith(("http://", "https://")):
+                            parsed = urlparse(orig)
+                            if not _is_local_host(parsed.netloc):
+                                redirect_uri = orig
+                                source = "provider config"
+                    except Exception as e:
+                        _log.debug("orig get_redirect_uri failed: %s", e)
 
-                # 4. Current request context.
-                if req is not None:
+                # 5. Current request context.
+                if not redirect_uri and req is not None:
                     try:
                         url = getattr(req, "url", None)
                         if url:
                             parsed = urlparse(str(url))
-                            if parsed.scheme and parsed.netloc:
-                                redirect_uri = urlunparse(
-                                    (parsed.scheme, parsed.netloc, callback_path, "", "", "")
-                                )
-                                if redirect_uri.startswith(("http://", "https://")):
-                                    _log.debug(
-                                        "redirect_uri from request url: %s", redirect_uri
-                                    )
-                                    return redirect_uri
+                            if parsed.scheme and parsed.netloc and not _is_local_host(
+                                parsed.netloc
+                            ):
+                                redirect_uri = _build_uri(parsed.scheme, parsed.netloc)
+                                if redirect_uri:
+                                    source = "request url"
                     except Exception as e:
                         _log.debug("request-url redirect_uri failed: %s", e)
 
-                    try:
-                        url_root = getattr(req, "url_root", None)
-                        if url_root:
-                            parsed = urlparse(str(url_root))
-                            redirect_uri = urlunparse(
-                                (parsed.scheme, parsed.netloc, callback_path, "", "", "")
-                            )
-                            if redirect_uri.startswith(("http://", "https://")):
-                                _log.debug(
-                                    "redirect_uri from url_root: %s", redirect_uri
-                                )
-                                return redirect_uri
-                    except Exception as e:
-                        _log.debug("url_root redirect_uri failed: %s", e)
+                    if not redirect_uri:
+                        try:
+                            url_root = getattr(req, "url_root", None)
+                            if url_root:
+                                parsed = urlparse(str(url_root))
+                                if parsed.scheme and parsed.netloc and not _is_local_host(
+                                    parsed.netloc
+                                ):
+                                    redirect_uri = _build_uri(parsed.scheme, parsed.netloc)
+                                    if redirect_uri:
+                                        source = "url_root"
+                        except Exception as e:
+                            _log.debug("url_root redirect_uri failed: %s", e)
 
-                # 5. Final fallback to Frappe's site URL.
-                try:
-                    fallback = frappe.utils.get_url(callback_path)
-                    if fallback and fallback.startswith(("http://", "https://")):
-                        _log.debug("redirect_uri from get_url fallback: %s", fallback)
-                        return fallback
-                except Exception as e:
-                    _log.debug("get_url fallback failed: %s", e)
+                # 6. Final fallback to Frappe's site URL.
+                if not redirect_uri:
+                    try:
+                        fallback = frappe.utils.get_url(callback_path)
+                        if fallback and fallback.startswith(("http://", "https://")):
+                            parsed = urlparse(fallback)
+                            if not _is_local_host(parsed.netloc):
+                                redirect_uri = fallback
+                                source = "get_url fallback"
+                    except Exception as e:
+                        _log.debug("get_url fallback failed: %s", e)
+
+                if redirect_uri and redirect_uri.startswith(("http://", "https://")):
+                    _log.debug("redirect_uri from %s: %s", source, redirect_uri)
+                    # Cache it for the token-exchange half of the flow.
+                    try:
+                        frappe.session.data["kiff_oauth_redirect_uri"] = redirect_uri
+                    except Exception as e:
+                        _log.debug("session cache store failed: %s", e)
+                    return redirect_uri
 
                 raise RuntimeError(
                     "Could not determine absolute redirect_uri for provider '%s'" % provider
