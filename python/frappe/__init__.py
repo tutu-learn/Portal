@@ -744,41 +744,93 @@ def _patch_real_module(mod):
             _orig_get_redirect_uri = _oauth_mod.get_redirect_uri
 
             def _kiff_get_redirect_uri(provider):
+                import frappe
+                import logging
+                from urllib.parse import urlparse
+
+                _log = logging.getLogger("kiff.oauth")
+                redirect_uri = None
+                roots = []
+
                 try:
                     redirect_uri = _orig_get_redirect_uri(provider)
-                except Exception:
-                    redirect_uri = None
+                except Exception as e:
+                    _log.debug("orig get_redirect_uri failed for %r: %s", provider, e)
 
-                import frappe
+                endpoint = provider.replace("_", "")
+                callback_path = "/api/method/frappe.integrations.oauth2_logins.login_via_" + endpoint
 
                 if not redirect_uri:
-                    # Frappe's provider config may not include redirect_uri for
-                    # injected/custom providers.  Build it from the endpoint name.
-                    endpoint = provider.replace("_", "")
-                    redirect_uri = frappe.utils.get_url(
-                        "/api/method/frappe.integrations.oauth2_logins.login_via_" + endpoint
-                    )
+                    try:
+                        redirect_uri = frappe.utils.get_url(callback_path)
+                    except Exception as e:
+                        _log.debug("get_url fallback failed: %s", e)
 
-                # Microsoft requires an absolute URI; if get_url returned a
-                # relative path (common when host_name is not set), prepend the
-                # current request's scheme+host.
-                if redirect_uri and not redirect_uri.startswith(("http://", "https://")):
-                    request_root = ""
+                # get_url can return a relative path or just the path if the site
+                # URL is not configured.  Try to build an absolute URI from various
+                # request-based sources.
+                if not redirect_uri or not redirect_uri.startswith(("http://", "https://")):
                     try:
                         request = getattr(frappe, "request", None)
                         if request is not None:
-                            request_root = getattr(request, "url_root", "") or ""
-                    except Exception:
-                        pass
-                    if request_root:
-                        request_root = request_root.rstrip("/")
-                        redirect_uri = request_root + (
-                            redirect_uri if redirect_uri.startswith("/") else "/" + redirect_uri
-                        )
+                            url_root = getattr(request, "url_root", "") or ""
+                            if url_root:
+                                roots.append(url_root)
+                            host_url = getattr(request, "host_url", "") or ""
+                            if host_url:
+                                roots.append(host_url)
+                            scheme = getattr(request, "scheme", "") or ""
+                            host = getattr(request, "host", "") or ""
+                            if scheme and host:
+                                roots.append(scheme + "://" + host)
+                            url = getattr(request, "url", "") or ""
+                            if url:
+                                parsed = urlparse(url)
+                                if parsed.scheme and parsed.netloc:
+                                    roots.append(parsed.scheme + "://" + parsed.netloc)
+
+                            # Behind reverse proxies Frappe may not know the public
+                            # URL; reconstruct it from request headers.
+                            try:
+                                headers = getattr(request, "headers", None) or {}
+                                proto = (
+                                    headers.get("X-Forwarded-Proto")
+                                    or headers.get("X-Forwarded-Scheme")
+                                    or scheme
+                                    or "https"
+                                )
+                                host_header = (
+                                    headers.get("X-Forwarded-Host")
+                                    or headers.get("Host")
+                                    or host
+                                )
+                                if proto and host_header:
+                                    roots.append(proto + "://" + host_header.split(",")[0].strip())
+                            except Exception as e:
+                                _log.debug("header-based redirect URI fallback failed: %s", e)
+                    except Exception as e:
+                        _log.debug("request-based redirect URI fallback failed: %s", e)
+
+                    try:
+                        base = frappe.utils.get_url()
+                        if base and base.startswith(("http://", "https://")):
+                            roots.append(base.rstrip("/"))
+                    except Exception as e:
+                        _log.debug("get_url base fallback failed: %s", e)
+
+                    for root in roots:
+                        root = (root or "").rstrip("/")
+                        if root and root.startswith(("http://", "https://")):
+                            redirect_uri = root + callback_path
+                            break
 
                 if not redirect_uri or not redirect_uri.startswith(("http://", "https://")):
+                    _log.error(
+                        "Could not build redirect_uri for %r; tried roots: %s", provider, roots
+                    )
                     raise RuntimeError(
-                        "Could not determine absolute redirect_uri for provider '%s'" % provider
+                        "Could not determine absolute redirect_uri for provider '%s'. "
+                        "Check site_config.json host_name or request headers." % provider
                     )
 
                 return redirect_uri
