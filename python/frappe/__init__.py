@@ -619,19 +619,20 @@ def _patch_real_module(mod):
         import frappe.utils.oauth as _oauth_mod
         if not getattr(_oauth_mod, "_kiff_patched", False):
 
-            def _resolve_oauth_provider(provider):
-                """Map a provider slug to the actual Social Login Key document name.
+            def _oauth_provider_type(provider):
+                """Return the scrubbed provider type for a Social Login Key.
 
-                Frappe's provider-specific login endpoints (login_via_office365,
-                etc.) pass a hard-coded slug like "office_365".  If the user's
-                Social Login Key uses a custom Provider Name, resolve it by
-                matching social_login_provider instead.
+                Accepts either the Social Login Key document name or a provider
+                slug.  Returns None if it cannot be determined.
                 """
                 import frappe
 
                 try:
                     if frappe.db.exists("Social Login Key", provider):
-                        return provider
+                        doc = frappe.get_doc("Social Login Key", provider)
+                        ptype = doc.get("social_login_provider")
+                        if ptype:
+                            return frappe.scrub(ptype)
                     for key in frappe.get_all(
                         "Social Login Key",
                         fields=["name", "social_login_provider"],
@@ -639,41 +640,30 @@ def _patch_real_module(mod):
                         if key.social_login_provider and frappe.scrub(
                             key.social_login_provider
                         ) == provider:
-                            return key.name
+                            return provider
                 except Exception as e:
                     import logging
                     logging.getLogger("kiff.oauth").warning(
-                        "_resolve_oauth_provider failed for %r: %s", provider, e
+                        "_oauth_provider_type failed for %r: %s", provider, e
                     )
+                return None
+
+            def _resolve_oauth_provider(provider):
+                """Map any provider slug/name to the OAuth provider config key.
+
+                The Social Login Key name must not matter — only the provider
+                type (e.g. Office 365) matters.
+                """
+                oauth2_providers = _oauth_mod.get_oauth2_providers()
+                if isinstance(oauth2_providers, dict) and provider in oauth2_providers:
+                    return provider
+                ptype = _oauth_provider_type(provider)
+                if ptype:
+                    return ptype
                 return provider
 
-            def _oauth_provider_key(login_key):
-                """Map a Social Login Key name to the OAuth provider config key.
-
-                Frappe's oauth2_providers dict is keyed by the provider type
-                (e.g. "office_365"), not the Social Login Key document name
-                (e.g. "microsoft").  We need the config key for get_oauth2_flow
-                and for reading provider settings like api_endpoint.
-                """
-                import frappe
-
-                try:
-                    doc = frappe.get_doc("Social Login Key", login_key)
-                    provider = doc.get("social_login_provider")
-                    if provider:
-                        return frappe.scrub(provider)
-                except Exception:
-                    pass
-                return login_key
-
-            def _oauth_login_key(provider_key):
-                """Map an OAuth provider config key back to a Social Login Key name.
-
-                Frappe's get_oauth_keys() uses the provider argument as the
-                Social Login Key document name to fetch the client_secret.  When
-                get_oauth2_flow() is called with the config key (office_365),
-                get_oauth_keys() must receive the actual key name (microsoft).
-                """
+            def _find_social_login_key(provider_type):
+                """Return the Social Login Key name for the given provider type."""
                 import frappe
 
                 try:
@@ -683,11 +673,14 @@ def _patch_real_module(mod):
                     ):
                         if key.social_login_provider and frappe.scrub(
                             key.social_login_provider
-                        ) == provider_key:
+                        ) == provider_type:
                             return key.name
-                except Exception:
-                    pass
-                return provider_key
+                except Exception as e:
+                    import logging
+                    logging.getLogger("kiff.oauth").warning(
+                        "_find_social_login_key failed for %r: %s", provider_type, e
+                    )
+                return None
 
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
             _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
@@ -707,17 +700,13 @@ def _patch_real_module(mod):
 
             _orig_get_oauth_keys = _oauth_mod.get_oauth_keys
 
-            def _kiff_get_oauth_keys(provider):
-                # provider is the OAuth provider config key; resolve to the Social
-                # Login Key document name so the stored password can be found.
-                try:
-                    return _orig_get_oauth_keys(_oauth_login_key(provider))
-                except Exception as e:
-                    import logging
-                    logging.getLogger("kiff.oauth").error(
-                        "get_oauth_keys failed for provider %r: %s", provider, e
-                    )
-                    raise
+            def _kiff_get_oauth_keys(provider_key):
+                # provider_key is the OAuth provider config key (e.g. office_365).
+                # Fetch credentials from the Social Login Key that uses this type.
+                login_key = _find_social_login_key(provider_key)
+                if login_key:
+                    return _orig_get_oauth_keys(login_key)
+                return _orig_get_oauth_keys(provider_key)
 
             _oauth_mod.get_oauth_keys = _kiff_get_oauth_keys
 
@@ -806,9 +795,9 @@ def _patch_real_module(mod):
                 _log = logging.getLogger("kiff.oauth")
 
                 try:
-                    # provider is the Social Login Key document name; get_oauth2_flow
-                    # and oauth2_providers are keyed by the OAuth provider type.
-                    provider_key = _oauth_provider_key(provider)
+                    # provider is the OAuth provider config key (e.g. office_365).
+                    # The Social Login Key name was already resolved upstream.
+                    provider_key = provider
                     oauth2_providers = _oauth_mod.get_oauth2_providers()
                     if not isinstance(oauth2_providers, dict):
                         raise RuntimeError(
@@ -816,27 +805,13 @@ def _patch_real_module(mod):
                             % type(oauth2_providers).__name__
                         )
 
-                    # The server's Frappe build may use a different provider key than
-                    # the standard "office_365".  If the resolved key is missing, try
-                    # to find the Microsoft provider by its token endpoint.
                     if provider_key not in oauth2_providers:
-                        for key, cfg in oauth2_providers.items():
-                            if not isinstance(cfg, dict):
-                                continue
-                            token_url = (
-                                (cfg.get("flow_params") or {}).get("access_token_url")
-                                or ""
+                        raise KeyError(
+                            "OAuth provider '{}' not found in oauth2_providers. "
+                            "Available keys: {}".format(
+                                provider_key, list(oauth2_providers.keys())
                             )
-                            if "login.microsoftonline.com" in token_url:
-                                provider_key = key
-                                break
-                        else:
-                            raise KeyError(
-                                "OAuth provider '{}' not found in oauth2_providers. "
-                                "Available keys: {}".format(
-                                    provider_key, list(oauth2_providers.keys())
-                                )
-                            )
+                        )
 
                     provider_cfg = oauth2_providers[provider_key]
                     if not isinstance(provider_cfg, dict):
