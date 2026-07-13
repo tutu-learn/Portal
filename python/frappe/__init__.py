@@ -669,43 +669,94 @@ def _patch_real_module(mod):
                 type (e.g. Office 365) matters.  The returned value must be a
                 key that exists in the dict returned by get_oauth2_providers().
                 """
+                import logging
+
+                _log = logging.getLogger("kiff.oauth")
                 oauth2_providers = _oauth_mod.get_oauth2_providers()
+                _log.warning(
+                    "_resolve_oauth_provider(%r): available provider keys=%r",
+                    provider,
+                    list(oauth2_providers.keys()) if isinstance(oauth2_providers, dict) else None,
+                )
                 if isinstance(oauth2_providers, dict) and provider in oauth2_providers:
+                    _log.warning("_resolve_oauth_provider(%r): provider is already a key", provider)
                     return provider
 
                 # provider is likely a slug like "office_365".
                 key_name = _find_social_login_key(provider)
+                _log.warning(
+                    "_resolve_oauth_provider(%r): _find_social_login_key returned %r",
+                    provider,
+                    key_name,
+                )
                 if key_name and key_name in oauth2_providers:
+                    _log.warning(
+                        "_resolve_oauth_provider(%r): resolved to %r", provider, key_name
+                    )
                     return key_name
 
                 # provider may be a Social Login Key name; look up its type.
                 ptype = _oauth_provider_type(provider)
+                _log.warning(
+                    "_resolve_oauth_provider(%r): _oauth_provider_type returned %r",
+                    provider,
+                    ptype,
+                )
                 if ptype:
                     key_name = _find_social_login_key(ptype)
+                    _log.warning(
+                        "_resolve_oauth_provider(%r): _find_social_login_key(%r) returned %r",
+                        provider,
+                        ptype,
+                        key_name,
+                    )
                     if key_name and key_name in oauth2_providers:
+                        _log.warning(
+                            "_resolve_oauth_provider(%r): resolved to %r",
+                            provider,
+                            key_name,
+                        )
                         return key_name
 
+                _log.warning("_resolve_oauth_provider(%r): falling back to %r", provider, provider)
                 return provider
 
             def _find_social_login_key(provider_type):
                 """Return the Social Login Key name for the given provider type."""
                 import frappe
+                import logging
 
+                _log = logging.getLogger("kiff.oauth")
                 try:
                     target_slugs = _oauth_provider_slugs(provider_type)
-                    for key in frappe.get_all(
+                    keys = frappe.get_all(
                         "Social Login Key",
-                        fields=["name", "social_login_provider"],
-                    ):
+                        fields=["name", "social_login_provider", "authorize_url", "access_token_url"],
+                    )
+                    _log.warning("_find_social_login_key(%r): all keys=%r", provider_type, keys)
+                    for key in keys:
                         if key.social_login_provider and frappe.scrub(
                             key.social_login_provider
                         ) in target_slugs:
+                            _log.warning(
+                                "_find_social_login_key(%r): matched by provider type: %r",
+                                provider_type,
+                                key.name,
+                            )
+                            return key.name
+                    # Fallback: any key with Microsoft URLs.
+                    for key in keys:
+                        if "login.microsoftonline.com" in (
+                            (key.authorize_url or "") + (key.access_token_url or "")
+                        ):
+                            _log.warning(
+                                "_find_social_login_key(%r): matched by Microsoft URL: %r",
+                                provider_type,
+                                key.name,
+                            )
                             return key.name
                 except Exception as e:
-                    import logging
-                    logging.getLogger("kiff.oauth").warning(
-                        "_find_social_login_key failed for %r: %s", provider_type, e
-                    )
+                    _log.warning("_find_social_login_key failed for %r: %s", provider_type, e)
                 return None
 
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
