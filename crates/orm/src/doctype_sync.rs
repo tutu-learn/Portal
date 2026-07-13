@@ -252,7 +252,8 @@ async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
             title_field TEXT,
             image_field TEXT,
             timeline_field TEXT,
-            sortable INTEGER DEFAULT 1
+            sortable INTEGER DEFAULT 1,
+            restrict_to_domain TEXT
         )
     "#;
     pool.execute_sql(doctype_sql, vec![]).await?;
@@ -332,8 +333,9 @@ async fn insert_doctype(pool: &DatabasePool, doc: &serde_json::Value) -> Result<
             engine, sort_field, sort_order, document_type, description,
             icon, color, read_only, in_create, custom, beta, is_virtual,
             queue_in_background, default_print_format, search_fields,
-            title_field, image_field, timeline_field, sortable
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            title_field, image_field, timeline_field, sortable,
+            restrict_to_domain
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     "#;
 
     let params = vec![
@@ -373,6 +375,7 @@ async fn insert_doctype(pool: &DatabasePool, doc: &serde_json::Value) -> Result<
         val(json_str(doc, "image_field")),
         val(json_str(doc, "timeline_field")),
         num(json_i64(doc, "sortable")),
+        val(json_str(doc, "restrict_to_domain")),
     ];
 
     pool.execute_sql(sql, params).await?;

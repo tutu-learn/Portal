@@ -122,6 +122,122 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Load child-table rows for a set of workspaces and group them by workspace name.
+/// Returns a map of workspace name -> Vec<row-as-Value> for the requested child table.
+async fn load_workspace_children(
+    pool: &orm::DatabasePool,
+    table: &str,
+    parentfield: &str,
+    columns: &[&str],
+) -> error::Result<HashMap<String, Vec<Value>>> {
+    let cols = columns.join(", ");
+    let sql = format!(
+        r#"SELECT {} FROM "{}" WHERE parenttype = 'Workspace' AND parentfield = '{}' ORDER BY COALESCE(idx, 0)"#,
+        cols, table, parentfield
+    );
+    let rows = match pool.execute_sql(&sql, vec![]).await {
+        Ok(rows) => rows,
+        // Some child tables may not exist on a fresh/empty site; treat them as
+        // empty so bootinfo still builds without crashing.
+        Err(e) => {
+            tracing::debug!(
+                "workspace child table {} not available for bootinfo: {}",
+                table,
+                e
+            );
+            return Ok(HashMap::new());
+        }
+    };
+
+    let mut grouped: HashMap<String, Vec<Value>> = HashMap::new();
+    for mut row in rows {
+        if let Some(parent) = row.remove("parent").and_then(|v| v.as_str().map(String::from)) {
+            grouped.entry(parent).or_default().push(Value::Object(
+                row.into_iter().map(|(k, v)| (k, v)).collect(),
+            ));
+        }
+    }
+    Ok(grouped)
+}
+
+/// Attach workspace child tables (links, shortcuts, charts, number_cards,
+/// quick_lists, custom_blocks) to each workspace object. The Frappe 16 desk
+/// renders cards/shortcuts from these arrays, so without them the workspace
+/// appears empty even when the user has permission to read the DocTypes.
+async fn attach_workspace_children(
+    pool: &orm::DatabasePool,
+    workspaces: &mut [Value],
+) -> error::Result<()> {
+    let child_specs: Vec<(&str, &str, Vec<&str>)> = vec![
+        (
+            "workspace_link",
+            "links",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "type", "label", "icon", "hidden", "link_type", "link_to",
+                "dependencies", "only_for", "onboard", "is_query_report",
+                "link_count", "description", "report_ref_doctype",
+            ],
+        ),
+        (
+            "workspace_shortcut",
+            "shortcuts",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "type", "link_to", "doc_view", "label", "icon",
+                "restrict_to_domain", "stats_filter", "color", "format",
+                "url", "kanban_board", "report_ref_doctype",
+            ],
+        ),
+        (
+            "workspace_chart",
+            "charts",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "chart_name", "label",
+            ],
+        ),
+        (
+            "workspace_number_card",
+            "number_cards",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "number_card_name", "label",
+            ],
+        ),
+        (
+            "workspace_quick_list",
+            "quick_lists",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "document_type", "label", "quick_list_filter",
+            ],
+        ),
+        (
+            "workspace_custom_block",
+            "custom_blocks",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "custom_block_name", "label",
+            ],
+        ),
+    ];
+
+    for (table, field, columns) in child_specs {
+        let grouped = load_workspace_children(pool, table, field, &columns).await?;
+        for ws in workspaces.iter_mut() {
+            if let Some(obj) = ws.as_object_mut() {
+                if let Some(name) = obj.get("name").and_then(|v| v.as_str()) {
+                    let children = grouped.get(name).cloned().unwrap_or_default();
+                    obj.insert(field.to_string(), json!(children));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Load the modules blocked for a user (direct user rows or Module Profile).
 async fn get_blocked_modules(
     pool: &orm::DatabasePool,
@@ -316,6 +432,9 @@ async fn query_boot_data(
             }
         }
     }
+
+    // Attach child tables so cards, shortcuts, charts, etc. render.
+    attach_workspace_children(pool, &mut workspaces).await?;
 
     // Query modules
     let mod_rows = pool
@@ -1786,5 +1905,82 @@ mod tests {
     fn test_render_social_login_buttons_empty() {
         let html = render_social_login_buttons(&[]);
         assert!(html.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_attach_workspace_children_loads_links() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let tmp = std::env::temp_dir().join(format!(
+            "kiff_ws_child_test_{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let pool = orm::DatabasePool::connect_sqlite(tmp.to_str().unwrap())
+            .await
+            .expect("connect test db");
+
+        pool.execute_sql(
+            r#"
+            CREATE TABLE "workspace_link" (
+                name TEXT PRIMARY KEY,
+                creation TEXT,
+                modified TEXT,
+                owner TEXT,
+                idx INTEGER,
+                parent TEXT,
+                parentfield TEXT,
+                parenttype TEXT,
+                type TEXT,
+                label TEXT,
+                icon TEXT,
+                hidden INTEGER,
+                link_type TEXT,
+                link_to TEXT,
+                dependencies TEXT,
+                only_for TEXT,
+                onboard INTEGER,
+                is_query_report INTEGER,
+                link_count INTEGER,
+                description TEXT,
+                report_ref_doctype TEXT
+            )
+            "#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        pool.execute_sql(
+            r#"INSERT INTO "workspace_link" (name, parent, parentfield, parenttype, idx, type, label, link_type, link_to)
+               VALUES ('link-1', 'ISO 27001', 'links', 'Workspace', 0, 'Link', 'Audit Record', 'DocType', 'Audit Record'),
+                      ('link-2', 'ISO 27001', 'links', 'Workspace', 1, 'Card Break', 'Audit Management', 'DocType', '')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        let mut workspaces = vec![json!({
+            "name": "ISO 27001",
+            "label": "ISO 27001",
+            "title": "ISO 27001",
+        })];
+
+        attach_workspace_children(&pool, &mut workspaces)
+            .await
+            .expect("attach children");
+
+        let ws = &workspaces[0];
+        let links = ws.get("links").and_then(|v| v.as_array()).expect("links array missing");
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].get("label").and_then(|v| v.as_str()), Some("Audit Record"));
+        assert_eq!(links[1].get("type").and_then(|v| v.as_str()), Some("Card Break"));
+
+        // Missing child tables should surface as empty arrays, not errors.
+        assert!(ws.get("shortcuts").and_then(|v| v.as_array()).is_some());
+
+        let _ = std::fs::remove_file(&tmp);
     }
 }

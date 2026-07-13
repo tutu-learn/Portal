@@ -424,7 +424,9 @@ def clear_last_message():
 # App / site path helpers
 # ------------------------------------------------------------------
 def get_active_domains():
-    return []
+    # Mirrors Frappe's behaviour: active_domains always contains an empty
+    # string so that DocTypes with no domain restriction remain visible.
+    return [""]
 
 
 def _read_apps_txt():

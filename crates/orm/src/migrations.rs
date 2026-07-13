@@ -294,6 +294,13 @@ impl Migrator {
                 "009_invoice_settlement_columns",
                 "SELECT 1",
             ),
+            (
+                "010_doctype_restrict_to_domain",
+                r#"
+                ALTER TABLE "doctype" ADD COLUMN restrict_to_domain TEXT;
+                UPDATE "doctype" SET restrict_to_domain = '' WHERE restrict_to_domain IS NULL;
+                "#,
+            ),
         ];
 
         for (name, sql) in migrations {
