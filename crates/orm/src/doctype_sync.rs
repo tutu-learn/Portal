@@ -62,12 +62,20 @@ pub async fn sync_all(
     workspace_fixtures: Vec<(String, String, String)>,
     module_fixtures: Vec<ModuleFixture>,
     client_script_fixtures: Vec<(String, String)>,
+    page_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
     info!("syncing frappe doctypes");
     sync_metadata(pool, fixtures.clone()).await?;
     sync_data_tables(pool).await?;
     ensure_docperm_defaults(pool).await?;
-    insert_seed_data(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
+    insert_seed_data(
+        pool,
+        fixtures,
+        workspace_fixtures.clone(),
+        module_fixtures,
+        page_fixtures,
+    )
+    .await?;
     insert_client_script_fixtures(pool, client_script_fixtures).await?;
     info!("doctype sync complete");
     Ok(())
@@ -1004,6 +1012,7 @@ async fn insert_seed_data(
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
     module_fixtures: Vec<ModuleFixture>,
+    page_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
     ensure_core_users_and_roles(pool).await?;
     insert_module_defs(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
@@ -1011,7 +1020,7 @@ async fn insert_seed_data(
     insert_workflow_defaults(pool).await?;
     insert_genders_and_salutations(pool).await?;
     load_workspace_fixtures(pool, workspace_fixtures).await?;
-    load_page_fixtures(pool).await?;
+    load_page_fixtures(pool, page_fixtures).await?;
     insert_single_settings(pool).await?;
     info!("seed data inserted");
     Ok(())
@@ -1507,54 +1516,74 @@ async fn load_workspace_fixtures(
     Ok(())
 }
 
-async fn load_page_fixtures(pool: &DatabasePool) -> Result<()> {
-    let base = std::path::PathBuf::from("apps/frappe/frappe");
-    if !base.exists() {
-        return Ok(());
-    }
-
+async fn load_page_fixtures(
+    pool: &DatabasePool,
+    rust_page_fixtures: Vec<(String, String)>,
+) -> Result<()> {
     let mut loaded = 0usize;
 
-    let entries = match std::fs::read_dir(&base) {
-        Ok(e) => e,
-        Err(_) => return Ok(()),
-    };
-
-    for entry in entries.flatten() {
-        let page_dir = entry.path().join("page");
-        if !page_dir.exists() {
-            continue;
-        }
-
-        let pages = match std::fs::read_dir(&page_dir) {
-            Ok(p) => p,
-            Err(_) => continue,
+    // Load standard Frappe pages from the upstream app tree.
+    let base = std::path::PathBuf::from("apps/frappe/frappe");
+    if base.exists() {
+        let entries = match std::fs::read_dir(&base) {
+            Ok(e) => e,
+            Err(_) => return Ok(()),
         };
 
-        for pg_entry in pages.flatten() {
-            let path = pg_entry.path();
-            let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            let json_path = path.join(format!("{}.json", fname));
-            if !json_path.exists() {
+        for entry in entries.flatten() {
+            let page_dir = entry.path().join("page");
+            if !page_dir.exists() {
                 continue;
             }
 
-            let content = match tokio::fs::read_to_string(&json_path).await {
-                Ok(c) => c,
+            let pages = match std::fs::read_dir(&page_dir) {
+                Ok(p) => p,
                 Err(_) => continue,
             };
 
-            let doc: serde_json::Value = match serde_json::from_str(&content) {
-                Ok(d) => d,
-                Err(_) => continue,
-            };
+            for pg_entry in pages.flatten() {
+                let path = pg_entry.path();
+                let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                let json_path = path.join(format!("{}.json", fname));
+                if !json_path.exists() {
+                    continue;
+                }
 
-            if let Err(e) = insert_page(pool, &doc).await {
-                warn!("failed to insert page from {}: {}", json_path.display(), e);
-                continue;
+                let content = match tokio::fs::read_to_string(&json_path).await {
+                    Ok(c) => c,
+                    Err(_) => continue,
+                };
+
+                let doc: serde_json::Value = match serde_json::from_str(&content) {
+                    Ok(d) => d,
+                    Err(_) => continue,
+                };
+
+                if let Err(e) = insert_page(pool, &doc).await {
+                    warn!("failed to insert page from {}: {}", json_path.display(), e);
+                    continue;
+                }
+                loaded += 1;
             }
-            loaded += 1;
         }
+    }
+
+    // Load Rust app page fixtures so workspace links to native pages pass
+    // Frappe's page-permission checks for non-admin users.
+    for (name, json) in rust_page_fixtures {
+        let doc: serde_json::Value = match serde_json::from_str(&json) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("failed to parse rust page fixture {}: {}", name, e);
+                continue;
+            }
+        };
+
+        if let Err(e) = insert_page(pool, &doc).await {
+            warn!("failed to insert rust page fixture {}: {}", name, e);
+            continue;
+        }
+        loaded += 1;
     }
 
     if loaded > 0 {
@@ -1659,9 +1688,15 @@ async fn insert_page(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()>
     let sql = r#"
         INSERT OR REPLACE INTO "page" (
             name, creation, modified, modified_by, owner, docstatus,
-            page_name, title, icon, module, standard, system_page
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            page_name, title, icon, module, standard, system_page, restrict_to_domain
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     "#;
+
+    let restrict_to_domain = doc
+        .get("restrict_to_domain")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     let params = vec![
         val(name),
@@ -1676,6 +1711,7 @@ async fn insert_page(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()>
         val(json_str(doc, "module")),
         val(json_str(doc, "standard")),
         num(json_i64(doc, "system_page")),
+        val(restrict_to_domain),
     ];
 
     pool.execute_sql(sql, params).await?;

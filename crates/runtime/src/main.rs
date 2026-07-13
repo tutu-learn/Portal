@@ -61,12 +61,18 @@ async fn main() -> error::Result<()> {
                     .into_iter()
                     .map(|c| (c.name.to_string(), c.json.to_string()))
                     .collect();
+                let page_fixtures: Vec<(String, String)> = rust_app_registry
+                    .all_pages()
+                    .into_iter()
+                    .map(|p| (p.name.to_string(), p.json.to_string()))
+                    .collect();
                 if let Err(e) = orm::doctype_sync::sync_all(
                     &p,
                     fixtures,
                     workspace_fixtures,
                     module_fixtures,
                     client_script_fixtures,
+                    page_fixtures,
                 )
                 .await
                 {
