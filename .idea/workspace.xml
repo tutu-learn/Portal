@@ -62,8 +62,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
-      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`.">
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logengine-data/wal.ndjson" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/wal.ndjson" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,23 +102,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000091360374803" />
-      <entry key="MS500" value="1.0982090645834475" />
-      <entry key="S2" value="1.5598064443271198" />
-      <entry key="S5" value="1.7928940474463637" />
-      <entry key="S10" value="1.890445982329284" />
-      <entry key="S30" value="1.9620608153690415" />
-      <entry key="S60" value="1.9808469887648341" />
-      <entry key="M2" value="1.9903772316262165" />
-      <entry key="M5" value="1.997745043626916" />
-      <entry key="M10" value="2.0567170533542702" />
-      <entry key="M15" value="2.2075003480550306" />
-      <entry key="M30" value="2.871488056893275" />
-      <entry key="H1" value="3.9913087796626936" />
-      <entry key="H2" value="5.1377158355920765" />
-      <entry key="H4" value="7.222575690588904" />
-      <entry key="D1" value="66.75750592729497" />
-      <entry key="W1" value="145.6769770070574" />
+      <entry key="MS100" value="1.4195625853904188" />
+      <entry key="MS500" value="2.8720883518969726" />
+      <entry key="S2" value="3.6556418379559465" />
+      <entry key="S5" value="3.8562806295796648" />
+      <entry key="S10" value="3.9271018221779235" />
+      <entry key="S30" value="3.975465743838928" />
+      <entry key="S60" value="3.9877032545900137" />
+      <entry key="M2" value="3.993844203359748" />
+      <entry key="M5" value="3.9975358973179014" />
+      <entry key="M10" value="3.9987982397374635" />
+      <entry key="M15" value="4.000730974490356" />
+      <entry key="M30" value="4.0783954105090645" />
+      <entry key="H1" value="4.56124540826162" />
+      <entry key="H2" value="5.5019356346004455" />
+      <entry key="H4" value="6.635190979480478" />
+      <entry key="D1" value="43.99234624948676" />
+      <entry key="W1" value="141.49097619955054" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -126,35 +128,35 @@
       <entry key="S10" value="0.0" />
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
-      <entry key="M2" value="5.585947055353665E-217" />
-      <entry key="M5" value="3.2316804582766904E-87" />
-      <entry key="M10" value="6.498789475776355E-44" />
-      <entry key="M15" value="1.893681046462181E-29" />
-      <entry key="M30" value="5.896356977688468E-15" />
-      <entry key="H1" value="1.0734578593125482E-7" />
-      <entry key="H2" value="4.621109586027153E-4" />
-      <entry key="H4" value="0.03125010815018327" />
-      <entry key="D1" value="2.371941777739149" />
-      <entry key="W1" value="6.672293313491795" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="2.133920505312299E-163" />
+      <entry key="M10" value="5.280893155103121E-82" />
+      <entry key="M15" value="7.65402906871383E-55" />
+      <entry key="M30" value="1.1854286142404811E-27" />
+      <entry key="H1" value="4.813165762153024E-14" />
+      <entry key="H2" value="3.0943481619938233E-7" />
+      <entry key="H4" value="8.08654447328047E-4" />
+      <entry key="D1" value="1.2899986831681853" />
+      <entry key="W1" value="6.116279269509212" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9659452151369006" />
-      <entry key="MS500" value="1.0907584804585757" />
-      <entry key="S2" value="1.5572995580803235" />
-      <entry key="S5" value="1.7917615884989782" />
-      <entry key="S10" value="1.8898526189620901" />
-      <entry key="S30" value="1.9618563883212967" />
-      <entry key="S60" value="1.9807439044602149" />
-      <entry key="M2" value="1.9903254686023426" />
-      <entry key="M5" value="1.997724272008578" />
-      <entry key="M10" value="2.056706421399953" />
-      <entry key="M15" value="2.2074928076598757" />
-      <entry key="M30" value="2.8714831303129977" />
-      <entry key="H1" value="3.991305328116127" />
-      <entry key="H2" value="5.13817553979985" />
-      <entry key="H4" value="7.2538228561131355" />
-      <entry key="D1" value="69.12941722356439" />
-      <entry key="W1" value="152.34925701708468" />
+      <entry key="MS100" value="1.3795830745600381" />
+      <entry key="MS500" value="2.8550714096847774" />
+      <entry key="S2" value="3.6502420907652624" />
+      <entry key="S5" value="3.8540057641716166" />
+      <entry key="S10" value="3.9259442002532654" />
+      <entry key="S30" value="3.975075283863917" />
+      <entry key="S60" value="3.9875074450236094" />
+      <entry key="M2" value="3.9937461532029808" />
+      <entry key="M5" value="3.9974966423040694" />
+      <entry key="M10" value="3.99877860627654" />
+      <entry key="M15" value="4.000717880117462" />
+      <entry key="M30" value="4.07838875855025" />
+      <entry key="H1" value="4.561241756865159" />
+      <entry key="H2" value="5.501933800915688" />
+      <entry key="H4" value="6.635998327011172" />
+      <entry key="D1" value="45.28232811519909" />
+      <entry key="W1" value="147.60724323885464" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -268,7 +270,7 @@
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="61353000" />
+      <workItem from="1783773069519" duration="78853000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -462,7 +464,47 @@
       <option name="project" value="LOCAL" />
       <updated>1783890315530</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="Add enhanced logging and tenant-specific handling for OAuth providers&#10;&#10;Improved debug and warning logs for OAuth provider flows. Added logic to rewrite `/common/` Microsoft OAuth endpoints to tenant-specific URLs. Enhanced flow configuration to ensure compatibility and accuracy of authorization and token exchange mechanisms.">
+      <option name="closed" value="true" />
+      <created>1783928283062</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1783928283062</updated>
+    </task>
+    <task id="LOCAL-00026" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
+      <option name="closed" value="true" />
+      <created>1783932398301</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1783932398301</updated>
+    </task>
+    <task id="LOCAL-00027" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
+      <option name="closed" value="true" />
+      <created>1783937006043</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1783937006043</updated>
+    </task>
+    <task id="LOCAL-00028" summary="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling">
+      <option name="closed" value="true" />
+      <created>1783946699298</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1783946699298</updated>
+    </task>
+    <task id="LOCAL-00029" summary="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`.">
+      <option name="closed" value="true" />
+      <created>1783952296620</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1783952296620</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -493,6 +535,10 @@
     <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
     <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
     <MESSAGE value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
+    <MESSAGE value="Add enhanced logging and tenant-specific handling for OAuth providers&#10;&#10;Improved debug and warning logs for OAuth provider flows. Added logic to rewrite `/common/` Microsoft OAuth endpoints to tenant-specific URLs. Enhanced flow configuration to ensure compatibility and accuracy of authorization and token exchange mechanisms." />
+    <MESSAGE value="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps" />
+    <MESSAGE value="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling" />
+    <MESSAGE value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
   </component>
 </project>
