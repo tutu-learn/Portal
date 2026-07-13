@@ -62,14 +62,16 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
+      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19622" />
+    <option name="cachedIndexableFilesCount" value="19586" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -266,7 +268,7 @@
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="54742000" />
+      <workItem from="1783773069519" duration="61353000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -452,7 +454,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783888820230</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
+      <option name="closed" value="true" />
+      <created>1783890315530</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1783890315530</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

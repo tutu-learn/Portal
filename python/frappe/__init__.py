@@ -740,9 +740,11 @@ def _patch_real_module(mod):
 
             def _kiff_get_oauth2_providers():
                 import frappe
+                import logging
                 import os
                 import re
 
+                _log = logging.getLogger("kiff.oauth")
                 providers = _orig_get_oauth2_providers()
                 if not isinstance(providers, dict):
                     providers = dict(providers) if providers is not None else {}
@@ -831,6 +833,16 @@ def _patch_real_module(mod):
                                         "/common/", "/%s/" % tenant_id
                                     )
                             cfg["flow_params"] = flow_params
+
+                for key, cfg in providers.items():
+                    if isinstance(cfg, dict):
+                        fp = cfg.get("flow_params") or {}
+                        _log.info(
+                            "OAuth provider %r: authorize=%r access_token=%r",
+                            key,
+                            fp.get("authorize_url"),
+                            fp.get("access_token_url"),
+                        )
 
                 return providers
 
@@ -1051,19 +1063,60 @@ def _patch_real_module(mod):
                             "OAuth provider config for '{}' is not a dict".format(provider_key)
                         )
 
-                    flow = _oauth_mod.get_oauth2_flow(provider_key)
+                    flow_params = provider_cfg.get("flow_params") or {}
+                    access_token_url = flow_params.get("access_token_url") or ""
+                    authorize_url = flow_params.get("authorize_url") or ""
+                    redirect_uri = _oauth_mod.get_redirect_uri(provider_key)
+
+                    _log.warning(
+                        "OAuth token exchange for %r: authorize_url=%r access_token_url=%r redirect_uri=%r",
+                        provider_key,
+                        authorize_url,
+                        access_token_url,
+                        redirect_uri,
+                    )
+
+                    # Safety net: if the access token URL still points to /common/ but
+                    # the authorize URL is tenant-specific, rewrite the token URL.
+                    if (
+                        "/common/" in access_token_url
+                        and "login.microsoftonline.com" in access_token_url
+                    ):
+                        import re
+
+                        m = re.search(
+                            r"login\.microsoftonline\.com/([^/]+)/oauth2",
+                            authorize_url,
+                        )
+                        if m and m.group(1) and m.group(1) != "common":
+                            tenant_id = m.group(1)
+                            access_token_url = access_token_url.replace(
+                                "/common/", "/%s/" % tenant_id
+                            )
+                            flow_params = dict(flow_params)
+                            flow_params["access_token_url"] = access_token_url
+                            _log.warning(
+                                "Rewrote access_token_url to tenant-specific: %r",
+                                access_token_url,
+                            )
+
+                    # Build the flow ourselves so we use the corrected flow_params
+                    # instead of letting Frappe re-read get_oauth2_providers().
+                    from rauth import OAuth2Service
+
+                    flow_params = dict(flow_params)
+                    keys = _oauth_mod.get_oauth_keys(provider_key)
+                    keys.update(flow_params)
+                    flow = OAuth2Service(**keys)
 
                     args = {
                         "data": {
                             "code": code,
-                            "redirect_uri": _oauth_mod.get_redirect_uri(provider_key),
+                            "redirect_uri": redirect_uri,
                             "grant_type": "authorization_code",
                         }
                     }
 
-                    access_token_url = (
-                        provider_cfg.get("flow_params") or {}
-                    ).get("access_token_url") or ""
                     if "login.microsoftonline.com" in access_token_url:
                         auth_url_data = provider_cfg.get("auth_url_data") or {}
                         if isinstance(auth_url_data, str):
