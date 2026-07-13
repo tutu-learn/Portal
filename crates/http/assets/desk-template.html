@@ -146,6 +146,24 @@
     {{JS_INCLUDES}}
 
     <script>
+        // Redirect custom audit_ready pages served by the Rust runtime so that
+        // workspace Page links don't get trapped inside the Desk SPA.
+        // Use capture phase to intercept the click before Frappe's router does.
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest && e.target.closest('a[href*="/desk/ops-portal"], a[href*="/desk/server-token-ui"]');
+            if (!link) return;
+            var href = link.getAttribute('href');
+            if (!href) return;
+            var redirect = href.replace('/desk/ops-portal', '/audit_ready/ops-portal').replace('/desk/server-token-ui', '/audit_ready/server-token-ui');
+            if (redirect !== href) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = redirect;
+            }
+        }, true);
+    </script>
+
+    <script>
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 var splash = document.getElementById('splash-screen');

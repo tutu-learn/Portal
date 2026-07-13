@@ -63,6 +63,18 @@ pub async fn serve_desk(
         return Redirect::temporary(&format!("/login?{}", query)).into_response();
     }
 
+    // Rust app pages are mounted under /audit_ready/*; Frappe Desk routes Page
+    // workspace links through /desk/<page_name>, so redirect those paths.
+    match uri.path() {
+        "/desk/ops-portal" => {
+            return Redirect::temporary("/audit_ready/ops-portal").into_response();
+        }
+        "/desk/server-token-ui" => {
+            return Redirect::temporary("/audit_ready/server-token-ui").into_response();
+        }
+        _ => {}
+    }
+
     // Load assets.json once; used in both boot info and HTML includes
     let assets_base = PathBuf::from("crates/http/assets");
     let bundle_map = load_bundle_map(&assets_base).await;

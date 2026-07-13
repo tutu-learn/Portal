@@ -62,10 +62,14 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`.">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments.">
+      <change beforePath="$PROJECT_DIR$/crates/http/assets/desk-template.html" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/desk-template.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/assets/frappe/dist/js/desk.bundle.PQWALYIC.js" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/frappe/dist/js/desk.bundle.PQWALYIC.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/wal.ndjson" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/wal.ndjson" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -270,7 +274,7 @@
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="78853000" />
+      <workItem from="1783773069519" duration="83131000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -504,7 +508,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783952296620</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments.">
+      <option name="closed" value="true" />
+      <created>1783966205438</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1783966205438</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -514,7 +526,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository." />
     <MESSAGE value="setting suSync `apps.json` with Cargo.toml manifests&#10;&#10;- Replace `sebrus_logger` with `strongroom` app across `apps.json`, `Cargo.toml`, and `crate` references.&#10;- Ensure `Cargo.toml` manifests for both runtime and workspace reflect `apps.json` changes.&#10;- Update registered app list and resolve directory names for case-sensitive consistency.&#10;- Add utilities for syncing app dependencies and workspace members dynamically." />
     <MESSAGE value="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests." />
     <MESSAGE value="Introduce `email` crate with IMAP/SMTP utilities and configuration support&#10;&#10;- Add `email` crate to provide generic email configuration, connection testing, email parsing, and send/fetch operations using IMAP and SMTP. &#10;- Implement `EmailConfig`, `SmtpConfig`, and `ImapConfig` for managing email settings with camelCase serialization support.&#10;- Introduce utility functions for testing email credentials, sending emails, and parsing raw RFC-822 messages.&#10;- Include comprehensive tests to validate email configuration parsing, roundtrip serialization, and connectivity." />
@@ -539,6 +550,7 @@
     <MESSAGE value="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps" />
     <MESSAGE value="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling" />
     <MESSAGE value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
+    <MESSAGE value="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments." />
   </component>
 </project>

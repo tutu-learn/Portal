@@ -45666,7 +45666,7 @@ Component that was made reactive: `,
     get_dropdown_item_html(notification_log) {
       let doc_link = this.get_item_link(notification_log);
       let read_class = notification_log.read ? "" : "unread";
-      let message = notification_log.subject;
+      let message = notification_log.subject || "";
       let title = message.match(/<b class="subject-title">(.*?)<\/b>/);
       message = title ? message.replace(title[1], frappe.ellipsis(strip_html(title[1]), 100)) : message;
       let timestamp = frappe.datetime.comment_when(notification_log.creation);
