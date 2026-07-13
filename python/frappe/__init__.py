@@ -838,6 +838,24 @@ def _patch_real_module(mod):
                         if tenant_id:
                             break
 
+                # Derive tenant id from configured Social Login Key URLs.
+                if not tenant_id:
+                    try:
+                        keys = frappe.get_all(
+                            "Social Login Key",
+                            fields=["authorize_url", "access_token_url"],
+                        )
+                        for key in keys:
+                            for url in (key.authorize_url, key.access_token_url):
+                                t = _ms_tenant_from_url(url)
+                                if t:
+                                    tenant_id = t
+                                    break
+                            if tenant_id:
+                                break
+                    except Exception as e:
+                        _log.debug("Social Login Key tenant lookup failed: %s", e)
+
                 if not tenant_id:
                     tenant_id = "common"
 
@@ -1118,6 +1136,32 @@ def _patch_real_module(mod):
                     access_token_url = flow_params.get("access_token_url") or ""
                     authorize_url = flow_params.get("authorize_url") or ""
                     redirect_uri = _oauth_mod.get_redirect_uri(provider_key)
+
+                    # Overlay Social Login Key URLs, if configured, so single-tenant
+                    # Microsoft app registrations use their tenant-specific endpoints.
+                    try:
+                        import frappe
+
+                        login_key = _find_social_login_key(provider_key)
+                        if login_key:
+                            doc = frappe.get_doc("Social Login Key", login_key)
+                            cfg_authorize_url = str(doc.get("authorize_url") or "").strip()
+                            cfg_access_token_url = str(doc.get("access_token_url") or "").strip()
+                            if cfg_authorize_url or cfg_access_token_url:
+                                flow_params = dict(flow_params)
+                                if cfg_authorize_url:
+                                    authorize_url = cfg_authorize_url
+                                    flow_params["authorize_url"] = authorize_url
+                                if cfg_access_token_url:
+                                    access_token_url = cfg_access_token_url
+                                    flow_params["access_token_url"] = access_token_url
+                                _log.warning(
+                                    "OAuth token exchange using Social Login Key URLs: authorize_url=%r access_token_url=%r",
+                                    authorize_url,
+                                    access_token_url,
+                                )
+                    except Exception as e:
+                        _log.debug("Social Login Key URL overlay failed: %s", e)
 
                     _log.warning(
                         "OAuth token exchange for %r: authorize_url=%r access_token_url=%r redirect_uri=%r",
