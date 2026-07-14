@@ -15,10 +15,24 @@ pub enum DatabasePool {
 
 impl DatabasePool {
     pub async fn connect_sqlite(url: &str) -> Result<Self> {
+        use sqlx::sqlite::{SqliteJournalMode, SqliteSynchronous};
         let opts = sqlx::sqlite::SqliteConnectOptions::new()
             .filename(url)
-            .create_if_missing(true);
-        let pool = sqlx::SqlitePool::connect_with(opts).await?;
+            .create_if_missing(true)
+            // WAL mode lets readers proceed while a write is in progress and
+            // greatly improves concurrency when multiple agents hit SQLite.
+            .journal_mode(SqliteJournalMode::Wal)
+            .synchronous(SqliteSynchronous::Normal)
+            // Wait up to 5 seconds instead of failing immediately when the
+            // single SQLite writer lock is held by another request.
+            .busy_timeout(std::time::Duration::from_secs(5))
+            // Larger cache helps metadata-heavy doctype sync and queries.
+            .pragma("cache_size", "-64000");
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(20)
+            .acquire_timeout(std::time::Duration::from_secs(10))
+            .connect_with(opts)
+            .await?;
         Ok(DatabasePool::Sqlite(pool))
     }
 

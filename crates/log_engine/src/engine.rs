@@ -5,6 +5,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 use tantivy::collector::TopDocs;
 use tantivy::directory::MmapDirectory;
+use tantivy::merge_policy::LogMergePolicy;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument};
@@ -50,7 +51,16 @@ impl LogEngine {
         let schema = sb.build();
 
         let index = Index::open_or_create(MmapDirectory::open(&index_dir)?, schema)?;
-        let writer: IndexWriter = index.writer(50_000_000)?;
+        // Larger heap means fewer, bigger segments and therefore fewer
+        // read-heavy background merges when agents poll frequently.
+        let writer_heap_bytes = 256_000_000usize;
+        let mut writer: IndexWriter = index.writer(writer_heap_bytes)?;
+        let mut merge_policy = LogMergePolicy::default();
+        // Require at least a few segments before Tantivy starts merging. This
+        // trades a small query-time penalty for much lower disk read churn
+        // when agents poll frequently.
+        merge_policy.set_min_num_segments(6);
+        writer.set_merge_policy(Box::new(merge_policy));
         let reader = index.reader()?;
         let (alert_tx, alert_rx) = channel();
 
@@ -123,22 +133,37 @@ impl LogEngine {
 
     /// Ingest one log. Durability FIRST, then triggers, then indexing.
     pub fn ingest(&mut self, rec: LogRecord) -> LogResult<()> {
-        // 1. Durable append: write + flush to the WAL before anything else.
-        writeln!(self.wal, "{}", serde_json::to_string(&rec)?)?;
-        self.wal.flush()?;
+        self.ingest_batch(std::slice::from_ref(&rec))
+    }
 
-        // 2. Triggers, in real time.
-        for t in &self.triggers {
-            if (t.predicate)(&rec) {
-                let _ = self.alert_tx.send(Alert {
-                    trigger: t.name.clone(),
-                    record: rec.clone(),
-                });
-            }
+    /// Ingest a batch of logs with a single WAL flush.
+    ///
+    /// This is the preferred path for high-frequency agents that send many
+    /// records per request; it dramatically reduces disk write volume compared
+    /// to flushing the WAL after every record.
+    pub fn ingest_batch(&mut self, recs: &[LogRecord]) -> LogResult<()> {
+        if recs.is_empty() {
+            return Ok(());
         }
 
-        // 3. Stage into the index (not searchable until commit()).
-        self.index_record(&rec)?;
+        // 1. Durable append: write the whole batch to the WAL, then flush once.
+        for rec in recs {
+            writeln!(self.wal, "{}", serde_json::to_string(rec)?)?;
+        }
+        self.wal.flush()?;
+
+        // 2. Triggers and indexing for the batch.
+        for rec in recs {
+            for t in &self.triggers {
+                if (t.predicate)(rec) {
+                    let _ = self.alert_tx.send(Alert {
+                        trigger: t.name.clone(),
+                        record: rec.clone(),
+                    });
+                }
+            }
+            self.index_record(rec)?;
+        }
         Ok(())
     }
 

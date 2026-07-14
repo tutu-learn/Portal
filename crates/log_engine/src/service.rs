@@ -62,6 +62,18 @@ impl LogService {
         .expect("log ingest task panicked")
     }
 
+    /// Ingest multiple log records under a single lock acquisition and a
+    /// single WAL flush.
+    pub async fn ingest_batch(&self, recs: Vec<LogRecord>) -> LogResult<()> {
+        let engine = self.engine.clone();
+        spawn_blocking(move || {
+            let mut eng = engine.blocking_lock();
+            eng.ingest_batch(&recs)
+        })
+        .await
+        .expect("log ingest task panicked")
+    }
+
     /// Commit staged logs and truncate the WAL.
     pub async fn commit(&self) -> LogResult<()> {
         let engine = self.engine.clone();
