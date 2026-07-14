@@ -217,7 +217,7 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
         .map(|(_, site)| site.path.join("logengine-data"))
         .unwrap_or_else(|| PathBuf::from("./logengine-data"));
 
-    let commit_interval = Duration::from_secs(15);
+    let commit_interval = Duration::from_secs(2 * 60); // 2 minutes
 
     match log_engine::LogService::open_or_create(&data_dir) {
         Ok((service, mut alerts)) => {

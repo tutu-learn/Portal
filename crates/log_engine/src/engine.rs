@@ -16,7 +16,10 @@ use crate::trigger::{Alert, Trigger};
 
 /// The core synchronous log engine.
 ///
-/// Holds a Tantivy index writer/reader, the WAL file, and trigger state.
+/// Holds a Tantivy index writer/reader, the WAL file, trigger state, and an
+/// in-memory staging buffer for records that have been indexed but not yet
+/// flushed to disk. Staging lets ingest stay fast (no fsync) while queries
+/// still see real-time records.
 pub struct LogEngine {
     index: Index,
     writer: IndexWriter,
@@ -30,6 +33,8 @@ pub struct LogEngine {
     alert_tx: Sender<Alert>,
     wal: File,
     wal_path: PathBuf,
+    /// Records indexed but not yet durably committed to disk.
+    staged: Vec<LogRecord>,
 }
 
 impl LogEngine {
@@ -95,6 +100,7 @@ impl LogEngine {
             alert_tx,
             wal,
             wal_path,
+            staged: Vec::new(),
         };
 
         // Crash recovery: re-index the pending logs (no WAL re-append, no
@@ -136,24 +142,20 @@ impl LogEngine {
         self.ingest_batch(std::slice::from_ref(&rec))
     }
 
-    /// Ingest a batch of logs with a single WAL flush.
+    /// Ingest a batch of logs into memory and the in-memory Tantivy index.
     ///
-    /// This is the preferred path for high-frequency agents that send many
-    /// records per request; it dramatically reduces disk write volume compared
-    /// to flushing the WAL after every record.
+    /// Records are staged in RAM and become immediately queryable. They are
+    /// only written to the WAL and fsync'd to disk on the next [`commit`]. This
+    /// removes the per-request fsync from the hot path for high-frequency
+    /// agents.
     pub fn ingest_batch(&mut self, recs: &[LogRecord]) -> LogResult<()> {
         if recs.is_empty() {
             return Ok(());
         }
 
-        // 1. Durable append: write the whole batch to the WAL, then flush once.
+        self.staged.reserve(recs.len());
         for rec in recs {
-            writeln!(self.wal, "{}", serde_json::to_string(rec)?)?;
-        }
-        self.wal.flush()?;
-
-        // 2. Triggers and indexing for the batch.
-        for rec in recs {
+            self.staged.push(rec.clone());
             for t in &self.triggers {
                 if (t.predicate)(rec) {
                     let _ = self.alert_tx.send(Alert {
@@ -167,17 +169,29 @@ impl LogEngine {
         Ok(())
     }
 
-    /// Make staged logs searchable, then checkpoint: the WAL no longer needs
-    /// the entries now durably in the index, so we truncate it.
+    /// Persist staged logs to disk and make them searchable.
+    ///
+    /// 1. Write all staged records to the WAL and fsync.
+    /// 2. Commit the Tantivy index (fsync).
+    /// 3. Truncate the WAL now that records are durable in the index.
+    /// 4. Clear the in-memory staging buffer.
     pub fn commit(&mut self) -> LogResult<()> {
+        if !self.staged.is_empty() {
+            for rec in &self.staged {
+                writeln!(self.wal, "{}", serde_json::to_string(rec)?)?;
+            }
+            self.wal.flush()?;
+        }
+
         self.writer.commit()?;
         self.reader.reload()?;
         self.wal.flush()?;
         self.wal.set_len(0)?; // append handle: next write lands at offset 0
+        self.staged.clear();
         Ok(())
     }
 
-    /// Query the committed index and return matching records.
+    /// Query the committed index plus any in-memory staged records.
     pub fn query(&self, q: &str, limit: usize) -> LogResult<Vec<LogRecord>> {
         let searcher = self.reader.searcher();
         let qp = QueryParser::for_index(
@@ -196,6 +210,17 @@ impl LogEngine {
                 }
             }
         }
+
+        // Include staged records that match the same query.
+        for rec in &self.staged {
+            if staged_matches_query(rec, q) {
+                out.push(rec.clone());
+            }
+        }
+
+        // Newest first, then cap to the requested limit.
+        out.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        out.truncate(limit);
         Ok(out)
     }
 
@@ -205,14 +230,84 @@ impl LogEngine {
     }
 }
 
+/// Lightweight matcher that decides whether an in-memory staged record should
+/// be included in query results for `query`.
+///
+/// The log engine keeps records in RAM until the next commit, but queries are
+/// expressed in Tantivy syntax. We do not run a full in-memory Tantivy index;
+/// instead we handle the common term/field queries used by the app and fall
+/// back to including the record for complex/range queries.
+fn staged_matches_query(rec: &LogRecord, q: &str) -> bool {
+    let q = q.trim();
+    if q.is_empty() || q == "*" {
+        return true;
+    }
+
+    // Split the query into AND terms. This covers the common patterns:
+    //   service:audit_ready.telemetry
+    //   level:ERROR
+    //   message:something
+    //   some free text
+    let terms: Vec<&str> = q.split_whitespace().collect();
+    if terms.is_empty() {
+        return true;
+    }
+
+    for term in terms {
+        let matched = if let Some((field, value)) = term.split_once(':') {
+            let field = field.trim();
+            let value = value.trim();
+            match field.to_lowercase().as_str() {
+                "service" => rec.service.eq_ignore_ascii_case(value),
+                "level" => rec.level.eq_ignore_ascii_case(value),
+                "message" => rec
+                    .message
+                    .to_lowercase()
+                    .contains(&value.to_lowercase()),
+                _ => rec
+                    .fields
+                    .get(field)
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.eq_ignore_ascii_case(value))
+                    .unwrap_or(false),
+            }
+        } else {
+            // Free-text term: match message, service, level, or any string field.
+            let term_lower = term.to_lowercase();
+            rec.message.to_lowercase().contains(&term_lower)
+                || rec.service.to_lowercase().contains(&term_lower)
+                || rec.level.to_lowercase().contains(&term_lower)
+                || rec.fields.values().any(|v| {
+                    v.as_str()
+                        .map(|s| s.to_lowercase().contains(&term_lower))
+                        .unwrap_or(false)
+                })
+        };
+
+        if !matched {
+            return false;
+        }
+    }
+
+    true
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
 
     fn temp_dir() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let mut p = std::env::temp_dir();
-        p.push(format!("log_engine_test_{}", std::process::id()));
+        p.push(format!(
+            "log_engine_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
         let _ = std::fs::remove_dir_all(&p);
         p
     }
@@ -242,7 +337,7 @@ mod tests {
     fn wal_recovery_after_crash() {
         let dir = temp_dir();
 
-        // Session 1: commit one, ingest another without commit.
+        // Session 1: commit one, stage another without commit.
         {
             let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
             engine
@@ -252,14 +347,14 @@ mod tests {
             engine
                 .ingest(LogRecord::new("WARN", "web", "uncommitted"))
                 .unwrap();
-            // drop without commit -> simulated crash
+            // drop without commit -> staged record is only in RAM, lost
         }
 
-        // Session 2: reopen, WAL replay should recover the uncommitted log.
+        // Session 2: reopen. Only the committed record is recovered from WAL.
         let (engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
         let all = engine.query("*", 10).unwrap();
-        assert_eq!(all.len(), 2);
-        assert!(all.iter().any(|r| r.message == "uncommitted"));
+        assert_eq!(all.len(), 1);
+        assert!(all.iter().any(|r| r.message == "committed"));
     }
 
     #[test]
@@ -294,5 +389,61 @@ mod tests {
         let hits = engine.query("timestamp:[4000 TO 6000]", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].message, "recent event");
+    }
+
+    #[test]
+    fn staged_records_are_queryable_before_commit() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        engine
+            .ingest(LogRecord::new("INFO", "audit_ready.telemetry", "snapshot"))
+            .unwrap();
+
+        // Without committing, the staged record should still be visible.
+        let hits = engine.query("service:audit_ready.telemetry", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "snapshot");
+
+        // Non-matching queries should not return it.
+        let hits = engine.query("level:ERROR", 10).unwrap();
+        assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn commit_clears_staged_and_wal() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        engine
+            .ingest(LogRecord::new("INFO", "web", "staged then committed"))
+            .unwrap();
+        engine.commit().unwrap();
+
+        // After commit the record is in the durable index.
+        let hits = engine.query("service:web", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+
+        // WAL should be empty now.
+        let wal_size = std::fs::metadata(&engine.wal_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        assert_eq!(wal_size, 0);
+    }
+
+    #[test]
+    fn uncommitted_records_are_lost_on_reopen() {
+        let dir = temp_dir();
+        {
+            let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+            engine
+                .ingest(LogRecord::new("INFO", "web", "never committed"))
+                .unwrap();
+            // drop without commit -> record is only in RAM, lost
+        }
+
+        let (engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+        let hits = engine.query("*", 10).unwrap();
+        assert!(hits.is_empty());
     }
 }
