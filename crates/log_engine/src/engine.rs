@@ -3,14 +3,14 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-use tantivy::collector::TopDocs;
+use tantivy::collector::{Count, TopDocs};
 use tantivy::directory::MmapDirectory;
 use tantivy::merge_policy::LogMergePolicy;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument};
 
-use crate::error::{LogError, LogResult};
+use crate::error::LogResult;
 use crate::record::LogRecord;
 use crate::trigger::{Alert, Trigger};
 
@@ -35,6 +35,15 @@ pub struct LogEngine {
     wal_path: PathBuf,
     /// Records indexed but not yet durably committed to disk.
     staged: Vec<LogRecord>,
+    /// Approximate bytes currently held in `staged`.
+    staged_bytes: usize,
+    /// Commit as soon as this many records are staged, even if the time
+    /// interval has not elapsed. Prevents high-frequency agents from
+    /// accumulating unbounded RAM between time-based commits.
+    staged_count_threshold: usize,
+    /// Commit as soon as staged data reaches this size, even if the count
+    /// threshold has not been reached.
+    staged_bytes_threshold: usize,
 }
 
 impl LogEngine {
@@ -56,16 +65,16 @@ impl LogEngine {
         let schema = sb.build();
 
         let index = Index::open_or_create(MmapDirectory::open(&index_dir)?, schema)?;
-        // Larger heap means fewer, bigger segments and therefore fewer
-        // read-heavy background merges when agents poll frequently. On small
-        // servers (2 vCPU / low RAM) set KIFF_LOG_ENGINE_HEAP_MB lower to
-        // reduce memory pressure and CPU spent on large merges.
+        // On small servers (2 vCPU / 6 GiB) keep the writer heap modest. Larger
+        // heaps reduce merge CPU but increase memory spikes. The staged-record
+        // thresholds below are the primary memory bound; this heap just needs
+        // to be big enough for normal indexing.
         let writer_heap_bytes = std::env::var("KIFF_LOG_ENGINE_HEAP_MB")
             .ok()
             .and_then(|s| s.parse().ok())
             .map(|mb: usize| mb * 1_000_000)
-            .unwrap_or(256_000_000usize);
-        let mut writer: IndexWriter = index.writer(writer_heap_bytes)?;
+            .unwrap_or(128_000_000usize);
+        let writer: IndexWriter = index.writer(writer_heap_bytes)?;
         let mut merge_policy = LogMergePolicy::default();
         // Require at least a few segments before Tantivy starts merging. This
         // trades a small query-time penalty for much lower disk read churn
@@ -74,6 +83,19 @@ impl LogEngine {
         writer.set_merge_policy(Box::new(merge_policy));
         let reader = index.reader()?;
         let (alert_tx, alert_rx) = channel();
+
+        // Memory-bounding knobs for the staging buffer. With 3 agents calling
+        // home every 10 s, a count threshold of 1000 typically commits every
+        // ~30-60 s; the bytes threshold catches a single oversized batch.
+        let staged_count_threshold = std::env::var("KIFF_LOG_STAGED_COUNT_THRESHOLD")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1_000usize);
+        let staged_bytes_threshold = std::env::var("KIFF_LOG_STAGED_BYTES_MB")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .map(|mb: usize| mb * 1_000_000)
+            .unwrap_or(64_000_000usize);
 
         // Read pending (un-committed) WAL entries before we reopen for append.
         let pending: Vec<LogRecord> = if wal_path.exists() {
@@ -107,6 +129,9 @@ impl LogEngine {
             wal,
             wal_path,
             staged: Vec::new(),
+            staged_bytes: 0,
+            staged_count_threshold,
+            staged_bytes_threshold,
         };
 
         // Crash recovery: re-index the pending logs (no WAL re-append, no
@@ -131,8 +156,11 @@ impl LogEngine {
     }
 
     /// Stage a record into the index (used by both ingest and recovery).
-    fn index_record(&mut self, rec: &LogRecord) -> LogResult<()> {
+    /// Returns the serialized size of the record, which is used to bound the
+    /// in-memory staging buffer.
+    fn index_record(&mut self, rec: &LogRecord) -> LogResult<usize> {
         let raw = serde_json::to_string(rec)?;
+        let raw_len = raw.len();
         self.writer.add_document(doc!(
             self.f_timestamp => rec.timestamp,
             self.f_level => rec.level.clone(),
@@ -140,7 +168,7 @@ impl LogEngine {
             self.f_message => rec.message.clone(),
             self.f_raw => raw,
         ))?;
-        Ok(())
+        Ok(raw_len)
     }
 
     /// Ingest one log. Durability FIRST, then triggers, then indexing.
@@ -154,6 +182,10 @@ impl LogEngine {
     /// only written to the WAL and fsync'd to disk on the next [`commit`]. This
     /// removes the per-request fsync from the hot path for high-frequency
     /// agents.
+    ///
+    /// To keep RAM bounded on small servers, an early commit is triggered when
+    /// the staged buffer crosses a count or size threshold. The time-based
+    /// commit loop remains as a fallback for low-traffic periods.
     pub fn ingest_batch(&mut self, recs: &[LogRecord]) -> LogResult<()> {
         if recs.is_empty() {
             return Ok(());
@@ -170,7 +202,14 @@ impl LogEngine {
                     });
                 }
             }
-            self.index_record(rec)?;
+            let raw_len = self.index_record(rec)?;
+            self.staged_bytes += raw_len;
+        }
+
+        if self.staged.len() >= self.staged_count_threshold
+            || self.staged_bytes >= self.staged_bytes_threshold
+        {
+            self.commit()?;
         }
         Ok(())
     }
@@ -194,6 +233,7 @@ impl LogEngine {
         self.wal.flush()?;
         self.wal.set_len(0)?; // append handle: next write lands at offset 0
         self.staged.clear();
+        self.staged_bytes = 0;
         Ok(())
     }
 
@@ -228,6 +268,26 @@ impl LogEngine {
         out.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         out.truncate(limit);
         Ok(out)
+    }
+
+    /// Return the number of committed log records matching `q` without loading
+    /// the documents. Staged (not-yet-committed) records are included as an
+    /// upper-bound estimate so the desk count stays fresh.
+    pub fn count(&self, q: &str) -> LogResult<usize> {
+        let searcher = self.reader.searcher();
+        let qp = QueryParser::for_index(
+            &self.index,
+            vec![self.f_message, self.f_level, self.f_service],
+        );
+        let query = qp.parse_query(q)?;
+        let committed = searcher.search(&query, &Count)?;
+
+        let staged = self
+            .staged
+            .iter()
+            .filter(|rec| staged_matches_query(rec, q))
+            .count();
+        Ok(committed + staged)
     }
 
     /// Path to the write-ahead log.
@@ -446,5 +506,27 @@ mod tests {
         let (engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
         let hits = engine.query("*", 10).unwrap();
         assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn count_returns_committed_and_staged_matches() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        engine
+            .ingest(LogRecord::new("INFO", "web", "committed 1"))
+            .unwrap();
+        engine
+            .ingest(LogRecord::new("ERROR", "web", "committed 2"))
+            .unwrap();
+        engine.commit().unwrap();
+
+        engine
+            .ingest(LogRecord::new("ERROR", "web", "staged"))
+            .unwrap();
+
+        assert_eq!(engine.count("*").unwrap(), 3);
+        assert_eq!(engine.count("level:ERROR").unwrap(), 2);
+        assert_eq!(engine.count("service:auth").unwrap(), 0);
     }
 }

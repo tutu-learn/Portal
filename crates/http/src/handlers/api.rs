@@ -1327,12 +1327,22 @@ async fn validate_link_and_fetch_impl(
 /// The desk list view uses this endpoint. For normal DocTypes we fall back to
 /// the ORM; for the virtual `Kiff Log Entry` DocType we read from the log
 /// engine instead.
+const MAX_REPORTVIEW_PAGE_LENGTH: usize = 500;
+
 pub async fn reportview_get(
     State(state): State<AppState>,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> Response {
     let params = reportview_params_from_body(body);
     let doctype = params.get("doctype").cloned().unwrap_or_default();
+
+    if doctype.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "message": "doctype is required" })),
+        )
+            .into_response();
+    }
 
     if doctype == "Kiff Log Entry" {
         return reportview_kiff_log_get(state, params).await;
@@ -1419,7 +1429,8 @@ pub async fn reportview_get(
         .get("limit_page_length")
         .or_else(|| params.get("page_length"))
         .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(20);
+        .unwrap_or(20)
+        .min(MAX_REPORTVIEW_PAGE_LENGTH);
 
     match pool
         .get_list(
@@ -1470,6 +1481,14 @@ pub async fn reportview_get_count(
     let params = reportview_params_from_body(body);
     let doctype = params.get("doctype").cloned().unwrap_or_default();
 
+    if doctype.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "message": "doctype is required" })),
+        )
+            .into_response();
+    }
+
     if doctype == "Kiff Log Entry" {
         return kiff_log_count(state, params).await;
     }
@@ -1494,11 +1513,8 @@ pub async fn reportview_get_count(
         })
     });
 
-    match pool
-        .get_list(&doctype, filters, None, None, None, None)
-        .await
-    {
-        Ok(docs) => (StatusCode::OK, Json(json!({ "message": docs.len() }))).into_response(),
+    match pool.count(&doctype, filters, None).await {
+        Ok(n) => (StatusCode::OK, Json(json!({ "message": n }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "message": format!("{}", e) })),
@@ -1681,7 +1697,8 @@ async fn reportview_kiff_log_get(state: AppState, params: HashMap<String, String
     let page_length = params
         .get("limit_page_length")
         .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(20);
+        .unwrap_or(20)
+        .min(MAX_REPORTVIEW_PAGE_LENGTH);
     let query = params.get("filters").cloned().unwrap_or_default();
     let query = kiff_log_query_from_filters(&query);
 
@@ -1743,8 +1760,8 @@ async fn kiff_log_count(state: AppState, params: HashMap<String, String>) -> Res
 
     let _ = service.commit().await;
 
-    match service.query(&query, 1_000_000).await {
-        Ok(records) => (StatusCode::OK, Json(json!({ "message": records.len() }))).into_response(),
+    match service.count(&query).await {
+        Ok(n) => (StatusCode::OK, Json(json!({ "message": n }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "message": format!("log query failed: {}", e) })),

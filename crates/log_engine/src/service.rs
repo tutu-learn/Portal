@@ -85,6 +85,18 @@ impl LogService {
         .expect("log commit task panicked")
     }
 
+    /// Return the number of committed (plus staged) log records matching `q`.
+    pub async fn count(&self, q: &str) -> LogResult<usize> {
+        let engine = self.engine.clone();
+        let q = q.to_string();
+        spawn_blocking(move || {
+            let eng = engine.blocking_lock();
+            eng.count(&q)
+        })
+        .await
+        .expect("log count task panicked")
+    }
+
     /// Query committed logs.
     pub async fn query(&self, q: &str, limit: usize) -> LogResult<Vec<LogRecord>> {
         let engine = self.engine.clone();

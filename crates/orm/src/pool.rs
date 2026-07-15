@@ -440,6 +440,76 @@ impl DatabasePool {
         docs
     }
 
+    /// Return the number of rows matching the supplied filters.
+    pub async fn count(
+        &self,
+        doctype: &str,
+        filters: Option<HashMap<String, FilterCondition>>,
+        permission_conditions: Option<Vec<String>>,
+    ) -> Result<usize> {
+        if doctype.is_empty() {
+            return Ok(0);
+        }
+        let table = self.table_name(doctype);
+        let mut sql = format!("SELECT COUNT(*) FROM \"{}\"", table);
+        let mut params: Vec<Value> = Vec::new();
+        let mut all_conditions: Vec<String> = Vec::new();
+
+        if let Some(filts) = filters {
+            if !filts.is_empty() {
+                for (k, cond) in filts {
+                    let dialect = self.dialect();
+                    let base = params.len();
+                    let mut offset = 0usize;
+                    let (frag, vals) = cond.to_sql(&k, move || {
+                        let ph = if dialect == "postgres" {
+                            format!("${}", base + offset + 1)
+                        } else {
+                            "?".to_string()
+                        };
+                        offset += 1;
+                        ph
+                    });
+                    all_conditions.push(frag);
+                    params.extend(vals);
+                }
+            }
+        }
+
+        if let Some(conds) = permission_conditions {
+            if !conds.is_empty() {
+                all_conditions.extend(conds);
+            }
+        }
+
+        if !all_conditions.is_empty() {
+            sql.push_str(&format!(" WHERE {}", all_conditions.join(" AND ")));
+        }
+
+        debug!("count sql: {}", sql);
+        let rows = match self.query_raw(&sql, params).await {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("no such table") || msg.contains("does not exist") {
+                    warn!(doctype = %doctype, table = %table, "table missing in DB, returning count 0");
+                    return Ok(0);
+                }
+                return Err(e);
+            }
+        };
+        let count = rows
+            .into_iter()
+            .next()
+            .and_then(|mut r| r.remove("COUNT(*)").or_else(|| r.remove("count")))
+            .and_then(|v| match v {
+                Value::Number(n) => n.as_i64().map(|n| n as usize),
+                _ => None,
+            })
+            .unwrap_or(0);
+        Ok(count)
+    }
+
     pub async fn save_doc(&self, doc: &Document) -> Result<()> {
         crate::hooks::run_hook("before_save", &doc.doctype, doc).await?;
 
