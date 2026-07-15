@@ -137,4 +137,31 @@ impl LogService {
             }
         });
     }
+
+    /// Delete committed records older than `max_age`.
+    pub async fn prune_older_than(&self, max_age: Duration) -> LogResult<usize> {
+        let engine = self.engine.clone();
+        spawn_blocking(move || {
+            let mut eng = engine.blocking_lock();
+            eng.prune_older_than(max_age)
+        })
+        .await
+        .expect("log prune task panicked")
+    }
+
+    /// Spawn a background task that prunes old records at `interval`.
+    pub fn spawn_retention_loop(&self, interval: Duration, max_age: Duration) {
+        let svc = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            loop {
+                ticker.tick().await;
+                match svc.prune_older_than(max_age).await {
+                    Ok(0) => {}
+                    Ok(n) => tracing::info!("log engine retention pruned {} old record(s)", n),
+                    Err(e) => tracing::error!("log engine retention failed: {}", e),
+                }
+            }
+        });
+    }
 }

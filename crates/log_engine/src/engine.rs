@@ -1,12 +1,14 @@
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
+use std::ops::Bound;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::time::{Duration, SystemTime};
 
 use tantivy::collector::{Count, TopDocs};
 use tantivy::directory::MmapDirectory;
 use tantivy::merge_policy::LogMergePolicy;
-use tantivy::query::QueryParser;
+use tantivy::query::{QueryParser, RangeQuery};
 use tantivy::schema::{Field, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument};
 
@@ -237,6 +239,38 @@ impl LogEngine {
         Ok(())
     }
 
+    /// Delete committed records older than `max_age` and return how many were
+    /// removed.
+    ///
+    /// This first commits anything currently staged so that staged records are
+    /// also subject to the retention rule and so the before/after counts are
+    /// accurate. Then it deletes every document whose `timestamp` is older than
+    /// the cutoff and commits the deletion.
+    pub fn prune_older_than(&mut self, max_age: Duration) -> LogResult<usize> {
+        if !self.staged.is_empty() {
+            self.commit()?;
+        }
+
+        let cutoff = SystemTime::now() - max_age;
+        let cutoff_ms = cutoff
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+
+        let before = self.count("*")?;
+        let query: Box<dyn tantivy::query::Query> = Box::new(RangeQuery::new_i64_bounds(
+            "timestamp".to_string(),
+            Bound::Unbounded,
+            Bound::Excluded(cutoff_ms),
+        ));
+        self.writer.delete_query(query)?;
+        self.writer.commit()?;
+        self.reader.reload()?;
+        let after = self.count("*")?;
+
+        Ok(before.saturating_sub(after))
+    }
+
     /// Query the committed index plus any in-memory staged records.
     pub fn query(&self, q: &str, limit: usize) -> LogResult<Vec<LogRecord>> {
         let searcher = self.reader.searcher();
@@ -448,6 +482,33 @@ mod tests {
         engine.commit().unwrap();
 
         let hits = engine.query("timestamp:[4000 TO 6000]", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "recent event");
+    }
+
+    #[test]
+    fn prune_older_than_removes_old_records() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        let mut old = LogRecord::new("INFO", "web", "old event");
+        old.timestamp = 1_000;
+        let mut recent = LogRecord::new("INFO", "web", "recent event");
+        recent.timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        engine.ingest(old).unwrap();
+        engine.ingest(recent).unwrap();
+        engine.commit().unwrap();
+        assert_eq!(engine.count("*").unwrap(), 2);
+
+        let deleted = engine.prune_older_than(Duration::from_secs(1)).unwrap();
+        assert_eq!(deleted, 1);
+        assert_eq!(engine.count("*").unwrap(), 1);
+
+        let hits = engine.query("*", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].message, "recent event");
     }

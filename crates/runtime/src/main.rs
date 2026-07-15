@@ -224,9 +224,25 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
         .unwrap_or(120u64);
     let commit_interval = Duration::from_secs(commit_interval_secs);
 
+    // Retention: delete logs older than this. Default 14 days, checked once
+    // per day. On small servers this prevents the mmap'd Tantivy index from
+    // growing forever and eventually exhausting RAM.
+    let retention_days = std::env::var("KIFF_LOG_RETENTION_DAYS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(14u64);
+    let retention_interval = Duration::from_secs(
+        std::env::var("KIFF_LOG_RETENTION_INTERVAL_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(24 * 60 * 60u64),
+    );
+    let retention_max_age = Duration::from_secs(retention_days * 24 * 60 * 60);
+
     match log_engine::LogService::open_or_create(&data_dir) {
         Ok((service, mut alerts)) => {
             service.spawn_commit_loop(commit_interval);
+            service.spawn_retention_loop(retention_interval, retention_max_age);
 
             // Start the central log sink consumer. Tracing events and document
             // hooks send records to this sink; we forward them into the async
