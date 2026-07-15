@@ -62,14 +62,11 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments.">
-      <change beforePath="$PROJECT_DIR$/crates/http/assets/desk-template.html" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/desk-template.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/assets/frappe/dist/js/desk.bundle.PQWALYIC.js" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/assets/frappe/dist/js/desk.bundle.PQWALYIC.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
       <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/wal.ndjson" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/wal.ndjson" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime.log" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +79,7 @@
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -174,6 +171,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Cargo.Build audit_ready.executor": "Run",
     "Cargo.Run kiff-runtime.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.MCP Project settings loaded": "true",
@@ -183,7 +181,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -203,7 +201,24 @@
       <recent name="$PROJECT_DIR$/apps" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Run kiff-runtime">
+  <component name="RunManager" selected="Cargo.Build audit_ready">
+    <configuration name="Build audit_ready" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="build --package audit_ready --lib" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run kiff-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package runtime --bin kiff-runtime" />
@@ -257,6 +272,11 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Build audit_ready" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
@@ -274,7 +294,7 @@
       <workItem from="1783670437523" duration="6505000" />
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="83131000" />
+      <workItem from="1783773069519" duration="106516000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -516,7 +536,55 @@
       <option name="project" value="LOCAL" />
       <updated>1783966205438</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Add workspace redirects and enhance fleet UI filtering&#10;&#10;Introduced redirects for custom workspace pages in Rust runtime to align with new URL structure. Enhanced fleet UI with status-based filtering and visibility counts, improving user experience in Ops Portal. Updated log engine data files and index metadata to reflect recent changes in logs and segments.">
+      <option name="closed" value="true" />
+      <created>1783971205448</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1783971205448</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
+      <option name="closed" value="true" />
+      <created>1784049011223</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1784049011223</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
+      <option name="closed" value="true" />
+      <created>1784049058101</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1784049058101</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Add in-memory caches for telemetry and job handling.&#10;&#10;Introduced RAM-based caches for patch jobs, software inventories, and log staging to reduce SQLite contention and enhance system responsiveness. Updated APIs and the log engine to leverage these caches for high-frequency tasks, ensuring consistent, real-time performance while persisting data asynchronously.">
+      <option name="closed" value="true" />
+      <created>1784060571483</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1784060571483</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads.">
+      <option name="closed" value="true" />
+      <created>1784095629273</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1784095629273</updated>
+    </task>
+    <task id="LOCAL-00036" summary="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
+      <option name="closed" value="true" />
+      <created>1784102007028</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1784102007028</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -526,13 +594,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="setting suSync `apps.json` with Cargo.toml manifests&#10;&#10;- Replace `sebrus_logger` with `strongroom` app across `apps.json`, `Cargo.toml`, and `crate` references.&#10;- Ensure `Cargo.toml` manifests for both runtime and workspace reflect `apps.json` changes.&#10;- Update registered app list and resolve directory names for case-sensitive consistency.&#10;- Add utilities for syncing app dependencies and workspace members dynamically." />
-    <MESSAGE value="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests." />
-    <MESSAGE value="Introduce `email` crate with IMAP/SMTP utilities and configuration support&#10;&#10;- Add `email` crate to provide generic email configuration, connection testing, email parsing, and send/fetch operations using IMAP and SMTP. &#10;- Implement `EmailConfig`, `SmtpConfig`, and `ImapConfig` for managing email settings with camelCase serialization support.&#10;- Introduce utility functions for testing email credentials, sending emails, and parsing raw RFC-822 messages.&#10;- Include comprehensive tests to validate email configuration parsing, roundtrip serialization, and connectivity." />
-    <MESSAGE value="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions." />
-    <MESSAGE value="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly." />
-    <MESSAGE value="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime." />
-    <MESSAGE value="Add Playwright E2E tests for Infrastructure Server and Kubernetes Cluster creation&#10;&#10;Introduced end-to-end tests to validate the creation and persistence of Infrastructure Servers and Kubernetes Clusters via the UI, ensuring backend data integrity and expected UI behavior." />
     <MESSAGE value="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward." />
     <MESSAGE value="fixed bugs" />
     <MESSAGE value="fixee" />
@@ -551,6 +612,13 @@
     <MESSAGE value="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling" />
     <MESSAGE value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
     <MESSAGE value="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments." />
-    <option name="LAST_COMMIT_MESSAGE" value="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments." />
+    <MESSAGE value="Add workspace redirects and enhance fleet UI filtering&#10;&#10;Introduced redirects for custom workspace pages in Rust runtime to align with new URL structure. Enhanced fleet UI with status-based filtering and visibility counts, improving user experience in Ops Portal. Updated log engine data files and index metadata to reflect recent changes in logs and segments." />
+    <MESSAGE value="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance." />
+    <MESSAGE value="Add real-time RAM caching for log ingestion and fleet status.&#10;&#10;Introduced an in-memory staging buffer for log records to enhance ingestion performance by reducing disk writes. Extended fleet status and patch job handling to leverage RAM caches for real-time updates, minimizing SQLite queries and improving responsiveness across both APIs and the UI." />
+    <MESSAGE value="Add in-memory caches for telemetry and job handling.&#10;&#10;Introduced RAM-based caches for patch jobs, software inventories, and log staging to reduce SQLite contention and enhance system responsiveness. Updated APIs and the log engine to leverage these caches for high-frequency tasks, ensuring consistent, real-time performance while persisting data asynchronously." />
+    <MESSAGE value="Add dynamic configuration and improve batching efficiency&#10;&#10;Introduce environment variable-based overrides for various parameters, such as log engine heap size, max SQLite connections, batch sizes, and intervals, to enhance configurability. Refactor existing bulk operations and background tasks to process in chunks, reducing contention and improving performance. Additionally, adjust defaults for more resource-efficient operation on constrained systems." />
+    <MESSAGE value="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads." />
+    <MESSAGE value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
   </component>
 </project>
