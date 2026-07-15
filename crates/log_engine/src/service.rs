@@ -149,6 +149,18 @@ impl LogService {
         .expect("log prune task panicked")
     }
 
+    /// Delete all committed records for a single service.
+    pub async fn prune_service(&self, service: &str) -> LogResult<usize> {
+        let engine = self.engine.clone();
+        let service = service.to_string();
+        spawn_blocking(move || {
+            let mut eng = engine.blocking_lock();
+            eng.prune_service(&service)
+        })
+        .await
+        .expect("log prune task panicked")
+    }
+
     /// Spawn a background task that prunes old records at `interval`.
     pub fn spawn_retention_loop(&self, interval: Duration, max_age: Duration) {
         let svc = self.clone();

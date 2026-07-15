@@ -8,9 +8,11 @@ use std::time::{Duration, SystemTime};
 use tantivy::collector::{Count, TopDocs};
 use tantivy::directory::MmapDirectory;
 use tantivy::merge_policy::LogMergePolicy;
-use tantivy::query::{QueryParser, RangeQuery};
-use tantivy::schema::{Field, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT};
-use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument};
+use tantivy::query::{QueryParser, RangeQuery, TermQuery};
+use tantivy::schema::{
+    Field, IndexRecordOption, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT,
+};
+use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument, Term};
 
 use crate::error::LogResult;
 use crate::record::LogRecord;
@@ -75,7 +77,7 @@ impl LogEngine {
             .ok()
             .and_then(|s| s.parse().ok())
             .map(|mb: usize| mb * 1_000_000)
-            .unwrap_or(128_000_000usize);
+            .unwrap_or(64_000_000usize);
         let writer: IndexWriter = index.writer(writer_heap_bytes)?;
         let mut merge_policy = LogMergePolicy::default();
         // Require at least a few segments before Tantivy starts merging. This
@@ -137,13 +139,14 @@ impl LogEngine {
         };
 
         // Crash recovery: re-index the pending logs (no WAL re-append, no
-        // re-firing triggers), then commit -- which truncates the WAL.
+        // re-firing triggers), then commit the writer so the recovered records
+        // become durable.
         if !pending.is_empty() {
             tracing::info!("recovering {} log(s) from the WAL", pending.len());
             for rec in &pending {
                 engine.index_record(rec)?;
             }
-            engine.commit()?;
+            engine.commit_writer()?;
         }
 
         Ok((engine, alert_rx))
@@ -223,19 +226,31 @@ impl LogEngine {
     /// 3. Truncate the WAL now that records are durable in the index.
     /// 4. Clear the in-memory staging buffer.
     pub fn commit(&mut self) -> LogResult<()> {
-        if !self.staged.is_empty() {
-            for rec in &self.staged {
-                writeln!(self.wal, "{}", serde_json::to_string(rec)?)?;
-            }
-            self.wal.flush()?;
+        // Skip empty commits so the time-based commit loop does not force
+        // Tantivy segment flushes / garbage collection when there is no new
+        // data. This saves CPU on small servers.
+        if self.staged.is_empty() {
+            return Ok(());
         }
 
-        self.writer.commit()?;
-        self.reader.reload()?;
+        for rec in &self.staged {
+            writeln!(self.wal, "{}", serde_json::to_string(rec)?)?;
+        }
+        self.wal.flush()?;
+
+        self.commit_writer()?;
         self.wal.flush()?;
         self.wal.set_len(0)?; // append handle: next write lands at offset 0
         self.staged.clear();
         self.staged_bytes = 0;
+        Ok(())
+    }
+
+    /// Commit the Tantivy writer and reload the reader without touching the
+    /// WAL or staged buffer. Used for recovery and explicit index maintenance.
+    fn commit_writer(&mut self) -> LogResult<()> {
+        self.writer.commit()?;
+        self.reader.reload()?;
         Ok(())
     }
 
@@ -263,6 +278,26 @@ impl LogEngine {
             Bound::Unbounded,
             Bound::Excluded(cutoff_ms),
         ));
+        self.writer.delete_query(query)?;
+        self.writer.commit()?;
+        self.reader.reload()?;
+        let after = self.count("*")?;
+
+        Ok(before.saturating_sub(after))
+    }
+
+    /// Delete all committed records for a single service and return how many
+    /// were removed. Used to purge high-volume telemetry history from the
+    /// index when it is no longer needed.
+    pub fn prune_service(&mut self, service: &str) -> LogResult<usize> {
+        if !self.staged.is_empty() {
+            self.commit()?;
+        }
+
+        let before = self.count("*")?;
+        let term = Term::from_field_text(self.f_service, service);
+        let query: Box<dyn tantivy::query::Query> =
+            Box::new(TermQuery::new(term, IndexRecordOption::Basic));
         self.writer.delete_query(query)?;
         self.writer.commit()?;
         self.reader.reload()?;
