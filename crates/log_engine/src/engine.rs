@@ -57,8 +57,14 @@ impl LogEngine {
 
         let index = Index::open_or_create(MmapDirectory::open(&index_dir)?, schema)?;
         // Larger heap means fewer, bigger segments and therefore fewer
-        // read-heavy background merges when agents poll frequently.
-        let writer_heap_bytes = 256_000_000usize;
+        // read-heavy background merges when agents poll frequently. On small
+        // servers (2 vCPU / low RAM) set KIFF_LOG_ENGINE_HEAP_MB lower to
+        // reduce memory pressure and CPU spent on large merges.
+        let writer_heap_bytes = std::env::var("KIFF_LOG_ENGINE_HEAP_MB")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .map(|mb: usize| mb * 1_000_000)
+            .unwrap_or(256_000_000usize);
         let mut writer: IndexWriter = index.writer(writer_heap_bytes)?;
         let mut merge_policy = LogMergePolicy::default();
         // Require at least a few segments before Tantivy starts merging. This

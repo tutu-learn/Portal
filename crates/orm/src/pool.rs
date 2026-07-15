@@ -28,8 +28,14 @@ impl DatabasePool {
             .busy_timeout(std::time::Duration::from_secs(5))
             // Larger cache helps metadata-heavy doctype sync and queries.
             .pragma("cache_size", "-64000");
+        // SQLite only allows one writer at a time; a large pool mainly creates
+        // lock contention. Cap it low by default, but allow override via env.
+        let max_connections = std::env::var("KIFF_SQLITE_MAX_CONNECTIONS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3u32);
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(20)
+            .max_connections(max_connections)
             .acquire_timeout(std::time::Duration::from_secs(10))
             .connect_with(opts)
             .await?;

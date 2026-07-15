@@ -10,7 +10,7 @@ mod registered_apps;
 mod rust_apps;
 mod startup;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> error::Result<()> {
     logging::init_tracing();
     info!("kiff runtime starting");
@@ -217,7 +217,11 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
         .map(|(_, site)| site.path.join("logengine-data"))
         .unwrap_or_else(|| PathBuf::from("./logengine-data"));
 
-    let commit_interval = Duration::from_secs(2 * 60); // 2 minutes
+    let commit_interval_secs = std::env::var("KIFF_LOG_COMMIT_INTERVAL_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(120u64);
+    let commit_interval = Duration::from_secs(commit_interval_secs);
 
     match log_engine::LogService::open_or_create(&data_dir) {
         Ok((service, mut alerts)) => {

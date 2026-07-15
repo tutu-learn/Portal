@@ -35,19 +35,49 @@ pub fn log(rec: LogRecord) -> bool {
 }
 
 /// Spawn a background task that forwards records from the sink receiver into
-/// the supplied async `LogService`.
+/// the supplied async `LogService` in batches.
+///
+/// Instead of one blocking task per record, we drain the channel in chunks of
+/// up to 100 records. This cuts blocking-pool churn roughly 100x and lets the
+/// log engine ingest many records under a single mutex acquisition.
 pub fn spawn_log_sink_consumer(logger: log_engine::LogService, log_rx: Receiver<LogRecord>) {
     let log_rx = std::sync::Arc::new(std::sync::Mutex::new(log_rx));
+    const BATCH_SIZE: usize = 100;
+    const DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(25);
+
     tokio::spawn(async move {
         loop {
             let log_rx = std::sync::Arc::clone(&log_rx);
-            match tokio::task::spawn_blocking(move || log_rx.lock().unwrap().recv()).await {
-                Ok(Ok(rec)) => {
-                    if let Err(e) = logger.ingest(rec).await {
-                        tracing::debug!("log sink ingest failed: {}", e);
+            let batch = match tokio::task::spawn_blocking(move || {
+                let rx = log_rx.lock().unwrap();
+                let mut batch = Vec::with_capacity(BATCH_SIZE);
+                // Block until at least one record is available.
+                match rx.recv() {
+                    Ok(rec) => batch.push(rec),
+                    Err(_) => return batch,
+                }
+                // Pull in any records that arrived while we were waking up.
+                while batch.len() < BATCH_SIZE {
+                    match rx.recv_timeout(DRAIN_TIMEOUT) {
+                        Ok(rec) => batch.push(rec),
+                        Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+                        | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
                     }
                 }
-                Ok(Err(_)) | Err(_) => break,
+                batch
+            })
+            .await
+            {
+                Ok(batch) => batch,
+                Err(_) => break,
+            };
+
+            if batch.is_empty() {
+                break;
+            }
+
+            if let Err(e) = logger.ingest_batch(batch).await {
+                tracing::debug!("log sink ingest failed: {}", e);
             }
         }
     });
