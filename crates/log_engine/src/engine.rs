@@ -370,58 +370,123 @@ impl LogEngine {
 ///
 /// The log engine keeps records in RAM until the next commit, but queries are
 /// expressed in Tantivy syntax. We do not run a full in-memory Tantivy index;
-/// instead we handle the common term/field queries used by the app and fall
-/// back to including the record for complex/range queries.
+/// instead we handle the query shapes the app actually uses: `OR`/`AND`
+/// keywords, parenthesized groups, `field:value` terms, inclusive range terms
+/// like `timestamp:[a TO b]` (with `*` for an unbounded side), and free text.
 fn staged_matches_query(rec: &LogRecord, q: &str) -> bool {
     let q = q.trim();
     if q.is_empty() || q == "*" {
         return true;
     }
 
-    // Split the query into AND terms. This covers the common patterns:
-    //   service:audit_ready.telemetry
-    //   level:ERROR
-    //   message:something
-    //   some free text
-    let terms: Vec<&str> = q.split_whitespace().collect();
-    if terms.is_empty() {
-        return true;
-    }
-
-    for term in terms {
-        let matched = if let Some((field, value)) = term.split_once(':') {
-            let field = field.trim();
-            let value = value.trim();
-            match field.to_lowercase().as_str() {
-                "service" => rec.service.eq_ignore_ascii_case(value),
-                "level" => rec.level.eq_ignore_ascii_case(value),
-                "message" => rec.message.to_lowercase().contains(&value.to_lowercase()),
-                _ => rec
-                    .fields
-                    .get(field)
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.eq_ignore_ascii_case(value))
-                    .unwrap_or(false),
-            }
+    // `OR` has the lowest precedence: a record matches when any clause does.
+    let mut clauses: Vec<Vec<String>> = vec![Vec::new()];
+    for token in tokenize_query(q) {
+        if token == "OR" {
+            clauses.push(Vec::new());
         } else {
-            // Free-text term: match message, service, level, or any string field.
-            let term_lower = term.to_lowercase();
-            rec.message.to_lowercase().contains(&term_lower)
-                || rec.service.to_lowercase().contains(&term_lower)
-                || rec.level.to_lowercase().contains(&term_lower)
-                || rec.fields.values().any(|v| {
-                    v.as_str()
-                        .map(|s| s.to_lowercase().contains(&term_lower))
-                        .unwrap_or(false)
-                })
-        };
-
-        if !matched {
-            return false;
+            clauses.last_mut().expect("non-empty clauses").push(token);
         }
     }
+    clauses
+        .iter()
+        .any(|clause| staged_matches_and_clause(rec, clause))
+}
 
-    true
+/// Tokenize a query on whitespace, keeping bracketed ranges (`[a TO b]`) and
+/// parenthesized groups intact even though they contain spaces.
+fn tokenize_query(q: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0i32;
+    for c in q.chars() {
+        match c {
+            '(' | '[' => {
+                depth += 1;
+                current.push(c);
+            }
+            ')' | ']' => {
+                depth -= 1;
+                current.push(c);
+            }
+            c if c.is_whitespace() && depth == 0 => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(c),
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
+/// All terms in a clause must match (`AND` keywords are simply dropped).
+fn staged_matches_and_clause(rec: &LogRecord, tokens: &[String]) -> bool {
+    tokens
+        .iter()
+        .filter(|t| t.as_str() != "AND")
+        .all(|token| staged_matches_term(rec, token))
+}
+
+fn staged_matches_term(rec: &LogRecord, term: &str) -> bool {
+    let term = term.trim();
+    if term.is_empty() {
+        return true;
+    }
+    // Parenthesized group: recurse on the inner query.
+    if term.starts_with('(') && term.ends_with(')') && term.len() > 2 {
+        return staged_matches_query(rec, &term[1..term.len() - 1]);
+    }
+
+    if let Some((field, value)) = term.split_once(':') {
+        let field = field.trim();
+        let value = value.trim();
+        // Inclusive range term, e.g. timestamp:[4000 TO 6000] or [4000 TO *].
+        if value.starts_with('[') && value.ends_with(']') {
+            return staged_matches_range(rec, field, &value[1..value.len() - 1]);
+        }
+        match field.to_lowercase().as_str() {
+            "service" => rec.service.eq_ignore_ascii_case(value),
+            "level" => rec.level.eq_ignore_ascii_case(value),
+            "message" => rec.message.to_lowercase().contains(&value.to_lowercase()),
+            _ => rec
+                .fields
+                .get(field)
+                .and_then(|v| v.as_str())
+                .map(|s| s.eq_ignore_ascii_case(value))
+                .unwrap_or(false),
+        }
+    } else {
+        // Free-text term: match message, service, level, or any string field.
+        let term_lower = term.to_lowercase();
+        rec.message.to_lowercase().contains(&term_lower)
+            || rec.service.to_lowercase().contains(&term_lower)
+            || rec.level.to_lowercase().contains(&term_lower)
+            || rec.fields.values().any(|v| {
+                v.as_str()
+                    .map(|s| s.to_lowercase().contains(&term_lower))
+                    .unwrap_or(false)
+            })
+    }
+}
+
+/// Match an inclusive `a TO b` range against a numeric record field. `*` leaves
+/// that side unbounded. Only `timestamp` is an indexed numeric field today.
+fn staged_matches_range(rec: &LogRecord, field: &str, range: &str) -> bool {
+    if !field.eq_ignore_ascii_case("timestamp") {
+        return false;
+    }
+    let Some((lo, hi)) = range.split_once(" TO ") else {
+        return false;
+    };
+    let lo = lo.trim();
+    let hi = hi.trim();
+    let lo_ok = lo == "*" || lo.parse::<i64>().map(|v| rec.timestamp >= v).unwrap_or(false);
+    let hi_ok = hi == "*" || hi.parse::<i64>().map(|v| rec.timestamp <= v).unwrap_or(false);
+    lo_ok && hi_ok
 }
 
 #[cfg(test)]
@@ -519,6 +584,53 @@ mod tests {
         let hits = engine.query("timestamp:[4000 TO 6000]", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].message, "recent event");
+    }
+
+    #[test]
+    fn committed_query_supports_unbounded_timestamp_range() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        let mut old = LogRecord::new("INFO", "web", "old event");
+        old.timestamp = 1_000;
+        let mut recent = LogRecord::new("INFO", "web", "recent event");
+        recent.timestamp = 5_000;
+
+        engine.ingest(old).unwrap();
+        engine.ingest(recent).unwrap();
+        engine.commit().unwrap();
+
+        let hits = engine.query("timestamp:[4000 TO *]", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "recent event");
+    }
+
+    #[test]
+    fn staged_match_supports_or_groups_and_timestamp_range() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        // Shape used by the ops portal overview: OR'd services AND a 24h range.
+        let q = "(service:audit_ready.telemetry OR service:audit_ready.telemetry.compliance) \
+                 AND timestamp:[4000 TO *]";
+
+        let mut fresh = LogRecord::new("ERROR", "audit_ready.telemetry.compliance", "check failed");
+        fresh.timestamp = 5_000;
+        engine.ingest(fresh).unwrap();
+
+        let mut stale = LogRecord::new("ERROR", "audit_ready.telemetry.compliance", "old failure");
+        stale.timestamp = 1_000;
+        engine.ingest(stale).unwrap();
+
+        let mut other_service = LogRecord::new("INFO", "web", "unrelated");
+        other_service.timestamp = 5_000;
+        engine.ingest(other_service).unwrap();
+
+        // No commit: all three records are staged. Only the fresh compliance
+        // record matches both the OR group and the range.
+        let hits = engine.query(q, 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "check failed");
     }
 
     #[test]
