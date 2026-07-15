@@ -25,7 +25,9 @@ async fn test_get_list_with_results() -> Result<()> {
         pool.insert_doc(&doc).await?;
     }
 
-    let docs = pool.get_list("TestDocType", None, None, None, None, None).await?;
+    let docs = pool
+        .get_list("TestDocType", None, None, None, None, None)
+        .await?;
     assert_eq!(docs.len(), 3);
 
     let filtered = pool

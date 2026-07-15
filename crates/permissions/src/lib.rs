@@ -296,7 +296,12 @@ impl PermissionEngine {
         for row in docperm_rows {
             let perm = Self::row_to_docperm(row);
             merged.insert(
-                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                (
+                    perm.parent.clone(),
+                    perm.role.clone(),
+                    perm.permlevel,
+                    perm.if_owner,
+                ),
                 perm,
             );
         }
@@ -315,7 +320,12 @@ impl PermissionEngine {
         for row in kiff_rows {
             let perm = Self::row_to_docperm(row);
             merged.insert(
-                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                (
+                    perm.parent.clone(),
+                    perm.role.clone(),
+                    perm.permlevel,
+                    perm.if_owner,
+                ),
                 perm,
             );
         }
@@ -335,7 +345,12 @@ impl PermissionEngine {
         for row in custom_rows {
             let perm = Self::row_to_docperm(row);
             merged.insert(
-                (perm.parent.clone(), perm.role.clone(), perm.permlevel, perm.if_owner),
+                (
+                    perm.parent.clone(),
+                    perm.role.clone(),
+                    perm.permlevel,
+                    perm.if_owner,
+                ),
                 perm,
             );
         }

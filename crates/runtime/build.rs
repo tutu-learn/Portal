@@ -84,12 +84,21 @@ fn generate_registered_apps(apps: &[String]) -> String {
     let mut lines = Vec::new();
     lines.push("//! Static list of Rust Frappe apps to load at startup.".to_string());
     lines.push("//!".to_string());
-    lines.push("//! This file is generated at build time by `crates/runtime/build.rs` from".to_string());
-    lines.push("//! `rust_apps/apps.json`. Do not edit it by hand; update the JSON config".to_string());
+    lines.push(
+        "//! This file is generated at build time by `crates/runtime/build.rs` from".to_string(),
+    );
+    lines.push(
+        "//! `rust_apps/apps.json`. Do not edit it by hand; update the JSON config".to_string(),
+    );
     lines.push("//! instead.".to_string());
     lines.push("//!".to_string());
-    lines.push("//! If `rust_apps/apps.json` is missing or malformed the generated list falls".to_string());
-    lines.push("//! back to empty, so only `kiff_logger` (appended by `rust_apps.rs`) is loaded.".to_string());
+    lines.push(
+        "//! If `rust_apps/apps.json` is missing or malformed the generated list falls".to_string(),
+    );
+    lines.push(
+        "//! back to empty, so only `kiff_logger` (appended by `rust_apps.rs`) is loaded."
+            .to_string(),
+    );
     lines.push(String::new());
     lines.push("use rust_apps_core::RustApp;".to_string());
     lines.push(String::new());
@@ -147,7 +156,10 @@ fn sync_runtime_cargo_toml(manifest_dir: &Path, app_dirs: &[(String, String)]) -
                     "../../rust_apps/{dir}"
                 ))),
             );
-            deps.insert(app, toml_edit::Item::Value(toml_edit::Value::InlineTable(dep)));
+            deps.insert(
+                app,
+                toml_edit::Item::Value(toml_edit::Value::InlineTable(dep)),
+            );
         }
     }
 

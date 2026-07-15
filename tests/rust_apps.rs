@@ -53,7 +53,8 @@ async fn sebrus_logger_app_route_is_mounted() {
 #[tokio::test]
 async fn sebrus_logger_app_api_method() {
     let state = build_state();
-    let registry = rust_apps_core::RustAppRegistry::new(vec![Box::new(sebrus_logger::SebrusLoggerApp)]);
+    let registry =
+        rust_apps_core::RustAppRegistry::new(vec![Box::new(sebrus_logger::SebrusLoggerApp)]);
     let params = HashMap::from([("name".to_string(), serde_json::json!("Tester"))]);
 
     let result = registry

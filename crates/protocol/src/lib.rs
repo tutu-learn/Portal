@@ -70,15 +70,10 @@ pub enum TunnelMessage {
     },
 
     /// Bidirectional: close a channel.
-    ChannelClose {
-        channel_id: ChannelId,
-    },
+    ChannelClose { channel_id: ChannelId },
 
     /// Bidirectional: PTY bytes (base64 encoded).
-    ChannelData {
-        channel_id: ChannelId,
-        data: String,
-    },
+    ChannelData { channel_id: ChannelId, data: String },
 
     /// Operator → broker → agent: terminal resize.
     ChannelResize {
@@ -88,9 +83,7 @@ pub enum TunnelMessage {
     },
 
     /// Broker → either side: error notification.
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 impl TunnelMessage {

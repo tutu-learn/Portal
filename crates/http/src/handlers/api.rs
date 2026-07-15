@@ -56,7 +56,9 @@ pub async fn get_list(
         }
     };
 
-    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
 
     // Enforce row-level read permissions before running the query. Owner-only
     // read permissions are expressed as a query condition, so a blanket
@@ -129,7 +131,14 @@ pub async fn get_list(
     });
 
     match pool
-        .get_list(&doctype, filters, fields, order_by, permission_conditions, q.limit)
+        .get_list(
+            &doctype,
+            filters,
+            fields,
+            order_by,
+            permission_conditions,
+            q.limit,
+        )
         .await
     {
         Ok(docs) => (StatusCode::OK, Json(serde_json::json!({ "data": docs }))),
@@ -140,7 +149,10 @@ pub async fn get_list(
     }
 }
 
-fn validate_fields(raw: &str, valid: &std::collections::HashSet<String>) -> Result<Vec<String>, String> {
+fn validate_fields(
+    raw: &str,
+    valid: &std::collections::HashSet<String>,
+) -> Result<Vec<String>, String> {
     // Frappe sends `fields` as either a comma-separated list or a JSON array
     // such as `["name","role_name"]`.
     let items: Vec<String> = if raw.trim().starts_with('[') {
@@ -215,7 +227,9 @@ pub async fn get_doc(
         }
     };
 
-    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
 
     match pool.get_doc(&doctype, &name).await {
         Ok(doc) => {
@@ -268,7 +282,9 @@ pub async fn insert_doc(
         }
     };
 
-    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
     match state
         .permissions
         .has_permission(&pool, &user, &doctype, "create", None)
@@ -365,7 +381,9 @@ pub async fn update_doc(
         }
     };
 
-    let user = session_user_from_request(&state, &headers).await.unwrap_or_else(|| "Guest".into());
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
 
     // Try native ORM update first so Rust app DocTypes persist reliably.
     match pool.get_doc(&doctype, &name).await {
@@ -1085,8 +1103,8 @@ async fn getdoc_new(
 
     let permissions = if let (Some(ref pool), Some(ref user)) = (&pool, &user) {
         let ptypes = vec![
-            "read", "write", "create", "delete", "submit", "cancel", "select", "report",
-            "export", "import", "print", "email", "share",
+            "read", "write", "create", "delete", "submit", "cancel", "select", "report", "export",
+            "import", "print", "email", "share",
         ];
         let mut perms = serde_json::Map::new();
         for ptype in ptypes {
@@ -1476,7 +1494,10 @@ pub async fn reportview_get_count(
         })
     });
 
-    match pool.get_list(&doctype, filters, None, None, None, None).await {
+    match pool
+        .get_list(&doctype, filters, None, None, None, None)
+        .await
+    {
         Ok(docs) => (StatusCode::OK, Json(json!({ "message": docs.len() }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -2274,7 +2295,9 @@ fn clean_child_rows(value: Value) -> Value {
     };
 
     for item in arr.iter_mut() {
-        let Some(obj) = item.as_object_mut() else { continue };
+        let Some(obj) = item.as_object_mut() else {
+            continue;
+        };
         // Only treat objects that look like Frappe child rows.
         if !obj.contains_key("doctype") {
             continue;
@@ -2338,7 +2361,10 @@ async fn desk_form_save(
         }
     };
 
-    let doctype = match doc_map.remove("doctype").and_then(|v| v.as_str().map(String::from)) {
+    let doctype = match doc_map
+        .remove("doctype")
+        .and_then(|v| v.as_str().map(String::from))
+    {
         Some(d) => d,
         None => {
             return (
@@ -2410,11 +2436,7 @@ async fn desk_form_save(
         }
         // Child table fields arrive as arrays of objects carrying internal UI
         // flags and temporary names; clean them before persistence.
-        let v = if v.is_array() {
-            clean_child_rows(v)
-        } else {
-            v
-        };
+        let v = if v.is_array() { clean_child_rows(v) } else { v };
         doc.set_field(k, v);
     }
 
@@ -2460,8 +2482,8 @@ async fn desk_form_save(
 
     let permissions = {
         let ptypes = vec![
-            "read", "write", "create", "delete", "submit", "cancel", "select", "report",
-            "export", "import", "print", "email", "share",
+            "read", "write", "create", "delete", "submit", "cancel", "select", "report", "export",
+            "import", "print", "email", "share",
         ];
         let mut perms = serde_json::Map::new();
         for ptype in ptypes {

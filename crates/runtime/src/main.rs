@@ -15,7 +15,8 @@ async fn main() -> error::Result<()> {
     logging::init_tracing();
     info!("kiff runtime starting");
 
-    let config_path = std::env::var("KIFF_RUNTIME_CONFIG").unwrap_or_else(|_| "runtime.toml".into());
+    let config_path =
+        std::env::var("KIFF_RUNTIME_CONFIG").unwrap_or_else(|_| "runtime.toml".into());
     let config = config::RuntimeConfig::from_file(&config_path)?;
     let mut site_manager = config::SiteManager::load(&config.runtime.sites_path).await?;
 

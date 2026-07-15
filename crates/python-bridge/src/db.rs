@@ -99,7 +99,9 @@ pub fn get_list(
     };
 
     let order_by: Option<(String, bool)> = match order_by.as_deref() {
-        Some(raw) => parse_order_by(raw).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?,
+        Some(raw) => {
+            parse_order_by(raw).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?
+        }
         None => None,
     };
 

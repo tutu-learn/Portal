@@ -116,7 +116,10 @@ impl DatabasePool {
             meta_table,
             self.placeholder(1)
         );
-        match self.query_raw(&sql, vec![Value::String(doctype.into())]).await {
+        match self
+            .query_raw(&sql, vec![Value::String(doctype.into())])
+            .await
+        {
             Ok(rows) => {
                 for mut row in rows {
                     if let Some(name) = row

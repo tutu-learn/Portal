@@ -163,7 +163,10 @@ async fn load_workspace_children(
 
     let mut grouped: HashMap<String, Vec<Value>> = HashMap::new();
     for mut row in rows {
-        if let Some(parent) = row.remove("parent").and_then(|v| v.as_str().map(String::from)) {
+        if let Some(parent) = row
+            .remove("parent")
+            .and_then(|v| v.as_str().map(String::from))
+        {
             grouped.entry(parent).or_default().push(Value::Object(
                 row.into_iter().map(|(k, v)| (k, v)).collect(),
             ));
@@ -185,52 +188,106 @@ async fn attach_workspace_children(
             "workspace_link",
             "links",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "type", "label", "icon", "hidden", "link_type", "link_to",
-                "dependencies", "only_for", "onboard", "is_query_report",
-                "link_count", "description", "report_ref_doctype",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "type",
+                "label",
+                "icon",
+                "hidden",
+                "link_type",
+                "link_to",
+                "dependencies",
+                "only_for",
+                "onboard",
+                "is_query_report",
+                "link_count",
+                "description",
+                "report_ref_doctype",
             ],
         ),
         (
             "workspace_shortcut",
             "shortcuts",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "type", "link_to", "doc_view", "label", "icon",
-                "restrict_to_domain", "stats_filter", "color", "format",
-                "url", "kanban_board", "report_ref_doctype",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "type",
+                "link_to",
+                "doc_view",
+                "label",
+                "icon",
+                "restrict_to_domain",
+                "stats_filter",
+                "color",
+                "format",
+                "url",
+                "kanban_board",
+                "report_ref_doctype",
             ],
         ),
         (
             "workspace_chart",
             "charts",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "chart_name", "label",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "chart_name",
+                "label",
             ],
         ),
         (
             "workspace_number_card",
             "number_cards",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "number_card_name", "label",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "number_card_name",
+                "label",
             ],
         ),
         (
             "workspace_quick_list",
             "quick_lists",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "document_type", "label", "quick_list_filter",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "document_type",
+                "label",
+                "quick_list_filter",
             ],
         ),
         (
             "workspace_custom_block",
             "custom_blocks",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "custom_block_name", "label",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "custom_block_name",
+                "label",
             ],
         ),
     ];
@@ -1985,10 +2042,19 @@ mod tests {
             .expect("attach children");
 
         let ws = &workspaces[0];
-        let links = ws.get("links").and_then(|v| v.as_array()).expect("links array missing");
+        let links = ws
+            .get("links")
+            .and_then(|v| v.as_array())
+            .expect("links array missing");
         assert_eq!(links.len(), 2);
-        assert_eq!(links[0].get("label").and_then(|v| v.as_str()), Some("Audit Record"));
-        assert_eq!(links[1].get("type").and_then(|v| v.as_str()), Some("Card Break"));
+        assert_eq!(
+            links[0].get("label").and_then(|v| v.as_str()),
+            Some("Audit Record")
+        );
+        assert_eq!(
+            links[1].get("type").and_then(|v| v.as_str()),
+            Some("Card Break")
+        );
 
         // Missing child tables should surface as empty arrays, not errors.
         assert!(ws.get("shortcuts").and_then(|v| v.as_array()).is_some());

@@ -282,18 +282,9 @@ impl Migrator {
             // are created by doctype_sync before migrations run. Keep the migration
             // records so existing databases do not re-apply them, but use no-op SQL
             // so fresh databases do not fail with "duplicate column" errors.
-            (
-                "007_journal_entry_line_tb_transfer_id",
-                "SELECT 1",
-            ),
-            (
-                "008_trust_transaction_tb_transfer_id",
-                "SELECT 1",
-            ),
-            (
-                "009_invoice_settlement_columns",
-                "SELECT 1",
-            ),
+            ("007_journal_entry_line_tb_transfer_id", "SELECT 1"),
+            ("008_trust_transaction_tb_transfer_id", "SELECT 1"),
+            ("009_invoice_settlement_columns", "SELECT 1"),
             (
                 "010_doctype_restrict_to_domain",
                 r#"

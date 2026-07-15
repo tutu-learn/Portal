@@ -266,10 +266,7 @@ fn staged_matches_query(rec: &LogRecord, q: &str) -> bool {
             match field.to_lowercase().as_str() {
                 "service" => rec.service.eq_ignore_ascii_case(value),
                 "level" => rec.level.eq_ignore_ascii_case(value),
-                "message" => rec
-                    .message
-                    .to_lowercase()
-                    .contains(&value.to_lowercase()),
+                "message" => rec.message.to_lowercase().contains(&value.to_lowercase()),
                 _ => rec
                     .fields
                     .get(field)
@@ -297,8 +294,6 @@ fn staged_matches_query(rec: &LogRecord, q: &str) -> bool {
 
     true
 }
-
-
 
 #[cfg(test)]
 mod tests {

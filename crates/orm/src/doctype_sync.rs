@@ -1060,7 +1060,10 @@ async fn insert_client_script_fixtures(
         let enabled = json_i64(&doc, "enabled");
 
         if dt.is_empty() || script.is_empty() {
-            warn!("skipping client script fixture {}: dt and script are required", name);
+            warn!(
+                "skipping client script fixture {}: dt and script are required",
+                name
+            );
             continue;
         }
 

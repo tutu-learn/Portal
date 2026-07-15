@@ -190,9 +190,7 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         .and_then(|v| v.as_array())
         .expect("sebrus_logger workspaces should be an array");
     assert!(
-        sebrus_workspaces
-            .iter()
-            .any(|w| w == "sebrus-logger-extra"),
+        sebrus_workspaces.iter().any(|w| w == "sebrus-logger-extra"),
         "sebrus-logger-extra should belong to sebrus_logger"
     );
 

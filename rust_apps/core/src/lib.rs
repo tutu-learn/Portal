@@ -416,7 +416,10 @@ impl RustAppRegistry {
     }
 
     pub fn all_client_scripts(&self) -> Vec<ClientScriptFixture> {
-        self.apps.iter().flat_map(|app| app.client_scripts()).collect()
+        self.apps
+            .iter()
+            .flat_map(|app| app.client_scripts())
+            .collect()
     }
 
     pub fn all_doc_hooks(&self) -> Vec<DocHook> {
@@ -441,18 +444,22 @@ impl orm::DocHookRunner for RustAppRegistry {
         for app in self.apps.iter() {
             for hook in app.doc_hooks() {
                 if hook.event.as_str() == event && hook.doctype == doctype {
-                    let state = self.state.as_ref().map(|s| (**s).clone()).unwrap_or_else(|| AppState {
-                        config: Arc::new(config::RuntimeConfig::default()),
-                        site_manager: Arc::new(config::SiteManager::default()),
-                        pools: Arc::new(DashMap::new()),
-                        sessions: Arc::new(session::SessionStore::new()),
-                        permissions: Arc::new(permissions::PermissionEngine::new()),
-                        metadata: Arc::new(metadata::Meta::new()),
-                        pubsub: Arc::new(queue::PubSub::new()),
-                        translator: Arc::new(sql_translator::SqlTranslator::default()),
-                        rust_apps: RustAppRegistry::default(),
-                        logger: Arc::new(std::sync::OnceLock::new()),
-                    });
+                    let state = self
+                        .state
+                        .as_ref()
+                        .map(|s| (**s).clone())
+                        .unwrap_or_else(|| AppState {
+                            config: Arc::new(config::RuntimeConfig::default()),
+                            site_manager: Arc::new(config::SiteManager::default()),
+                            pools: Arc::new(DashMap::new()),
+                            sessions: Arc::new(session::SessionStore::new()),
+                            permissions: Arc::new(permissions::PermissionEngine::new()),
+                            metadata: Arc::new(metadata::Meta::new()),
+                            pubsub: Arc::new(queue::PubSub::new()),
+                            translator: Arc::new(sql_translator::SqlTranslator::default()),
+                            rust_apps: RustAppRegistry::default(),
+                            logger: Arc::new(std::sync::OnceLock::new()),
+                        });
                     let ctx = AppContext::new(app.name(), state);
                     (hook.handler)(&ctx, doc)?;
                 }
