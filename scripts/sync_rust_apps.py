@@ -32,6 +32,7 @@ CORE_CRATES = [
     "crates/log_engine",
     "cli",
     "crates/kiff_logger",
+    "crates/protocol",
 ]
 
 

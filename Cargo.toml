@@ -17,7 +17,7 @@ members = [
     "crates/kiff_logger",
     "crates/protocol",
     "rust_apps/core",
-    "rust_apps/audit_ready",
+    "rust_apps/sebrus_logger",
 ]
 
 [workspace.dependencies]
@@ -106,6 +106,6 @@ dashmap        = { workspace = true }
 
 [dev-dependencies]
 
-audit_ready = { path = "rust_apps/audit_ready" }
+sebrus_logger = { path = "rust_apps/sebrus_logger" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }

@@ -5,9 +5,6 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
@@ -50,6 +47,9 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/session">
         <feature name="default" enabled="true" />
       </package>
@@ -63,10 +63,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logengine-data/wal.ndjson" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/wal.ndjson" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/runtime.log" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/sqldialects.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,12 +77,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19586" />
+    <option name="cachedIndexableFilesCount" value="456" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -103,23 +106,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4195625853904188" />
-      <entry key="MS500" value="2.8720883518969726" />
-      <entry key="S2" value="3.6556418379559465" />
-      <entry key="S5" value="3.8562806295796648" />
-      <entry key="S10" value="3.9271018221779235" />
-      <entry key="S30" value="3.975465743838928" />
-      <entry key="S60" value="3.9877032545900137" />
-      <entry key="M2" value="3.993844203359748" />
-      <entry key="M5" value="3.9975358973179014" />
-      <entry key="M10" value="3.9987982397374635" />
-      <entry key="M15" value="4.000730974490356" />
-      <entry key="M30" value="4.0783954105090645" />
-      <entry key="H1" value="4.56124540826162" />
-      <entry key="H2" value="5.5019356346004455" />
-      <entry key="H4" value="6.635190979480478" />
-      <entry key="D1" value="43.99234624948676" />
-      <entry key="W1" value="141.49097619955054" />
+      <entry key="MS100" value="1.3587848824034543" />
+      <entry key="MS500" value="2.8032410488543493" />
+      <entry key="S2" value="4.057524573089973" />
+      <entry key="S5" value="4.92522748653851" />
+      <entry key="S10" value="5.391722802097868" />
+      <entry key="S30" value="5.973072724298313" />
+      <entry key="S60" value="6.76905133149768" />
+      <entry key="M2" value="7.821381720973424" />
+      <entry key="M5" value="8.93341960597478" />
+      <entry key="M10" value="9.427354793809037" />
+      <entry key="M15" value="9.610277147093246" />
+      <entry key="M30" value="9.874547376843282" />
+      <entry key="H1" value="10.446076638030393" />
+      <entry key="H2" value="11.432245090055543" />
+      <entry key="H4" value="12.593137705759487" />
+      <entry key="D1" value="49.94620917550554" />
+      <entry key="W1" value="147.46979376309386" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -130,34 +133,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="2.133920505312299E-163" />
-      <entry key="M10" value="5.280893155103121E-82" />
-      <entry key="M15" value="7.65402906871383E-55" />
-      <entry key="M30" value="1.1854286142404811E-27" />
-      <entry key="H1" value="4.813165762153024E-14" />
-      <entry key="H2" value="3.0943481619938233E-7" />
-      <entry key="H4" value="8.08654447328047E-4" />
-      <entry key="D1" value="1.2899986831681853" />
-      <entry key="W1" value="6.116279269509212" />
+      <entry key="M5" value="1.5782069877545455E-163" />
+      <entry key="M10" value="4.5415096718349834E-82" />
+      <entry key="M15" value="6.921794195765958E-55" />
+      <entry key="M30" value="1.1273004846432044E-27" />
+      <entry key="H1" value="4.693674434563524E-14" />
+      <entry key="H2" value="3.055696725800691E-7" />
+      <entry key="H4" value="8.035881341750819E-4" />
+      <entry key="D1" value="1.288648154991844" />
+      <entry key="W1" value="6.115364106217422" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3795830745600381" />
-      <entry key="MS500" value="2.8550714096847774" />
-      <entry key="S2" value="3.6502420907652624" />
-      <entry key="S5" value="3.8540057641716166" />
-      <entry key="S10" value="3.9259442002532654" />
-      <entry key="S30" value="3.975075283863917" />
-      <entry key="S60" value="3.9875074450236094" />
-      <entry key="M2" value="3.9937461532029808" />
-      <entry key="M5" value="3.9974966423040694" />
-      <entry key="M10" value="3.99877860627654" />
-      <entry key="M15" value="4.000717880117462" />
-      <entry key="M30" value="4.07838875855025" />
-      <entry key="H1" value="4.561241756865159" />
-      <entry key="H2" value="5.501933800915688" />
-      <entry key="H4" value="6.635998327011172" />
-      <entry key="D1" value="45.28232811519909" />
-      <entry key="W1" value="147.60724323885464" />
+      <entry key="MS100" value="1.3237078686881252" />
+      <entry key="MS500" value="2.7847764918175804" />
+      <entry key="S2" value="4.0506371278211555" />
+      <entry key="S5" value="4.9218994723978895" />
+      <entry key="S10" value="5.389907852493113" />
+      <entry key="S30" value="5.972407204191446" />
+      <entry key="S60" value="6.768679024448545" />
+      <entry key="M2" value="7.821169615158152" />
+      <entry key="M5" value="8.933323815483172" />
+      <entry key="M10" value="9.427304468773027" />
+      <entry key="M15" value="9.610242998086479" />
+      <entry key="M30" value="9.874529890554363" />
+      <entry key="H1" value="10.446067495312962" />
+      <entry key="H2" value="11.432240487861407" />
+      <entry key="H4" value="12.593938599350848" />
+      <entry key="D1" value="51.2348402979975" />
+      <entry key="W1" value="153.58514560769996" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -181,8 +184,8 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/logger",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -198,10 +201,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/apps" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Build audit_ready">
+  <component name="RunManager" selected="Cargo.Run kiff-runtime">
     <configuration name="Build audit_ready" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="build --package audit_ready --lib" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -295,6 +299,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
+      <workItem from="1784188874819" duration="4893000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
