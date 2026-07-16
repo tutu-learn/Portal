@@ -62,7 +62,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/session.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/session.rs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -74,7 +79,7 @@
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -98,23 +103,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3102324763240742" />
-      <entry key="MS500" value="2.769823911442817" />
-      <entry key="S2" value="3.6189794896373773" />
-      <entry key="S5" value="3.840585578976665" />
-      <entry key="S10" value="3.940592957871331" />
-      <entry key="S30" value="4.674464099692936" />
-      <entry key="S60" value="5.6617257167367665" />
-      <entry key="M2" value="6.581897875363223" />
-      <entry key="M5" value="7.358283210434503" />
-      <entry key="M10" value="7.665276364288579" />
-      <entry key="M15" value="7.775089955866705" />
-      <entry key="M30" value="7.961738232913461" />
-      <entry key="H1" value="8.495568668078187" />
-      <entry key="H2" value="9.462205771990575" />
-      <entry key="H4" value="10.611203002682817" />
-      <entry key="D1" value="47.96585270093983" />
-      <entry key="W1" value="145.47880318346978" />
+      <entry key="MS100" value="1.5314826961912038" />
+      <entry key="MS500" value="4.314178133997393" />
+      <entry key="S2" value="6.715795290283571" />
+      <entry key="S5" value="7.446569429455469" />
+      <entry key="S10" value="7.736908218194333" />
+      <entry key="S30" value="8.597233443992232" />
+      <entry key="S60" value="9.617204892716387" />
+      <entry key="M2" value="10.556899918600228" />
+      <entry key="M5" value="11.347361347498413" />
+      <entry key="M10" value="11.65963308343105" />
+      <entry key="M15" value="11.77128429223221" />
+      <entry key="M30" value="11.959798570428095" />
+      <entry key="H1" value="12.494546374047754" />
+      <entry key="H2" value="13.46164715426325" />
+      <entry key="H4" value="14.610895484183722" />
+      <entry key="D1" value="51.965648611347376" />
+      <entry key="W1" value="149.4787170315469" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -125,34 +130,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="1.7941449269809266E-163" />
-      <entry key="M10" value="4.8422479411331065E-82" />
-      <entry key="M15" value="7.224090902897383E-55" />
-      <entry key="M30" value="1.15165382305716E-27" />
-      <entry key="H1" value="4.744102814034091E-14" />
-      <entry key="H2" value="3.0720679241544326E-7" />
-      <entry key="H4" value="8.057379101869444E-4" />
-      <entry key="D1" value="1.2892220853884278" />
-      <entry key="W1" value="6.115753121147245" />
+      <entry key="M5" value="1.7920320410391905E-163" />
+      <entry key="M10" value="4.839395849474535E-82" />
+      <entry key="M15" value="7.221253957082983E-55" />
+      <entry key="M30" value="1.1514276700117215E-27" />
+      <entry key="H1" value="4.743636985694611E-14" />
+      <entry key="H2" value="3.0719170956957205E-7" />
+      <entry key="H4" value="8.057181303998732E-4" />
+      <entry key="D1" value="1.289216810555083" />
+      <entry key="W1" value="6.11574954649603" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2704928891256573" />
-      <entry key="MS500" value="2.7565283690725897" />
-      <entry key="S2" value="3.614844999210354" />
-      <entry key="S5" value="3.838845652977224" />
-      <entry key="S10" value="3.93970134047971" />
-      <entry key="S30" value="4.674096591842252" />
-      <entry key="S60" value="5.661493713140616" />
-      <entry key="M2" value="6.581759341589451" />
-      <entry key="M5" value="7.358220187347698" />
-      <entry key="M10" value="7.66524334791988" />
-      <entry key="M15" value="7.77506758688639" />
-      <entry key="M30" value="7.961726764913901" />
-      <entry key="H1" value="8.495562566167523" />
-      <entry key="H2" value="9.462202700024228" />
-      <entry key="H4" value="10.61200681263986" />
-      <entry key="D1" value="49.25505787470399" />
-      <entry key="W1" value="151.594544060565" />
+      <entry key="MS100" value="1.4662804777583347" />
+      <entry key="MS500" value="4.282130498785742" />
+      <entry key="S2" value="6.704134878836585" />
+      <entry key="S5" value="7.441480334831019" />
+      <entry key="S10" value="7.734280016824701" />
+      <entry key="S30" value="8.59627340092137" />
+      <entry key="S60" value="9.616674862522522" />
+      <entry key="M2" value="10.556611854324732" />
+      <entry key="M5" value="11.347238364927003" />
+      <entry key="M10" value="11.659570059896598" />
+      <entry key="M15" value="11.771241912124989" />
+      <entry key="M30" value="11.95977709363982" />
+      <entry key="H1" value="12.494535266944593" />
+      <entry key="H2" value="13.461641579484075" />
+      <entry key="H4" value="14.61169802290952" />
+      <entry key="D1" value="53.2548483017619" />
+      <entry key="W1" value="155.59445430420007" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -176,7 +181,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "master",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -290,7 +295,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784198914247" duration="2864000" />
+      <workItem from="1784198914247" duration="14255000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -588,7 +593,31 @@
       <option name="project" value="LOCAL" />
       <updated>1784199823012</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="Remove auto-generated server token logic&#10;&#10;Eliminated legacy code for auto-creating tokens during server or client insertion, reinforcing explicit token generation via the API for better security and consistency. Updated related tests and SQL filtering, and added new token-related unit tests for validation.">
+      <option name="closed" value="true" />
+      <created>1784205192863</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1784205192863</updated>
+    </task>
+    <task id="LOCAL-00039" summary="Add tunnel agent reconnection logic to Ops Portal&#10;&#10;Introduced an automatic reconnection mechanism that waits for the tunnel agent to come online before establishing a WebSocket connection. Enhanced user feedback with updated status indicators and streamlined session cleanup to handle reconnection scenarios effectively.">
+      <option name="closed" value="true" />
+      <created>1784206769489</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1784206769489</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback.">
+      <option name="closed" value="true" />
+      <created>1784208690979</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1784208690979</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -598,11 +627,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed bugs" />
-    <MESSAGE value="fixee" />
-    <MESSAGE value="Enhance OAuth handling with improved error logging and input validation" />
-    <MESSAGE value="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers." />
-    <MESSAGE value="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement." />
     <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
     <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
     <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
@@ -623,6 +647,11 @@
     <MESSAGE value="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads." />
     <MESSAGE value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
     <MESSAGE value="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
-    <option name="LAST_COMMIT_MESSAGE" value="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
+    <MESSAGE value="Remove auto-generated server token logic&#10;&#10;Eliminated legacy code for auto-creating tokens during server or client insertion, reinforcing explicit token generation via the API for better security and consistency. Updated related tests and SQL filtering, and added new token-related unit tests for validation." />
+    <MESSAGE value="Add tunnel agent wait loop for remote shell connections&#10;&#10;Introduced automatic retries for connecting to disconnected tunnel agents. Updated shell status display to differentiate between &quot;CONNECTING&quot; and &quot;WAITING FOR AGENT&quot; states. Refactored tunnel connection logic for improved maintainability." />
+    <MESSAGE value="Add tunnel agent reconnection logic to Ops Portal&#10;&#10;Introduced an automatic reconnection mechanism that waits for the tunnel agent to come online before establishing a WebSocket connection. Enhanced user feedback with updated status indicators and streamlined session cleanup to handle reconnection scenarios effectively." />
+    <MESSAGE value="Add diagnostic tracking for agent connection attempts&#10;&#10;Introduced `AgentAttempt` to track and surface diagnostic details about agent connection attempts, aiding server admins in debugging connection issues. Updated Ops Portal to display the last attempt's status and message. Enhanced broker logic to record both successful and failed attempts, with relevant details shared in API responses." />
+    <MESSAGE value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
   </component>
 </project>
