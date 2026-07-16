@@ -16,14 +16,33 @@ impl Worker {
     }
 
     pub async fn run(&self, pool: &DatabasePool) -> Result<()> {
+        let pool = pool.clone();
+        self.run_with_pool_source(move || Some(pool.clone())).await
+    }
+
+    /// Run the worker, re-fetching the pool from `get_pool` on every
+    /// iteration. The runtime uses this so the worker follows pool swaps
+    /// performed by the watchdog after a wedged pool is replaced. A `None`
+    /// means the pool is mid-heal (wedged one closed, replacement not yet
+    /// connected); the worker just skips that iteration. Deliberately no
+    /// fallback to a previously held pool: any surviving clone of a wedged
+    /// pool keeps its file descriptors open, which on macOS prevents the
+    /// replacement pool from connecting at all.
+    pub async fn run_with_pool_source<F>(&self, get_pool: F) -> Result<()>
+    where
+        F: Fn() -> Option<DatabasePool>,
+    {
         info!("worker started for queue: {}", self.queue);
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            match self.dequeue(pool).await {
+            let Some(pool) = get_pool() else {
+                continue;
+            };
+            match self.dequeue(&pool).await {
                 Ok(Some(job)) => {
-                    if let Err(e) = self.execute(&job, pool).await {
+                    if let Err(e) = self.execute(&job, &pool).await {
                         error!("job {} failed: {}", job.id, e);
-                        let _ = self.mark_failed(pool, &job.id, &format!("{}", e)).await;
+                        let _ = self.mark_failed(&pool, &job.id, &format!("{}", e)).await;
                     }
                 }
                 Ok(None) => {}

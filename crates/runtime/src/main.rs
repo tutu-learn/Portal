@@ -6,6 +6,7 @@ use tracing::{error, info, warn};
 
 mod hooks;
 mod logging;
+mod pool_watchdog;
 mod registered_apps;
 mod rust_apps;
 mod startup;
@@ -119,7 +120,11 @@ async fn main() -> error::Result<()> {
 
     // Initialize python-bridge with a default pool and pubsub
     let pubsub = Arc::new(queue::PubSub::new());
-    if let Some(pool) = pools.iter().next().map(|e| e.value().clone()) {
+    // Bind before the `if let`: temporaries in an `if let` scrutinee live
+    // for the whole block, and `DashMap::iter()` holds a shard read guard
+    // internally — see the note at the `pool_site` binding below.
+    let default_pool = pools.iter().next().map(|e| e.value().clone());
+    if let Some(pool) = default_pool {
         let py_rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
@@ -182,23 +187,49 @@ async fn main() -> error::Result<()> {
     let http_future = http::run_server_with_router(router, &config.server.host, config.server.port);
 
     // Start background workers and scheduler if we have pools
-    if let Some(pool) = pools.iter().next().map(|e| e.value().clone()) {
+    //
+    // The binding MUST stay out of the `if let` scrutinee: on edition 2021,
+    // temporaries in an `if let` scrutinee live until the end of the whole
+    // `if let` expression. `DashMap::iter()` keeps a read guard on the shard
+    // internally, so `if let Some(pool_site) = pools.iter().next()...` parks
+    // that guard for as long as the body runs — here the `tokio::select!`
+    // below, i.e. until shutdown — and every `pools.remove`/`insert` in the
+    // pool watchdog's heal then blocks forever (observed as a heal deadlock
+    // that wedged the whole server).
+    let pool_site = pools.iter().next().map(|e| e.key().clone());
+    if let Some(pool_site) = pool_site {
+        // Watchdog: heals wedged SQLite pools in place (e.g. after external
+        // writes to the live site.db), so the portal/API recover without a
+        // restart. Runs for every site, not just the worker site.
+        pool_watchdog::spawn(pools.clone(), site_manager.clone());
+
         let worker_short = queue::Worker::new("short");
         let worker_default = queue::Worker::new("default");
         let worker_long = queue::Worker::new("long");
         let scheduler = queue::Scheduler::new();
 
-        let pool2 = pool.clone();
-        let pool3 = pool.clone();
-        let pool4 = pool.clone();
-        let pool5 = pool.clone();
+        // Workers re-read the pool from the map on every loop so they follow
+        // the watchdog's pool swaps instead of holding a wedged pool forever.
+        // `None` while a wedged pool is closed and not yet replaced. No
+        // fallback to a startup pool: any long-lived clone of a wedged pool
+        // keeps its fds open, which on macOS poisons every new connection
+        // from this process and would make the watchdog's heal fail.
+        let pool_source = {
+            let pools = pools.clone();
+            let site = pool_site.clone();
+            move || pools.get(&site).map(|r| r.clone())
+        };
+
+        let pool2 = pool_source.clone();
+        let pool3 = pool_source.clone();
+        let pool4 = pool_source.clone();
 
         tokio::select! {
             r = http_future => r?,
-            _ = worker_short.run(&pool2) => {},
-            _ = worker_default.run(&pool3) => {},
-            _ = worker_long.run(&pool4) => {},
-            _ = scheduler.run(&pool5) => {},
+            _ = worker_short.run_with_pool_source(pool2) => {},
+            _ = worker_default.run_with_pool_source(pool3) => {},
+            _ = worker_long.run_with_pool_source(pool4) => {},
+            _ = scheduler.run() => {},
         }
     } else {
         http_future.await?;

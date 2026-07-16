@@ -35,8 +35,17 @@ impl DatabasePool {
             .and_then(|s| s.parse().ok())
             .unwrap_or(3u32);
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            // Always keep one connection open: while the pool holds the DB
+            // file, its WAL file cannot legitimately be deleted/recreated,
+            // which is what lets the runtime watchdog treat a WAL-inode
+            // change as proof of external interference.
+            .min_connections(1)
             .max_connections(max_connections)
             .acquire_timeout(std::time::Duration::from_secs(10))
+            // NOTE: no max_lifetime here. Recycling connections sounds like
+            // a safety net, but a wedged pool retired by the watchdog must
+            // never close a connection again: the close-time checkpoint of a
+            // split-brain WAL would bake garbage pages into the main DB.
             .connect_with(opts)
             .await?;
         Ok(DatabasePool::Sqlite(pool))
@@ -45,6 +54,20 @@ impl DatabasePool {
     pub async fn connect_postgres(url: &str) -> Result<Self> {
         let pool = sqlx::PgPool::connect(url).await?;
         Ok(DatabasePool::Postgres(pool))
+    }
+
+    /// Close every connection in the pool and wait for outstanding ones to
+    /// be returned. Clones of this pool share the same inner pool, so this
+    /// closes it for all of them. The runtime watchdog relies on this before
+    /// reconnecting: on macOS the POSIX fcntl locks and WAL-index state are
+    /// per-process, so while a wedged pool's file descriptors stay open every
+    /// new connection from the same process fails with the same corruption
+    /// error.
+    pub async fn close(&self) {
+        match self {
+            DatabasePool::Postgres(pool) => pool.close().await,
+            DatabasePool::Sqlite(pool) => pool.close().await,
+        }
     }
 
     pub fn dialect(&self) -> &'static str {

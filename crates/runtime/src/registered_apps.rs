@@ -11,6 +11,6 @@ use rust_apps_core::RustApp;
 
 pub fn registered_apps() -> Vec<Box<dyn RustApp>> {
     vec![
-        Box::new(sebrus_logger::SebrusLoggerApp),
+        Box::new(audit_ready::AuditReadyApp),
     ]
 }

@@ -1837,7 +1837,11 @@ pub async fn serve_login(
     let site_url = site_url_from_headers(&headers);
     let redirect_to = query.get("redirect-to").map(|s| s.as_str());
 
-    let social_buttons = if let Some(pool) = state.pools.iter().next().map(|e| e.value().clone()) {
+    // Bind before the `if let` so the pool map's shard guard (held inside
+    // the `DashMap::iter()` temporary) is dropped before the `.await` below
+    // instead of living for the whole block.
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let social_buttons = if let Some(pool) = pool {
         let providers = get_social_login_providers(&pool).await;
         let providers_with_urls: Vec<_> = providers
             .into_iter()

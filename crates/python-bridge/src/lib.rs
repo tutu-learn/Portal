@@ -9,7 +9,9 @@ pub mod session;
 pub mod utils;
 
 static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
-static POOL: OnceLock<orm::DatabasePool> = OnceLock::new();
+/// The bridge pool is swappable: the runtime watchdog replaces it after
+/// external writes to a live site.db wedge the pooled connections.
+static POOL: std::sync::RwLock<Option<orm::DatabasePool>> = std::sync::RwLock::new(None);
 static PUBSUB: OnceLock<std::sync::Arc<::queue::PubSub>> = OnceLock::new();
 static LOG_SERVICE: OnceLock<log_engine::LogService> = OnceLock::new();
 static WHITELIST: OnceLock<MethodWhitelist> = OnceLock::new();
@@ -42,7 +44,27 @@ impl MethodWhitelist {
 
 pub fn init(runtime: tokio::runtime::Runtime, pool: orm::DatabasePool) {
     let _ = RUNTIME.set(runtime);
-    let _ = POOL.set(pool);
+    let _ = swap_pool(pool);
+}
+
+/// Replace the pool used by the Python bridge and return the replaced one,
+/// if any. Called by the runtime watchdog when the previous pool's
+/// connections went stale (e.g. after external writes to the live SQLite
+/// file). The caller decides the old pool's fate: close it (safe when its
+/// WAL is intact) or keep it alive forever (when its WAL is split-brain
+/// garbage — dropping the last handle would run a close-time checkpoint that
+/// copies garbage pages into the main database file).
+pub fn swap_pool(pool: orm::DatabasePool) -> Option<orm::DatabasePool> {
+    POOL.write().expect("POOL lock poisoned").replace(pool)
+}
+
+/// Remove the bridge's pool without replacing it, returning the old one.
+/// The runtime watchdog calls this when a pool goes wedged: requests then
+/// fail fast (`pool()` callers see "pool not initialized") instead of
+/// committing into the wedged pool's split-brain view, where every commit
+/// risks an auto-checkpoint that poisons the main database file.
+pub fn clear_pool() -> Option<orm::DatabasePool> {
+    POOL.write().expect("POOL lock poisoned").take()
 }
 
 pub fn init_pubsub(pubsub: std::sync::Arc<::queue::PubSub>) {
@@ -197,8 +219,12 @@ pub(crate) fn rt() -> &'static tokio::runtime::Runtime {
     RUNTIME.get().expect("runtime not initialized")
 }
 
-pub(crate) fn pool() -> &'static orm::DatabasePool {
-    POOL.get().expect("pool not initialized")
+pub(crate) fn pool() -> orm::DatabasePool {
+    pool_opt().expect("pool not initialized")
+}
+
+pub(crate) fn pool_opt() -> Option<orm::DatabasePool> {
+    POOL.read().expect("POOL lock poisoned").clone()
 }
 
 pub(crate) fn pubsub() -> Option<&'static std::sync::Arc<::queue::PubSub>> {
@@ -679,7 +705,7 @@ fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
         .map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
 
     let _ = RUNTIME.set(rt);
-    let _ = POOL.set(pool);
+    let _ = swap_pool(pool);
     Ok(())
 }
 

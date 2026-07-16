@@ -2647,7 +2647,13 @@ async fn call_rust_or_python_method(
     // the method returns. The Rust runtime does not auto-commit, so persist any
     // writes now. SQLite auto-commits when no explicit transaction is open, so
     // this is a no-op for reads.
-    if let Some(pool) = state.pools.iter().next().map(|e| e.value().clone()) {
+    // Bind before the `if let`: a temporary in the scrutinee (the
+    // `DashMap::iter()`, which holds a shard read guard internally) would
+    // otherwise live for the whole block — i.e. across the commit().await —
+    // and a wedged commit would park the guard and block the pool
+    // watchdog's heal indefinitely.
+    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    if let Some(pool) = pool {
         if let Err(e) = pool.commit().await {
             tracing::warn!(error = %e, "failed to commit transaction after Python method");
         }

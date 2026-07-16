@@ -10,7 +10,7 @@ pub fn get_roles(_py: Python<'_>, user: String) -> PyResult<Vec<String>> {
     // If the python-bridge was initialized with a pool, read real roles from
     // the database. Administrator gets every available role, mirroring Frappe's
     // behaviour; other users read their has_role child table rows.
-    if let Some(pool) = crate::POOL.get() {
+    if let Some(pool) = crate::pool_opt() {
         let runtime = crate::rt();
         return runtime.block_on(async {
             let mut roles = vec![];
@@ -110,7 +110,7 @@ pub fn has_permission(
     doc: Option<Bound<'_, PyAny>>,
     user: Option<String>,
 ) -> PyResult<bool> {
-    let Some(pool) = crate::POOL.get() else {
+    let Some(pool) = crate::pool_opt() else {
         // No Kiff DB pool initialized yet; keep the permissive fallback so
         // pure-Python bootstrap paths don't break.
         return Ok(true);
@@ -124,7 +124,7 @@ pub fn has_permission(
     crate::rt()
         .block_on(async {
             engine
-                .has_permission(pool, &user, &doctype, &ptype, orm_doc.as_ref())
+                .has_permission(&pool, &user, &doctype, &ptype, orm_doc.as_ref())
                 .await
         })
         .map_err(|e| {

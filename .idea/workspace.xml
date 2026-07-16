@@ -5,6 +5,9 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
@@ -47,9 +50,6 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/session">
         <feature name="default" enabled="true" />
       </package>
@@ -62,14 +62,28 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
-      <change beforePath="$PROJECT_DIR$/.idea/sqldialects.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add `last_heartbeat` field to client machine schema">
+      <change afterPath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Portal.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Portal.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/session.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/session.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/queue/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/worker.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/cache.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/cache.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/job_cache.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/job_cache.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,12 +91,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="456" />
+    <option name="cachedIndexableFilesCount" value="19608" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -106,23 +120,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3587848824034543" />
-      <entry key="MS500" value="2.8032410488543493" />
-      <entry key="S2" value="4.057524573089973" />
-      <entry key="S5" value="4.92522748653851" />
-      <entry key="S10" value="5.391722802097868" />
-      <entry key="S30" value="5.973072724298313" />
-      <entry key="S60" value="6.76905133149768" />
-      <entry key="M2" value="7.821381720973424" />
-      <entry key="M5" value="8.93341960597478" />
-      <entry key="M10" value="9.427354793809037" />
-      <entry key="M15" value="9.610277147093246" />
-      <entry key="M30" value="9.874547376843282" />
-      <entry key="H1" value="10.446076638030393" />
-      <entry key="H2" value="11.432245090055543" />
-      <entry key="H4" value="12.593137705759487" />
-      <entry key="D1" value="49.94620917550554" />
-      <entry key="W1" value="147.46979376309386" />
+      <entry key="MS100" value="1.3102324763240742" />
+      <entry key="MS500" value="2.769823911442817" />
+      <entry key="S2" value="3.6189794896373773" />
+      <entry key="S5" value="3.840585578976665" />
+      <entry key="S10" value="3.940592957871331" />
+      <entry key="S30" value="4.674464099692936" />
+      <entry key="S60" value="5.6617257167367665" />
+      <entry key="M2" value="6.581897875363223" />
+      <entry key="M5" value="7.358283210434503" />
+      <entry key="M10" value="7.665276364288579" />
+      <entry key="M15" value="7.775089955866705" />
+      <entry key="M30" value="7.961738232913461" />
+      <entry key="H1" value="8.495568668078187" />
+      <entry key="H2" value="9.462205771990575" />
+      <entry key="H4" value="10.611203002682817" />
+      <entry key="D1" value="47.96585270093983" />
+      <entry key="W1" value="145.47880318346978" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -133,34 +147,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="1.5782069877545455E-163" />
-      <entry key="M10" value="4.5415096718349834E-82" />
-      <entry key="M15" value="6.921794195765958E-55" />
-      <entry key="M30" value="1.1273004846432044E-27" />
-      <entry key="H1" value="4.693674434563524E-14" />
-      <entry key="H2" value="3.055696725800691E-7" />
-      <entry key="H4" value="8.035881341750819E-4" />
-      <entry key="D1" value="1.288648154991844" />
-      <entry key="W1" value="6.115364106217422" />
+      <entry key="M5" value="1.7941449269809266E-163" />
+      <entry key="M10" value="4.8422479411331065E-82" />
+      <entry key="M15" value="7.224090902897383E-55" />
+      <entry key="M30" value="1.15165382305716E-27" />
+      <entry key="H1" value="4.744102814034091E-14" />
+      <entry key="H2" value="3.0720679241544326E-7" />
+      <entry key="H4" value="8.057379101869444E-4" />
+      <entry key="D1" value="1.2892220853884278" />
+      <entry key="W1" value="6.115753121147245" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3237078686881252" />
-      <entry key="MS500" value="2.7847764918175804" />
-      <entry key="S2" value="4.0506371278211555" />
-      <entry key="S5" value="4.9218994723978895" />
-      <entry key="S10" value="5.389907852493113" />
-      <entry key="S30" value="5.972407204191446" />
-      <entry key="S60" value="6.768679024448545" />
-      <entry key="M2" value="7.821169615158152" />
-      <entry key="M5" value="8.933323815483172" />
-      <entry key="M10" value="9.427304468773027" />
-      <entry key="M15" value="9.610242998086479" />
-      <entry key="M30" value="9.874529890554363" />
-      <entry key="H1" value="10.446067495312962" />
-      <entry key="H2" value="11.432240487861407" />
-      <entry key="H4" value="12.593938599350848" />
-      <entry key="D1" value="51.2348402979975" />
-      <entry key="W1" value="153.58514560769996" />
+      <entry key="MS100" value="1.2704928891256573" />
+      <entry key="MS500" value="2.7565283690725897" />
+      <entry key="S2" value="3.614844999210354" />
+      <entry key="S5" value="3.838845652977224" />
+      <entry key="S10" value="3.93970134047971" />
+      <entry key="S30" value="4.674096591842252" />
+      <entry key="S60" value="5.661493713140616" />
+      <entry key="M2" value="6.581759341589451" />
+      <entry key="M5" value="7.358220187347698" />
+      <entry key="M10" value="7.66524334791988" />
+      <entry key="M15" value="7.77506758688639" />
+      <entry key="M30" value="7.961726764913901" />
+      <entry key="H1" value="8.495562566167523" />
+      <entry key="H2" value="9.462202700024228" />
+      <entry key="H4" value="10.61200681263986" />
+      <entry key="D1" value="49.25505787470399" />
+      <entry key="W1" value="151.594544060565" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -184,8 +198,8 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/logger",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -201,7 +215,6 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/apps" />
     </key>
   </component>
@@ -299,7 +312,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784188874819" duration="4893000" />
+      <workItem from="1784198914247" duration="660000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />

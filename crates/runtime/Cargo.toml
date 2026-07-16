@@ -8,7 +8,8 @@ name = "kiff-runtime"
 path = "src/main.rs"
 
 [dependencies]
-sebrus_logger = { path = "../../rust_apps/sebrus_logger" }
+
+audit_ready = { path = "../../rust_apps/audit_ready" }
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
