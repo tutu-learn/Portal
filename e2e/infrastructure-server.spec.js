@@ -86,7 +86,7 @@ test.describe('Infrastructure Server creation from Desk', () => {
     await expect(page.locator('.list-row-container, .list-row').filter({ hasText: title }).first()).toBeVisible();
   });
 
-  test('server token is auto-created and visible in token list', async ({ page }) => {
+  test('server token can be generated and appears in token list', async ({ page }) => {
     const title = uniqueLabel('srv-token');
     const newName = randomNewName('infrastructure-server');
 
@@ -105,13 +105,16 @@ test.describe('Infrastructure Server creation from Desk', () => {
     const serverName = query(`SELECT name FROM "infrastructure_server" WHERE title = '${title}'`);
     expect(serverName).toBeTruthy();
 
-    // Poll for the async server-token hook to finish.
-    let rows = [];
-    for (let i = 0; i < 20; i++) {
-      rows = queryRows(`SELECT name FROM "infrastructure_server_token" WHERE server = '${serverName}' AND enabled = 1`);
-      if (rows.length > 0) break;
-      await page.waitForTimeout(250);
-    }
+    // No token is auto-created anymore; generate one explicitly through the API.
+    const tokenRes = await page.request.post('/api/method/audit_ready.generate_server_token', {
+      data: { server: serverName, token_name: 'Generated token' },
+    });
+    expect(tokenRes.ok()).toBeTruthy();
+    const tokenJson = await tokenRes.json();
+    expect(tokenJson.message?.ok || tokenJson.ok).toBeTruthy();
+    expect(tokenJson.message?.token || tokenJson.token).toBeTruthy();
+
+    const rows = queryRows(`SELECT name FROM "infrastructure_server_token" WHERE server = '${serverName}' AND enabled = 1`);
     expect(rows.length).toBe(1);
   });
 });

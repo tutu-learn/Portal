@@ -62,29 +62,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add `last_heartbeat` field to client machine schema">
-      <change afterPath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Portal.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Portal.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/session.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/session.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/worker.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/cache.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/cache.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/job_cache.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/job_cache.rs" afterDir="false" />
-    </list>
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -312,7 +290,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784198914247" duration="660000" />
+      <workItem from="1784198914247" duration="2864000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -602,7 +580,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784102007028</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load.">
+      <option name="closed" value="true" />
+      <created>1784199823012</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1784199823012</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -612,7 +598,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward." />
     <MESSAGE value="fixed bugs" />
     <MESSAGE value="fixee" />
     <MESSAGE value="Enhance OAuth handling with improved error logging and input validation" />
@@ -637,6 +622,7 @@
     <MESSAGE value="Add dynamic configuration and improve batching efficiency&#10;&#10;Introduce environment variable-based overrides for various parameters, such as log engine heap size, max SQLite connections, batch sizes, and intervals, to enhance configurability. Refactor existing bulk operations and background tasks to process in chunks, reducing contention and improving performance. Additionally, adjust defaults for more resource-efficient operation on constrained systems." />
     <MESSAGE value="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads." />
     <MESSAGE value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
+    <MESSAGE value="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
+    <option name="LAST_COMMIT_MESSAGE" value="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
   </component>
 </project>
