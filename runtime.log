@@ -1,167 +1,270 @@
-2026-07-17T19:35:36.270532Z  INFO ThreadId(01) kiff_runtime: 17: kiff runtime starting
-2026-07-17T19:35:36.274592Z  INFO ThreadId(01) config: 234: loaded 1 sites from "./sites"
-2026-07-17T19:35:36.274720Z  INFO ThreadId(01) kiff_runtime: 35: loaded 2 rust app(s)
-2026-07-17T19:35:36.287124Z  INFO ThreadId(01) kiff_runtime: 46: connected pool for site localhost
-2026-07-17T19:35:36.287161Z  INFO ThreadId(01) orm::migrations: 9: running migrations
-2026-07-17T19:35:36.295867Z  INFO ThreadId(01) orm::migrations: 306: migrations complete
-2026-07-17T19:35:36.295911Z  INFO ThreadId(01) kiff_runtime: 51: migrations complete for site localhost
-2026-07-17T19:35:36.296441Z  INFO ThreadId(01) orm::doctype_sync: 67: syncing frappe doctypes
-2026-07-17T19:35:36.786650Z  INFO ThreadId(01) orm::doctype_sync: 218: synced 343 doctypes with 3716 fields into metadata tables
-2026-07-17T19:35:36.786703Z  INFO ThreadId(01) orm::doctype_sync: 602: syncing data tables from metadata
-2026-07-17T19:35:36.879729Z  INFO ThreadId(01) orm::doctype_sync: 664: created/verified 327 data tables
-2026-07-17T19:35:36.880231Z  INFO ThreadId(01) orm::doctype_sync: 592: docperm defaults ensured
-2026-07-17T19:35:36.881922Z  INFO ThreadId(01) orm::doctype_sync: 1276: core users and roles seeded
-2026-07-17T19:35:36.936018Z  INFO ThreadId(01) orm::doctype_sync: 1521: loaded 11 workspace fixtures
-2026-07-17T19:35:36.940777Z  INFO ThreadId(01) orm::doctype_sync: 1597: loaded 12 page fixtures
-2026-07-17T19:35:36.941296Z  INFO ThreadId(01) orm::doctype_sync: 1685: single settings seeded
-2026-07-17T19:35:36.941310Z  INFO ThreadId(01) orm::doctype_sync: 1029: seed data inserted
-2026-07-17T19:35:36.941519Z  INFO ThreadId(01) orm::doctype_sync: 1111: client script fixtures inserted
-2026-07-17T19:35:36.941529Z  INFO ThreadId(01) orm::doctype_sync: 80: doctype sync complete
-2026-07-17T19:35:36.942341Z  INFO ThreadId(01) orm::doctype_sync: 1276: core users and roles seeded
-2026-07-17T19:35:36.942445Z  INFO ThreadId(01) kiff_runtime::startup: 82: setting up Python path: shim=/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/python, frappe=/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/apps/frappe
-2026-07-17T19:35:36.952977Z  INFO ThreadId(01) kiff_runtime::startup: 120: adding venv site-packages: /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/.venv/lib/python3.14/site-packages
-2026-07-17T19:35:36.954360Z  INFO ThreadId(01) kiff_runtime::startup: 55: installed kiff_core symlink: /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/target/debug/deps/libkiff_core.dylib → /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/.venv/lib/python3.14/site-packages/kiff_core.cpython-314-darwin.so
-2026-07-17T19:35:37.568632Z  INFO ThreadId(01) kiff_runtime::startup: 170: kiff_core .so instance initialized
-2026-07-17T19:35:38.728511Z  INFO ThreadId(01) kiff_core: 183: whitelist source counts shim_all=373 shim_guest=42 real_all=152 real_guest=14
-2026-07-17T19:35:38.728567Z  INFO ThreadId(01) kiff_core: 202: loaded Python method whitelist all=525 guest=56
-2026-07-17T19:35:38.732930Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
-2026-07-17T19:35:38.733126Z  INFO ThreadId(01) kiff_runtime: 305: log engine ready at ./sites/localhost/logengine-data
-2026-07-17T19:35:38.733253Z  INFO ThreadId(01) audit_ready: 526: audit_ready v0.1.0 starting up
-2026-07-17T19:35:38.734007Z  INFO ThreadId(01) audit_ready::vuln: 92: vulnerability scan loop starting in 300 s, interval 21600 s
-2026-07-17T19:35:38.734249Z  INFO ThreadId(01) audit_ready: 631: loaded 0 patch job(s) into RAM cache
-2026-07-17T19:35:38.734645Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:38.735133Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11122
-2026-07-17T19:35:38.735155Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11122
-2026-07-17T19:35:38.736124Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: short
-2026-07-17T19:35:38.736134Z  INFO ThreadId(03) kiff_runtime::pool_watchdog: 372: database pool watchdog started (probe every 10s)
-2026-07-17T19:35:38.739104Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: default
-2026-07-17T19:35:38.739126Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: long
-2026-07-17T19:35:38.739137Z  INFO ThreadId(01) queue::scheduler: 17: scheduler started
-2026-07-17T19:35:38.739270Z  INFO ThreadId(01) http: 21: HTTP server listening on 0.0.0.0:8000
-2026-07-17T19:35:38.770455Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:38.810904Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:38.810924Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:38.811148Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.store"
-2026-07-17T19:35:38.811196Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.fast"
-2026-07-17T19:35:38.811242Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.fieldnorm"
-2026-07-17T19:35:38.811288Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.term"
-2026-07-17T19:35:38.811331Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.fast"
-2026-07-17T19:35:38.811373Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.idx"
-2026-07-17T19:35:38.811417Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.store"
-2026-07-17T19:35:38.811495Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.pos"
-2026-07-17T19:35:38.811539Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.term"
-2026-07-17T19:35:38.811581Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.idx"
-2026-07-17T19:35:38.811621Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.idx"
-2026-07-17T19:35:38.811662Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.term"
-2026-07-17T19:35:38.811701Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.store"
-2026-07-17T19:35:38.811740Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.fast"
-2026-07-17T19:35:38.811786Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.store"
-2026-07-17T19:35:38.811831Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.fieldnorm"
-2026-07-17T19:35:38.811876Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.fieldnorm"
-2026-07-17T19:35:38.811916Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.pos"
-2026-07-17T19:35:38.811955Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.idx"
-2026-07-17T19:35:38.811997Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "e307d25b1e1743fca3b8db9fd1265926.pos"
-2026-07-17T19:35:38.812037Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "84cf98c619994dfa8f8e697598f10f81.fast"
-2026-07-17T19:35:38.812087Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.fieldnorm"
-2026-07-17T19:35:38.812124Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "69afeafa0ffd469da520e3e592778a0d.term"
-2026-07-17T19:35:38.812162Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "bff2b6f7323d4dd7aa1e47d8b3ca1ff0.pos"
-2026-07-17T19:35:38.820388Z  INFO ThreadId(03) audit_ready: 586: purged 1 historical log record(s) for audit_ready.telemetry
-2026-07-17T19:35:38.820447Z  INFO ThreadId(22) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:38.820941Z  INFO ThreadId(22) tantivy::indexer::index_writer: 631: Prepared commit 11125
-2026-07-17T19:35:38.820958Z  INFO ThreadId(22) tantivy::indexer::prepared_commit: 48: committing 11125
-2026-07-17T19:35:38.821565Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:38.829506Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:38.829524Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:38.834676Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:39.007560Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11144
-2026-07-17T19:35:39.007595Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11144
-2026-07-17T19:35:39.007630Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:39.015603Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:39.015780Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:39.015997Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 507: Starting merge  - [Seg("63cc1578"), Seg("d43afdb7"), Seg("010b2212"), Seg("b7c31484"), Seg("80d71dfe"), Seg("0c9d8dbd"), Seg("abdd1a43"), Seg("2e5309e9"), Seg("80499d56")]
-2026-07-17T19:35:39.017197Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:39.017749Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11147
-2026-07-17T19:35:39.021347Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11147
-2026-07-17T19:35:39.021824Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:39.038941Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:39.038979Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:39.051424Z  INFO ThreadId(04) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:39.238415Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
-2026-07-17T19:35:39.245495Z  INFO ThreadId(04) tantivy::indexer::index_writer: 631: Prepared commit 11188
-2026-07-17T19:35:39.245515Z  INFO ThreadId(04) tantivy::indexer::prepared_commit: 48: committing 11188
-2026-07-17T19:35:39.245550Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:39.253433Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:39.253447Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:39.254909Z  INFO ThreadId(04) tantivy::indexer::index_writer: 613: Preparing commit
-2026-07-17T19:35:39.255293Z  INFO ThreadId(04) tantivy::indexer::index_writer: 631: Prepared commit 11191
-2026-07-17T19:35:39.255304Z  INFO ThreadId(04) tantivy::indexer::prepared_commit: 48: committing 11191
-2026-07-17T19:35:39.290317Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:39.298366Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:39.298381Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:39.299593Z  INFO ThreadId(03) audit_ready: 586: purged 158 historical log record(s) for audit_ready.telemetry.process
-2026-07-17T19:35:39.439553Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 592: End merge Some(Tracked(InnerSegmentMeta { segment_id: Seg("ee2cedf7"), max_doc: 7326, deletes: None, include_temp_doc_store: true }))
-2026-07-17T19:35:39.447517Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
-2026-07-17T19:35:39.455680Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
-2026-07-17T19:35:39.455697Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
-2026-07-17T19:35:39.456126Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.pos"
-2026-07-17T19:35:39.456164Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.fieldnorm"
-2026-07-17T19:35:39.456196Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.fieldnorm"
-2026-07-17T19:35:39.456227Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.store"
-2026-07-17T19:35:39.456289Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.store"
-2026-07-17T19:35:39.456323Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.pos"
-2026-07-17T19:35:39.456352Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.store"
-2026-07-17T19:35:39.456382Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.pos"
-2026-07-17T19:35:39.456410Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.idx"
-2026-07-17T19:35:39.456440Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.pos"
-2026-07-17T19:35:39.456469Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.fast"
-2026-07-17T19:35:39.456502Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.term"
-2026-07-17T19:35:39.456531Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.term"
-2026-07-17T19:35:39.456560Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.term"
-2026-07-17T19:35:39.456588Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.fast"
-2026-07-17T19:35:39.456618Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.fieldnorm"
-2026-07-17T19:35:39.456646Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.pos"
-2026-07-17T19:35:39.456675Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.10867.del"
-2026-07-17T19:35:39.456704Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.idx"
-2026-07-17T19:35:39.456731Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.idx"
-2026-07-17T19:35:39.456761Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.fieldnorm"
-2026-07-17T19:35:39.456789Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.idx"
-2026-07-17T19:35:39.456817Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.11191.del"
-2026-07-17T19:35:39.456844Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.fast"
-2026-07-17T19:35:39.456874Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.store"
-2026-07-17T19:35:39.456902Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.fast"
-2026-07-17T19:35:39.456930Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.store"
-2026-07-17T19:35:39.457015Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.11122.del"
-2026-07-17T19:35:39.457056Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.fast"
-2026-07-17T19:35:39.457086Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.idx"
-2026-07-17T19:35:39.457115Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.store"
-2026-07-17T19:35:39.457143Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.pos"
-2026-07-17T19:35:39.457172Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.term"
-2026-07-17T19:35:39.457203Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.fieldnorm"
-2026-07-17T19:35:39.457233Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.11191.del"
-2026-07-17T19:35:39.457261Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.store"
-2026-07-17T19:35:39.457288Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.idx"
-2026-07-17T19:35:39.457315Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.idx"
-2026-07-17T19:35:39.457344Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.term"
-2026-07-17T19:35:39.457372Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.pos"
-2026-07-17T19:35:39.457401Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.fieldnorm"
-2026-07-17T19:35:39.457430Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.pos"
-2026-07-17T19:35:39.457458Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.fast"
-2026-07-17T19:35:39.457485Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.store"
-2026-07-17T19:35:39.457512Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.11191.del"
-2026-07-17T19:35:39.457539Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "010b2212edd74aee9e1118982702b260.term"
-2026-07-17T19:35:39.457566Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.11191.del"
-2026-07-17T19:35:39.457594Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.fast"
-2026-07-17T19:35:39.457622Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.pos"
-2026-07-17T19:35:39.457653Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.fieldnorm"
-2026-07-17T19:35:39.457682Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.fieldnorm"
-2026-07-17T19:35:39.457709Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "63cc157891c5483e8f917259e70118af.idx"
-2026-07-17T19:35:39.457739Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80d71dfed62244efbc122aae2cc2f28e.term"
-2026-07-17T19:35:39.457765Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0c9d8dbd348d49c9a0bc0972b4900952.fast"
-2026-07-17T19:35:39.457793Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "80499d569df7445aa9917486a741462f.fast"
-2026-07-17T19:35:39.457821Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.idx"
-2026-07-17T19:35:39.457862Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "2e5309e949154050897fe8187f1e0e16.store"
-2026-07-17T19:35:39.457889Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b7c3148425b34e3f81dc44b662bc9b27.term"
-2026-07-17T19:35:39.457918Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "d43afdb7636346adb55372342742bc73.fieldnorm"
-2026-07-17T19:35:39.457946Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "abdd1a43abd144fa9beeb41f110865ab.term"
-2026-07-17T19:35:39.747025Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
-2026-07-17T19:36:32.470834Z  INFO ThreadId(03) audit_ready::tunnel::broker: 367: agent 20c63751-f375-4d61-91b8-674a78b5ecf6 connected for server 86302dbe-de1c-49ed-beac-7a90c513641f
+2026-07-17T19:39:22.294594Z  INFO ThreadId(01) kiff_runtime: 17: kiff runtime starting
+2026-07-17T19:39:22.298372Z  INFO ThreadId(01) config: 234: loaded 1 sites from "./sites"
+2026-07-17T19:39:22.298486Z  INFO ThreadId(01) kiff_runtime: 35: loaded 2 rust app(s)
+2026-07-17T19:39:22.309328Z  INFO ThreadId(01) kiff_runtime: 46: connected pool for site localhost
+2026-07-17T19:39:22.309341Z  INFO ThreadId(01) orm::migrations: 9: running migrations
+2026-07-17T19:39:22.317092Z  INFO ThreadId(01) orm::migrations: 306: migrations complete
+2026-07-17T19:39:22.317126Z  INFO ThreadId(01) kiff_runtime: 51: migrations complete for site localhost
+2026-07-17T19:39:22.317637Z  INFO ThreadId(01) orm::doctype_sync: 67: syncing frappe doctypes
+2026-07-17T19:39:22.823747Z  INFO ThreadId(01) orm::doctype_sync: 218: synced 343 doctypes with 3716 fields into metadata tables
+2026-07-17T19:39:22.823797Z  INFO ThreadId(01) orm::doctype_sync: 602: syncing data tables from metadata
+2026-07-17T19:39:22.916763Z  INFO ThreadId(01) orm::doctype_sync: 664: created/verified 327 data tables
+2026-07-17T19:39:22.917277Z  INFO ThreadId(01) orm::doctype_sync: 592: docperm defaults ensured
+2026-07-17T19:39:22.921666Z  INFO ThreadId(01) orm::doctype_sync: 1276: core users and roles seeded
+2026-07-17T19:39:22.971202Z  INFO ThreadId(01) orm::doctype_sync: 1521: loaded 11 workspace fixtures
+2026-07-17T19:39:22.974380Z  INFO ThreadId(01) orm::doctype_sync: 1597: loaded 12 page fixtures
+2026-07-17T19:39:22.975009Z  INFO ThreadId(01) orm::doctype_sync: 1685: single settings seeded
+2026-07-17T19:39:22.975022Z  INFO ThreadId(01) orm::doctype_sync: 1029: seed data inserted
+2026-07-17T19:39:22.975354Z  INFO ThreadId(01) orm::doctype_sync: 1111: client script fixtures inserted
+2026-07-17T19:39:22.975363Z  INFO ThreadId(01) orm::doctype_sync: 80: doctype sync complete
+2026-07-17T19:39:22.976151Z  INFO ThreadId(01) orm::doctype_sync: 1276: core users and roles seeded
+2026-07-17T19:39:22.976263Z  INFO ThreadId(01) kiff_runtime::startup: 82: setting up Python path: shim=/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/python, frappe=/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/apps/frappe
+2026-07-17T19:39:22.987369Z  INFO ThreadId(01) kiff_runtime::startup: 120: adding venv site-packages: /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/.venv/lib/python3.14/site-packages
+2026-07-17T19:39:22.988725Z  INFO ThreadId(01) kiff_runtime::startup: 55: installed kiff_core symlink: /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/target/debug/deps/libkiff_core.dylib → /Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/.venv/lib/python3.14/site-packages/kiff_core.cpython-314-darwin.so
+2026-07-17T19:39:23.923982Z  INFO ThreadId(01) kiff_runtime::startup: 170: kiff_core .so instance initialized
+2026-07-17T19:39:25.077091Z  INFO ThreadId(01) kiff_core: 183: whitelist source counts shim_all=373 shim_guest=42 real_all=152 real_guest=14
+2026-07-17T19:39:25.077146Z  INFO ThreadId(01) kiff_core: 202: loaded Python method whitelist all=525 guest=56
+2026-07-17T19:39:25.080417Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
+2026-07-17T19:39:25.080611Z  INFO ThreadId(01) kiff_runtime: 305: log engine ready at ./sites/localhost/logengine-data
+2026-07-17T19:39:25.080741Z  INFO ThreadId(01) audit_ready: 526: audit_ready v0.1.0 starting up
+2026-07-17T19:39:25.081508Z  INFO ThreadId(01) audit_ready::vuln: 92: vulnerability scan loop starting in 300 s, interval 21600 s
+2026-07-17T19:39:25.081736Z  INFO ThreadId(01) audit_ready: 631: loaded 0 patch job(s) into RAM cache
+2026-07-17T19:39:25.082098Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.082553Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11770
+2026-07-17T19:39:25.082566Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11770
+2026-07-17T19:39:25.083633Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: long
+2026-07-17T19:39:25.083642Z  INFO ThreadId(02) kiff_runtime::pool_watchdog: 372: database pool watchdog started (probe every 10s)
+2026-07-17T19:39:25.083711Z  INFO ThreadId(01) queue::scheduler: 17: scheduler started
+2026-07-17T19:39:25.083821Z  INFO ThreadId(01) http: 21: HTTP server listening on 0.0.0.0:8000
+2026-07-17T19:39:25.083867Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: short
+2026-07-17T19:39:25.083878Z  INFO ThreadId(01) queue::worker: 35: worker started for queue: default
+2026-07-17T19:39:25.121317Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.129389Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.129412Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.129536Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.fast"
+2026-07-17T19:39:25.129581Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.idx"
+2026-07-17T19:39:25.129620Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.fieldnorm"
+2026-07-17T19:39:25.129658Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.idx"
+2026-07-17T19:39:25.129693Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.pos"
+2026-07-17T19:39:25.129729Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.idx"
+2026-07-17T19:39:25.129766Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.fieldnorm"
+2026-07-17T19:39:25.129805Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.pos"
+2026-07-17T19:39:25.130017Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.fast"
+2026-07-17T19:39:25.130054Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.term"
+2026-07-17T19:39:25.130092Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.store"
+2026-07-17T19:39:25.130146Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.fast"
+2026-07-17T19:39:25.130219Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.fieldnorm"
+2026-07-17T19:39:25.130254Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.idx"
+2026-07-17T19:39:25.130289Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.store"
+2026-07-17T19:39:25.130325Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.term"
+2026-07-17T19:39:25.130361Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.pos"
+2026-07-17T19:39:25.130401Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.store"
+2026-07-17T19:39:25.130441Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0d479fe08d9d4ff4aa33f80948b3a07b.term"
+2026-07-17T19:39:25.130488Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "27f02db280d848a2a3c22ab033c5c893.pos"
+2026-07-17T19:39:25.130521Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "158bf8a5aa95418c936bd77f37f54deb.term"
+2026-07-17T19:39:25.130557Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.fieldnorm"
+2026-07-17T19:39:25.130593Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.store"
+2026-07-17T19:39:25.130632Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "83443cd588764b18b676c633eee68ce5.fast"
+2026-07-17T19:39:25.138862Z  INFO ThreadId(02) audit_ready: 586: purged 3 historical log record(s) for audit_ready.telemetry
+2026-07-17T19:39:25.138935Z  INFO ThreadId(21) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.139370Z  INFO ThreadId(21) tantivy::indexer::index_writer: 631: Prepared commit 11773
+2026-07-17T19:39:25.139382Z  INFO ThreadId(21) tantivy::indexer::prepared_commit: 48: committing 11773
+2026-07-17T19:39:25.139720Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.147358Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.147491Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.148419Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.334235Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11792
+2026-07-17T19:39:25.334283Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11792
+2026-07-17T19:39:25.334323Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.342405Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.342563Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.344175Z  INFO ThreadId(20) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.344775Z  INFO ThreadId(20) tantivy::indexer::index_writer: 631: Prepared commit 11795
+2026-07-17T19:39:25.344792Z  INFO ThreadId(20) tantivy::indexer::prepared_commit: 48: committing 11795
+2026-07-17T19:39:25.345185Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.354351Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.354368Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.360731Z  INFO ThreadId(04) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.554260Z  INFO ThreadId(04) tantivy::indexer::index_writer: 631: Prepared commit 11836
+2026-07-17T19:39:25.554309Z  INFO ThreadId(04) tantivy::indexer::prepared_commit: 48: committing 11836
+2026-07-17T19:39:25.554363Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.561534Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.561559Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.561950Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 507: Starting merge  - [Seg("06616040"), Seg("cfe413eb"), Seg("0b0d2c76"), Seg("77ab1814"), Seg("11dc3290"), Seg("c12f477d"), Seg("48f3c74a"), Seg("7a5c59df"), Seg("a9f4961c")]
+2026-07-17T19:39:25.563776Z  INFO ThreadId(04) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:39:25.564698Z  INFO ThreadId(04) tantivy::indexer::index_writer: 631: Prepared commit 11839
+2026-07-17T19:39:25.568235Z  INFO ThreadId(04) tantivy::indexer::prepared_commit: 48: committing 11839
+2026-07-17T19:39:25.575804Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.582584Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
+2026-07-17T19:39:25.591676Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.591715Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.597199Z  INFO ThreadId(02) audit_ready: 586: purged 476 historical log record(s) for audit_ready.telemetry.process
+2026-07-17T19:39:25.919178Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 592: End merge Some(Tracked(InnerSegmentMeta { segment_id: Seg("fc0d5f4d"), max_doc: 7819, deletes: None, include_temp_doc_store: true }))
+2026-07-17T19:39:25.926116Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:39:25.933255Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:39:25.933276Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:39:25.933605Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.idx"
+2026-07-17T19:39:25.933638Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.pos"
+2026-07-17T19:39:25.933670Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.pos"
+2026-07-17T19:39:25.933699Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.store"
+2026-07-17T19:39:25.933727Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.fieldnorm"
+2026-07-17T19:39:25.933755Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.fast"
+2026-07-17T19:39:25.933782Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.fast"
+2026-07-17T19:39:25.933810Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.fast"
+2026-07-17T19:39:25.933837Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.11839.del"
+2026-07-17T19:39:25.933864Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.store"
+2026-07-17T19:39:25.933890Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.fieldnorm"
+2026-07-17T19:39:25.933919Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.store"
+2026-07-17T19:39:25.933946Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.term"
+2026-07-17T19:39:25.933973Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.idx"
+2026-07-17T19:39:25.934000Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.term"
+2026-07-17T19:39:25.934027Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.pos"
+2026-07-17T19:39:25.934054Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.store"
+2026-07-17T19:39:25.934080Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.fieldnorm"
+2026-07-17T19:39:25.934106Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.store"
+2026-07-17T19:39:25.934132Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.idx"
+2026-07-17T19:39:25.934158Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.term"
+2026-07-17T19:39:25.934183Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.idx"
+2026-07-17T19:39:25.934207Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.term"
+2026-07-17T19:39:25.934232Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.fieldnorm"
+2026-07-17T19:39:25.934258Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.pos"
+2026-07-17T19:39:25.934283Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.idx"
+2026-07-17T19:39:25.934309Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.store"
+2026-07-17T19:39:25.934351Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.fieldnorm"
+2026-07-17T19:39:25.934382Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.store"
+2026-07-17T19:39:25.934416Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.term"
+2026-07-17T19:39:25.934446Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "cfe413eb29ab44d6af2682aa570787ac.fast"
+2026-07-17T19:39:25.934473Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.fieldnorm"
+2026-07-17T19:39:25.934499Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.term"
+2026-07-17T19:39:25.934526Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.pos"
+2026-07-17T19:39:25.934578Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.idx"
+2026-07-17T19:39:25.934604Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.pos"
+2026-07-17T19:39:25.934629Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.pos"
+2026-07-17T19:39:25.934653Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.fast"
+2026-07-17T19:39:25.934679Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.pos"
+2026-07-17T19:39:25.934705Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.idx"
+2026-07-17T19:39:25.934730Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.fast"
+2026-07-17T19:39:25.934754Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.fast"
+2026-07-17T19:39:25.934780Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "77ab181488ce43eaaead0ba6bcde905a.fieldnorm"
+2026-07-17T19:39:25.934807Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "0b0d2c767c5d45fc84619a2033613aff.term"
+2026-07-17T19:39:25.934851Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.11770.del"
+2026-07-17T19:39:25.934879Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.fieldnorm"
+2026-07-17T19:39:25.934906Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.term"
+2026-07-17T19:39:25.934931Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.idx"
+2026-07-17T19:39:25.934956Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "11dc3290808f477eb849c57e21d26ddc.idx"
+2026-07-17T19:39:25.934984Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.fast"
+2026-07-17T19:39:25.935011Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "c12f477dfa714cc2b077536802c5cc69.store"
+2026-07-17T19:39:25.935038Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.pos"
+2026-07-17T19:39:25.935063Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a9f4961c5ef34dc7a7a917ebf4bcd0b2.store"
+2026-07-17T19:39:25.935088Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "48f3c74a7c5a4bcfa4d03d468be71f2f.fast"
+2026-07-17T19:39:25.935113Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "7a5c59df6220433687d5538cc250615f.fieldnorm"
+2026-07-17T19:39:25.935138Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "06616040c8cf48adb7a969bbe30dba47.term"
+2026-07-17T19:39:26.089384Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
+2026-07-17T19:40:18.585494Z  INFO ThreadId(02) audit_ready::tunnel::broker: 367: agent 6fa3d33b-9ddc-47a0-9e3b-593221692c98 connected for server 86302dbe-de1c-49ed-beac-7a90c513641f
+2026-07-17T19:41:25.097827Z  INFO ThreadId(65) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:41:25.188457Z  INFO ThreadId(65) tantivy::indexer::index_writer: 631: Prepared commit 12093
+2026-07-17T19:41:25.188551Z  INFO ThreadId(65) tantivy::indexer::prepared_commit: 48: committing 12093
+2026-07-17T19:41:25.188612Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:41:25.197603Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:41:25.197637Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:41:25.564949Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
+2026-07-17T19:43:25.086593Z  INFO ThreadId(81) tantivy::indexer::index_writer: 613: Preparing commit
+2026-07-17T19:43:25.184615Z  INFO ThreadId(81) tantivy::indexer::index_writer: 631: Prepared commit 12106
+2026-07-17T19:43:25.184792Z  INFO ThreadId(81) tantivy::indexer::prepared_commit: 48: committing 12106
+2026-07-17T19:43:25.184943Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:43:25.193434Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:43:25.193547Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:43:25.194228Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 507: Starting merge  - [Seg("fc0d5f4d"), Seg("a976d73a"), Seg("a32367d2"), Seg("23fffd42"), Seg("b383720f"), Seg("eb6abf11"), Seg("94990149"), Seg("1458a029"), Seg("9d0b7313")]
+2026-07-17T19:43:25.514814Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 592: End merge Some(Tracked(InnerSegmentMeta { segment_id: Seg("dc0bc788"), max_doc: 7597, deletes: None, include_temp_doc_store: true }))
+2026-07-17T19:43:25.514900Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 40: save metas
+2026-07-17T19:43:25.521863Z  INFO ThreadId(09) tantivy::indexer::segment_updater: 79: Running garbage collection
+2026-07-17T19:43:25.521886Z  INFO ThreadId(09) tantivy::directory::managed_directory: 113: Garbage collect
+2026-07-17T19:43:25.522071Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.fieldnorm"
+2026-07-17T19:43:25.522114Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.term"
+2026-07-17T19:43:25.522149Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.fast"
+2026-07-17T19:43:25.522183Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.idx"
+2026-07-17T19:43:25.522212Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.fast"
+2026-07-17T19:43:25.522245Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.term"
+2026-07-17T19:43:25.522271Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.term"
+2026-07-17T19:43:25.522300Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.fieldnorm"
+2026-07-17T19:43:25.522345Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.fast"
+2026-07-17T19:43:25.522371Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.store"
+2026-07-17T19:43:25.522409Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.fast"
+2026-07-17T19:43:25.522442Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.fieldnorm"
+2026-07-17T19:43:25.522473Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.idx"
+2026-07-17T19:43:25.522504Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.store"
+2026-07-17T19:43:25.522534Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.fieldnorm"
+2026-07-17T19:43:25.522563Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.term"
+2026-07-17T19:43:25.522593Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.term"
+2026-07-17T19:43:25.522623Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.pos"
+2026-07-17T19:43:25.522656Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a32367d26f704e8390b94c7d53a90339.pos"
+2026-07-17T19:43:25.522683Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.idx"
+2026-07-17T19:43:25.522718Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.fieldnorm"
+2026-07-17T19:43:25.522749Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.idx"
+2026-07-17T19:43:25.522775Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.fieldnorm"
+2026-07-17T19:43:25.522804Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.11839.del"
+2026-07-17T19:43:25.522831Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.idx"
+2026-07-17T19:43:25.522858Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.fieldnorm"
+2026-07-17T19:43:25.522882Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.term"
+2026-07-17T19:43:25.522912Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.fast"
+2026-07-17T19:43:25.522943Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.fieldnorm"
+2026-07-17T19:43:25.522974Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.fast"
+2026-07-17T19:43:25.523004Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.pos"
+2026-07-17T19:43:25.523030Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.fieldnorm"
+2026-07-17T19:43:25.523061Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.pos"
+2026-07-17T19:43:25.523092Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.idx"
+2026-07-17T19:43:25.523118Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.pos"
+2026-07-17T19:43:25.523149Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.store"
+2026-07-17T19:43:25.523174Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.idx"
+2026-07-17T19:43:25.523204Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.pos"
+2026-07-17T19:43:25.523229Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.store"
+2026-07-17T19:43:25.523269Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.pos"
+2026-07-17T19:43:25.523300Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "a976d73af49c4e5abe064891ab97a753.store"
+2026-07-17T19:43:25.523326Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.fast"
+2026-07-17T19:43:25.523351Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.term"
+2026-07-17T19:43:25.523389Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.fast"
+2026-07-17T19:43:25.523419Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.fast"
+2026-07-17T19:43:25.523449Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.idx"
+2026-07-17T19:43:25.523481Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.store"
+2026-07-17T19:43:25.523510Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "1458a0298a1d4f4d9afa1c948bd0c96a.pos"
+2026-07-17T19:43:25.523547Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "23fffd4276764e8fa62977b5e81b3cc5.idx"
+2026-07-17T19:43:25.523575Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "9d0b7313e7854f99a38f2f5cbc25e605.term"
+2026-07-17T19:43:25.523608Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "94990149e6d040b7a4150f5da9dd45da.pos"
+2026-07-17T19:43:25.523640Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.term"
+2026-07-17T19:43:25.523672Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "fc0d5f4dd6334707996dd989213c50cb.store"
+2026-07-17T19:43:25.523701Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "b383720f3eaf47ba8d47a9f93e182dfc.store"
+2026-07-17T19:43:25.523728Z  INFO ThreadId(09) tantivy::directory::managed_directory: 160: Deleted "eb6abf118b77468dbd2d8c8b929f065d.store"
+2026-07-17T19:43:25.533900Z  INFO ThreadId(18) tantivy::directory::file_watcher: 54: Meta file "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce/sites/localhost/logengine-data/index/meta.json" was modified
+2026-07-17T19:44:25.088883Z  INFO ThreadId(02) audit_ready::vuln: 203: scanning 34 OSV packages across 1 servers (0 unchanged servers skipped)
+2026-07-17T19:44:25.096464Z  WARN ThreadId(02) audit_ready::telemetry::dns_records: 248: dns records flush failed: database error: error returned from database: (code: 522) disk I/O error
+2026-07-17T19:44:26.788616Z  INFO ThreadId(02) audit_ready::vuln: 265: fetching details for 183 OSV vulnerabilities
+2026-07-17T19:44:47.572231Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572407Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572432Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572450Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572501Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572523Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572539Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572591Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572606Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572622Z  INFO ThreadId(02) audit_ready::vuln: 295: OSV detail fetch progress: 91/183 records so far
+2026-07-17T19:44:47.572638Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572653Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572664Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572674Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572686Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572747Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572759Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572774Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572787Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572801Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572814Z  WARN ThreadId(02) audit_ready::vuln: 290: OSV vulnerability detail fetch failed: config error: OSV detail decode failed: error decoding response body
+2026-07-17T19:44:47.572830Z  INFO ThreadId(02) audit_ready::vuln: 295: OSV detail fetch progress: 163/183 records so far
+2026-07-17T19:44:47.572843Z  INFO ThreadId(02) audit_ready::vuln: 302: fetched 163 OSV vulnerability records
+2026-07-17T19:44:47.658247Z  WARN ThreadId(02) audit_ready::vuln: 105: vulnerability scan failed: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:49.357043Z  WARN ThreadId(01) queue::worker: 50: dequeue error: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:49.373998Z  WARN ThreadId(01) queue::worker: 50: dequeue error: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:52.359631Z  WARN ThreadId(01) queue::worker: 50: dequeue error: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:52.376109Z  WARN ThreadId(01) queue::worker: 50: dequeue error: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:55.095277Z  WARN ThreadId(02) kiff_runtime::pool_watchdog: 264: healing database pool for site localhost: read canary: database error: error returned from database: (code: 26) file is not a database
+2026-07-17T19:44:55.117458Z  INFO ThreadId(02) kiff_runtime::pool_watchdog: 354: swapped in a fresh database pool for site localhost after WAL wedge
