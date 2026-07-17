@@ -62,10 +62,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;">
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add toggle for node processes visibility in ops portal&#10;&#10;Introduced a toggle button to show/hide the node processes block in the node panel, enhancing session-level user preferences. Updated related CSS for a smaller button size and adjusted the HTML structure to accommodate visibility states. Runtime log file was extended, and a minor &quot;opstamp&quot; value change was made in the meta.json file.">
+      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/dns_records.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime.log" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" afterDir="false" />
     </list>
@@ -296,7 +299,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784198914247" duration="29692000" />
+      <workItem from="1784198914247" duration="46380000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -626,7 +629,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784231598025</updated>
     </task>
-    <option name="localTasksCounter" value="42" />
+    <task id="LOCAL-00042" summary="Add per-server activity cache and node-level network/process views&#10;&#10;Introduced an in-memory cache for per-server process and network activity to enable real-time data retrieval. Enhanced the frontend with live network monitoring and process inspection for individual nodes, including efficient renders for large data sets and dynamic view updates.">
+      <option name="closed" value="true" />
+      <created>1784300910935</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1784300910935</updated>
+    </task>
+    <option name="localTasksCounter" value="43" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -636,8 +647,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
-    <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
     <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
     <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
     <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
@@ -661,6 +670,8 @@
     <MESSAGE value="Add diagnostic tracking for agent connection attempts&#10;&#10;Introduced `AgentAttempt` to track and surface diagnostic details about agent connection attempts, aiding server admins in debugging connection issues. Updated Ops Portal to display the last attempt's status and message. Enhanced broker logic to record both successful and failed attempts, with relevant details shared in API responses." />
     <MESSAGE value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
     <MESSAGE value="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;" />
-    <option name="LAST_COMMIT_MESSAGE" value="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;" />
+    <MESSAGE value="Add per-server activity cache and node-level network/process views&#10;&#10;Introduced an in-memory cache for per-server process and network activity to enable real-time data retrieval. Enhanced the frontend with live network monitoring and process inspection for individual nodes, including efficient renders for large data sets and dynamic view updates." />
+    <MESSAGE value="Add toggle for node processes visibility in ops portal&#10;&#10;Introduced a toggle button to show/hide the node processes block in the node panel, enhancing session-level user preferences. Updated related CSS for a smaller button size and adjusted the HTML structure to accommodate visibility states. Runtime log file was extended, and a minor &quot;opstamp&quot; value change was made in the meta.json file." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add toggle for node processes visibility in ops portal&#10;&#10;Introduced a toggle button to show/hide the node processes block in the node panel, enhancing session-level user preferences. Updated related CSS for a smaller button size and adjusted the HTML structure to accommodate visibility states. Runtime log file was extended, and a minor &quot;opstamp&quot; value change was made in the meta.json file." />
   </component>
 </project>
