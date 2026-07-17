@@ -285,13 +285,12 @@ impl Migrator {
             ("007_journal_entry_line_tb_transfer_id", "SELECT 1"),
             ("008_trust_transaction_tb_transfer_id", "SELECT 1"),
             ("009_invoice_settlement_columns", "SELECT 1"),
-            (
-                "010_doctype_restrict_to_domain",
-                r#"
-                ALTER TABLE "doctype" ADD COLUMN restrict_to_domain TEXT;
-                UPDATE "doctype" SET restrict_to_domain = '' WHERE restrict_to_domain IS NULL;
-                "#,
-            ),
+            // restrict_to_domain is part of the metadata table layout created by
+            // doctype_sync::create_metadata_tables, which also adds it to older
+            // databases via add_column_if_missing. The doctype table does not
+            // exist yet when migrations run on a fresh site, so keep the
+            // migration record but use no-op SQL — same as 007-009 above.
+            ("010_doctype_restrict_to_domain", "SELECT 1"),
         ];
 
         for (name, sql) in migrations {

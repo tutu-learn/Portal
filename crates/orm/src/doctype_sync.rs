@@ -266,6 +266,10 @@ async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
     "#;
     pool.execute_sql(doctype_sql, vec![]).await?;
 
+    // Handle upgrades from databases created before restrict_to_domain was part
+    // of the metadata table layout (previously covered by migration 010).
+    add_column_if_missing(pool, "doctype", "restrict_to_domain", "restrict_to_domain TEXT").await?;
+
     let docfield_sql = r#"
         CREATE TABLE IF NOT EXISTS "docfield" (
             name TEXT PRIMARY KEY,

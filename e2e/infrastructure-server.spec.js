@@ -203,7 +203,8 @@ test.describe('Telemetry ingestion endpoint', () => {
       },
       network_traffic: {
         interfaces: [{ name: 'eth0', addresses: ['10.0.0.5'] }],
-        connections: [{ proto: 'TCP', local: '10.0.0.5:22', remote: '1.2.3.4:12345', state: 'ESTABLISHED' }],
+        connections: [{ proto: 'TCP', local: '10.0.0.5:22', remote: '1.2.3.4:12345', state: 'ESTABLISHED', pid: 4821, process: 'firefox' }],
+        dns_queries: [{ ts_ms: 1737465600000, domain: 'example.com', qtype: 'A', answers: ['93.184.216.34'], resolver: '10.0.0.1', pid: 4821, process: 'firefox' }],
         dns_servers: ['10.0.0.1'],
       },
     };

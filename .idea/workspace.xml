@@ -62,11 +62,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/session.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/session.rs" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;">
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/.managed.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/.managed.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +80,7 @@
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -103,23 +104,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.5314826961912038" />
-      <entry key="MS500" value="4.314178133997393" />
-      <entry key="S2" value="6.715795290283571" />
-      <entry key="S5" value="7.446569429455469" />
-      <entry key="S10" value="7.736908218194333" />
-      <entry key="S30" value="8.597233443992232" />
-      <entry key="S60" value="9.617204892716387" />
-      <entry key="M2" value="10.556899918600228" />
-      <entry key="M5" value="11.347361347498413" />
-      <entry key="M10" value="11.65963308343105" />
-      <entry key="M15" value="11.77128429223221" />
-      <entry key="M30" value="11.959798570428095" />
-      <entry key="H1" value="12.494546374047754" />
-      <entry key="H2" value="13.46164715426325" />
-      <entry key="H4" value="14.610895484183722" />
-      <entry key="D1" value="51.965648611347376" />
-      <entry key="W1" value="149.4787170315469" />
+      <entry key="MS100" value="1.3623248913129893" />
+      <entry key="MS500" value="2.833159144305883" />
+      <entry key="S2" value="3.642982340554608" />
+      <entry key="S5" value="3.850934325592285" />
+      <entry key="S10" value="3.924379496718416" />
+      <entry key="S30" value="3.9745471733440416" />
+      <entry key="S60" value="3.9872425654830224" />
+      <entry key="M2" value="3.99361350687571" />
+      <entry key="M5" value="3.997443533903117" />
+      <entry key="M10" value="3.9987214552568067" />
+      <entry key="M15" value="3.9991475675560486" />
+      <entry key="M30" value="3.999573750592564" />
+      <entry key="H1" value="3.999924893371533" />
+      <entry key="H2" value="4.044635979073895" />
+      <entry key="H4" value="4.842288006505035" />
+      <entry key="D1" value="36.298680141342665" />
+      <entry key="W1" value="143.6609088226527" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -130,34 +131,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="1.7920320410391905E-163" />
-      <entry key="M10" value="4.839395849474535E-82" />
-      <entry key="M15" value="7.221253957082983E-55" />
-      <entry key="M30" value="1.1514276700117215E-27" />
-      <entry key="H1" value="4.743636985694611E-14" />
-      <entry key="H2" value="3.0719170956957205E-7" />
-      <entry key="H4" value="8.057181303998732E-4" />
-      <entry key="D1" value="1.289216810555083" />
-      <entry key="W1" value="6.11574954649603" />
+      <entry key="M5" value="5.9195142420681415E-223" />
+      <entry key="M10" value="8.79551548084588E-112" />
+      <entry key="M15" value="1.0754561769568508E-74" />
+      <entry key="M30" value="1.4051630194865491E-37" />
+      <entry key="H1" value="5.240303873763733E-19" />
+      <entry key="H2" value="1.0210147199189042E-9" />
+      <entry key="H4" value="4.6450927761686294E-5" />
+      <entry key="D1" value="0.8012988187222654" />
+      <entry key="W1" value="5.714065283114467" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.4662804777583347" />
-      <entry key="MS500" value="4.282130498785742" />
-      <entry key="S2" value="6.704134878836585" />
-      <entry key="S5" value="7.441480334831019" />
-      <entry key="S10" value="7.734280016824701" />
-      <entry key="S30" value="8.59627340092137" />
-      <entry key="S60" value="9.616674862522522" />
-      <entry key="M2" value="10.556611854324732" />
-      <entry key="M5" value="11.347238364927003" />
-      <entry key="M10" value="11.659570059896598" />
-      <entry key="M15" value="11.771241912124989" />
-      <entry key="M30" value="11.95977709363982" />
-      <entry key="H1" value="12.494535266944593" />
-      <entry key="H2" value="13.461641579484075" />
-      <entry key="H4" value="14.61169802290952" />
-      <entry key="D1" value="53.2548483017619" />
-      <entry key="W1" value="155.59445430420007" />
+      <entry key="MS100" value="1.3269310768388611" />
+      <entry key="MS500" value="2.8103665890071143" />
+      <entry key="S2" value="3.6347768294203613" />
+      <entry key="S5" value="3.847384922518675" />
+      <entry key="S10" value="3.9225572070519346" />
+      <entry key="S30" value="3.973928869576395" />
+      <entry key="S60" value="3.9869320352862925" />
+      <entry key="M2" value="3.9934578957527394" />
+      <entry key="M5" value="3.9973812062222307" />
+      <entry key="M10" value="3.9986902775289037" />
+      <entry key="M15" value="3.9991267793168612" />
+      <entry key="M30" value="3.9995633549290543" />
+      <entry key="H1" value="3.999919695031046" />
+      <entry key="H2" value="4.044633361339563" />
+      <entry key="H4" value="4.842332974508246" />
+      <entry key="D1" value="37.0999681026182" />
+      <entry key="W1" value="149.3749626071299" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -181,7 +182,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -295,7 +296,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784198914247" duration="14255000" />
+      <workItem from="1784198914247" duration="29692000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -617,7 +618,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784208690979</updated>
     </task>
-    <option name="localTasksCounter" value="41" />
+    <task id="LOCAL-00041" summary="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;">
+      <option name="closed" value="true" />
+      <created>1784231598025</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1784231598025</updated>
+    </task>
+    <option name="localTasksCounter" value="42" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -627,7 +636,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
     <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
     <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
     <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
@@ -652,6 +660,7 @@
     <MESSAGE value="Add tunnel agent reconnection logic to Ops Portal&#10;&#10;Introduced an automatic reconnection mechanism that waits for the tunnel agent to come online before establishing a WebSocket connection. Enhanced user feedback with updated status indicators and streamlined session cleanup to handle reconnection scenarios effectively." />
     <MESSAGE value="Add diagnostic tracking for agent connection attempts&#10;&#10;Introduced `AgentAttempt` to track and surface diagnostic details about agent connection attempts, aiding server admins in debugging connection issues. Updated Ops Portal to display the last attempt's status and message. Enhanced broker logic to record both successful and failed attempts, with relevant details shared in API responses." />
     <MESSAGE value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
+    <MESSAGE value="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;" />
   </component>
 </project>
