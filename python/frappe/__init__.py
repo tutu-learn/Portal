@@ -552,7 +552,7 @@ def _set_request_context(
     mod.form_dict = kwargs_dict
     mod.form = kwargs_dict
     mod.lang = lang
-    mod.user = user
+    mod.user = get_user()
 
     # Mirror the same values into real Frappe's werkzeug-style local store so
     # module-level proxies such as ``frappe.lang`` and ``frappe.db`` resolve.

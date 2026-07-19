@@ -76,12 +76,7 @@ pub async fn get_list(
             );
         }
         Ok(Some(cond)) => Some(vec![cond]),
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            );
-        }
+        Err(e) => return frappe_error_response(e),
     };
 
     let valid_columns = match pool.get_doctype_columns(&doctype).await {
@@ -121,14 +116,7 @@ pub async fn get_list(
         None => None,
     };
 
-    let filters: Option<HashMap<String, FilterCondition>> = q.filters.and_then(|s| {
-        let raw: Option<HashMap<String, Value>> = serde_json::from_str(&s).ok();
-        raw.map(|m| {
-            m.into_iter()
-                .map(|(k, v)| (k, FilterCondition::Eq(v)))
-                .collect()
-        })
-    });
+    let filters = q.filters.as_deref().and_then(parse_filters);
 
     match pool
         .get_list(
@@ -142,10 +130,7 @@ pub async fn get_list(
         .await
     {
         Ok(docs) => (StatusCode::OK, Json(serde_json::json!({ "data": docs }))),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": format!("{}", e) })),
-        ),
+        Err(e) => frappe_error_response(e),
     }
 }
 
@@ -208,6 +193,13 @@ fn parse_order_by(
     Ok(Some((field.into(), desc)))
 }
 
+/// Parse a JSON filter dict into `FilterCondition` values, preserving
+/// Frappe array-style operators such as `["in", ["a","b"]]` instead of
+/// collapsing them to equality.
+fn parse_filters(raw: &str) -> Option<HashMap<String, FilterCondition>> {
+    serde_json::from_str::<HashMap<String, FilterCondition>>(raw).ok()
+}
+
 pub async fn get_doc(
     State(state): State<AppState>,
     Path((doctype, name)): Path<(String, String)>,
@@ -243,16 +235,18 @@ pub async fn get_doc(
                     StatusCode::FORBIDDEN,
                     Json(serde_json::json!({ "error": "permission denied" })),
                 ),
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": format!("{}", e) })),
-                ),
+                Err(e) => frappe_error_response(e),
             }
         }
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("{}", e) })),
-        ),
+        Err(e) => {
+            let is_not_found = matches!(e, error::RuntimeError::NotFound(_));
+            let (status, body) = frappe_error_response(e);
+            if is_not_found {
+                (StatusCode::NOT_FOUND, body)
+            } else {
+                (status, body)
+            }
+        }
     }
 }
 
@@ -297,12 +291,7 @@ pub async fn insert_doc(
                 Json(serde_json::json!({ "error": "permission denied" })),
             );
         }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": format!("{}", e) })),
-            );
-        }
+        Err(e) => return frappe_error_response(e),
     }
 
     // Try the native ORM first. Rust app DocTypes are fully supported there and
@@ -400,12 +389,7 @@ pub async fn update_doc(
                         Json(serde_json::json!({ "error": "permission denied" })),
                     );
                 }
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({ "error": format!("{}", e) })),
-                    );
-                }
+                Err(e) => return frappe_error_response(e),
             }
 
             for (k, v) in body.clone() {
@@ -430,10 +414,11 @@ pub async fn update_doc(
         }
         Err(error::RuntimeError::NotFound(_)) => {
             // Document does not exist; Python path cannot save it either.
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("{} {} not found", doctype, name) })),
-            );
+            let (_status, body) = frappe_error_response(error::RuntimeError::NotFound(format!(
+                "{} {} not found",
+                doctype, name
+            )));
+            return (StatusCode::NOT_FOUND, body);
         }
         Err(e) => {
             warn!(
@@ -1032,14 +1017,14 @@ pub async fn getdoc_native(
                 resp.insert("docinfo".to_string(), docinfo);
                 (StatusCode::OK, Json(Value::Object(resp)))
             }
-            Err(error::RuntimeError::NotFound(_)) => (
-                StatusCode::NOT_FOUND,
-                Json(json!({ "error": format!("{} {} not found", doctype, name) })),
-            ),
-            Err(e) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": format!("{}", e) })),
-            ),
+            Err(error::RuntimeError::NotFound(_)) => {
+                let (_status, body) = frappe_error_response(error::RuntimeError::NotFound(format!(
+                    "{} {} not found",
+                    doctype, name
+                )));
+                (StatusCode::NOT_FOUND, body)
+            }
+            Err(e) => frappe_error_response(e),
         },
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -1411,14 +1396,7 @@ pub async fn reportview_get(
         None => None,
     };
 
-    let filters = params.get("filters").and_then(|s| {
-        let raw: Option<HashMap<String, Value>> = serde_json::from_str(s).ok();
-        raw.map(|m| {
-            m.into_iter()
-                .map(|(k, v)| (k, FilterCondition::Eq(v)))
-                .collect::<HashMap<_, _>>()
-        })
-    });
+    let filters = params.get("filters").and_then(|s| parse_filters(s));
 
     let limit_start = params
         .get("limit_start")
@@ -1464,11 +1442,7 @@ pub async fn reportview_get(
                 params.get("filters"),
                 e
             );
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "message": format!("{}", e) })),
-            )
-                .into_response()
+            frappe_error_response(e).into_response()
         }
     }
 }
@@ -1504,22 +1478,11 @@ pub async fn reportview_get_count(
         }
     };
 
-    let filters = params.get("filters").and_then(|s| {
-        let raw: Option<HashMap<String, Value>> = serde_json::from_str(s).ok();
-        raw.map(|m| {
-            m.into_iter()
-                .map(|(k, v)| (k, FilterCondition::Eq(v)))
-                .collect::<HashMap<_, _>>()
-        })
-    });
+    let filters = params.get("filters").and_then(|s| parse_filters(s));
 
     match pool.count(&doctype, filters, None).await {
         Ok(n) => (StatusCode::OK, Json(json!({ "message": n }))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "message": format!("{}", e) })),
-        )
-            .into_response(),
+        Err(e) => frappe_error_response(e).into_response(),
     }
 }
 
@@ -2470,30 +2433,17 @@ async fn desk_form_save(
                 Json(json!({ "error": "permission denied" })),
             )
         }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": format!("{}", e) })),
-            )
-        }
+        Err(e) => return frappe_error_response(e),
     }
 
     if is_new {
         match pool.insert_doc(&doc).await {
             Ok(saved_name) => doc.name = saved_name,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": format!("{}", e) })),
-                )
-            }
+            Err(e) => return frappe_error_response(e),
         }
     } else {
         if let Err(e) = pool.save_doc(&doc).await {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": format!("{}", e) })),
-            );
+            return frappe_error_response(e);
         }
     }
 
@@ -2716,43 +2666,55 @@ fn parse_python_exception(msg: &str) -> (String, String) {
 }
 
 fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json::Value>) {
-    match e {
+    // Python-level and business-rule exceptions are surfaced as HTTP 200 with
+    // Frappe's expected `exc` / `exc_type` / `_server_messages` shape so the
+    // desk JS error handler can parse and display them. Truly unrecoverable
+    // server errors (DB pool missing, IO/serde failures, etc.) remain 500.
+    let (exc_type, exc_json) = match &e {
         error::RuntimeError::Python(msg) => {
-            let (exc_type, exc_msg) = parse_python_exception(&msg);
-
+            let (exc_type, _exc_msg) = parse_python_exception(msg);
             // Frappe JS (request.js) calls JSON.parse(r.exc), so exc must be a
             // JSON-encoded array string e.g. '["Traceback..."]', not a raw string.
+            let exc_json = serde_json::to_string(&serde_json::json!([msg.clone()]))
+                .unwrap_or_else(|_| "[]".to_string());
+            (exc_type, exc_json)
+        }
+        error::RuntimeError::Validation(msg) => {
             let exc_json = serde_json::to_string(&serde_json::json!([msg]))
                 .unwrap_or_else(|_| "[]".to_string());
-
-            // Make validation/error messages visible in the desk UI.
-            let server_message = serde_json::json!({
-                "message": exc_msg,
-                "title": exc_type.clone(),
-                "indicator": "red",
-            });
-            let server_messages_json = serde_json::to_string(&serde_json::json!([
-                serde_json::to_string(&server_message).unwrap_or_default()
-            ]))
-            .unwrap_or_else(|_| "[]".to_string());
-
-            (
-                // Frappe's JS client routes HTTP 417 to the error callback and
-                // shows _server_messages; returning 200 caused it to treat the
-                // exception as a successful save, leading to TypeErrors.
-                StatusCode::EXPECTATION_FAILED,
-                Json(serde_json::json!({
-                    "exc": exc_json,
-                    "exc_type": exc_type,
-                    "_server_messages": server_messages_json,
-                })),
-            )
+            ("ValidationError".to_string(), exc_json)
         }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": format!("{}", e) })),
-        ),
-    }
+        error::RuntimeError::Permission(msg) | error::RuntimeError::PermissionDenied(msg) => {
+            let exc_json = serde_json::to_string(&serde_json::json!([msg]))
+                .unwrap_or_else(|_| "[]".to_string());
+            ("PermissionError".to_string(), exc_json)
+        }
+        error::RuntimeError::Auth(msg) => {
+            let exc_json = serde_json::to_string(&serde_json::json!([msg]))
+                .unwrap_or_else(|_| "[]".to_string());
+            ("AuthenticationError".to_string(), exc_json)
+        }
+        error::RuntimeError::NotFound(msg) => {
+            let exc_json = serde_json::to_string(&serde_json::json!([msg]))
+                .unwrap_or_else(|_| "[]".to_string());
+            ("DoesNotExistError".to_string(), exc_json)
+        }
+        _ => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            );
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "exc": exc_json,
+            "exc_type": exc_type,
+            "_server_messages": "[]",
+        })),
+    )
 }
 
 #[cfg(test)]
@@ -2795,5 +2757,23 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["message"], "ok");
+    }
+
+    #[test]
+    fn parse_filters_preserves_array_operators() {
+        let raw = r#"{"status":["in",["Draft","Submitted"]],"age": [">", 18]}"#;
+        let parsed = parse_filters(raw).unwrap();
+        assert!(matches!(parsed["status"], FilterCondition::In(_)));
+        assert!(matches!(parsed["age"], FilterCondition::Gt(_)));
+    }
+
+    #[test]
+    fn frappe_error_response_returns_frappe_shape_for_python() {
+        let err = error::RuntimeError::Python("ValueError: invalid email".into());
+        let (status, Json(body)) = frappe_error_response(err);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["exc_type"], "ValueError");
+        assert!(body["exc"].as_str().unwrap().contains("invalid email"));
+        assert_eq!(body["_server_messages"], "[]");
     }
 }

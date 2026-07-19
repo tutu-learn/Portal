@@ -235,7 +235,7 @@ pub fn db_count(
     doctype: String,
     filters: Option<Bound<'_, PyAny>>,
 ) -> PyResult<usize> {
-    let filters_map: Option<HashMap<String, serde_json::Value>> = match filters {
+    let filters_map: Option<HashMap<String, FilterCondition>> = match filters {
         Some(f) if !f.is_none() => {
             let dict = f
                 .downcast::<PyDict>()
@@ -243,51 +243,17 @@ pub fn db_count(
             let mut map = HashMap::new();
             for (k, v) in dict {
                 let key: String = k.extract()?;
-                map.insert(key, py_to_json(&v)?);
+                let json_val = py_to_json(&v)?;
+                map.insert(key, parse_filter_condition(json_val));
             }
             Some(map)
         }
         _ => None,
     };
 
-    let tbl = table_name(&doctype);
-    let dialect = pool().dialect().to_string();
-
-    let (sql, params) = match filters_map {
-        Some(ref fmap) if !fmap.is_empty() => {
-            let mut conditions = Vec::new();
-            let mut vals: Vec<serde_json::Value> = Vec::new();
-            for (i, (k, v)) in fmap.iter().enumerate() {
-                let ph = if dialect == "postgres" {
-                    format!("${}", i + 1)
-                } else {
-                    "?".to_string()
-                };
-                conditions.push(format!("\"{}\" = {}", k, ph));
-                vals.push(v.clone());
-            }
-            (
-                format!(
-                    "SELECT COUNT(*) as c FROM \"{}\" WHERE {}",
-                    tbl,
-                    conditions.join(" AND ")
-                ),
-                vals,
-            )
-        }
-        _ => (format!("SELECT COUNT(*) as c FROM \"{}\"", tbl), vec![]),
-    };
-
-    let rows = rt()
-        .block_on(async { pool().execute_sql(&sql, params).await })
+    let count = rt()
+        .block_on(async { pool().count(&doctype, filters_map, None).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
-
-    let count = rows
-        .into_iter()
-        .next()
-        .and_then(|m| m.get("c").cloned())
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0) as usize;
 
     Ok(count)
 }
@@ -377,7 +343,4 @@ fn parse_order_by(raw: &str) -> Result<Option<(String, bool)>, String> {
     Ok(Some((field, desc)))
 }
 
-fn table_name(doctype: &str) -> String {
-    let name = doctype.to_lowercase().replace(" ", "_");
-    name.strip_prefix("tab").unwrap_or(&name).to_string()
-}
+

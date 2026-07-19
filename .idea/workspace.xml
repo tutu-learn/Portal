@@ -5,10 +5,10 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
+      <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/config">
+      <package file="$PROJECT_DIR$/crates/email">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/error">
@@ -56,6 +56,9 @@
       <package file="$PROJECT_DIR$/crates/sql-translator">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/Strongroom">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/protocol">
         <feature name="default" enabled="true" />
       </package>
@@ -63,14 +66,70 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add toggle for node processes visibility in ops portal&#10;&#10;Introduced a toggle button to show/hide the node processes block in the node panel, enhancing session-level user preferences. Updated related CSS for a smaller button size and adjusted the HTML structure to accommodate visibility states. Runtime log file was extended, and a minor &quot;opstamp&quot; value change was made in the meta.json file.">
-      <change afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/dns_records.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logengine-data/index/meta.json" beforeDir="false" afterPath="$PROJECT_DIR$/logengine-data/index/meta.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/runtime.log" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/frontend/screens/ops_portal.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/beneficiaries.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/beneficiaries.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/cipc-entities.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/cipc-entities.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/court-rolls.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/court-rolls.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/deceased-estates.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/deceased-estates.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/judgments.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/judgments.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/maintenance-obligations.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/maintenance-obligations.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trademarks.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trademarks.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trust-entities.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/screens/trust-entities.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/beneficiaries.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/cipc.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/court_roll.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/beneficiary/beneficiary.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/cipc_entity/cipc_entity.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/court_roll/court_roll.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/deceased_estate/deceased_estate.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/judgment/judgment.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/maintenance_obligation/maintenance_obligation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/maintenance_payment/maintenance_payment.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/trademark/trademark.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/trust_entity/trust_entity.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/trustee/trustee.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/estates.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/judgment.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/maintenance.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trademarks.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/trust_entities.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/beneficiaries.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/cipc.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/court_roll.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/estates.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/judgments.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/maintenance.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/trademarks.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/trust_entities.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/beneficiary.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/cipc.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/court_roll.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/estate.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/judgment.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/maintenance.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/trademark.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/trust_entity.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/components/sidebar.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/frontend/components/sidebar.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/doctypes/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/src/permissions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/src/permissions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/commands/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tauri/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,12 +137,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19608" />
+    <option name="cachedIndexableFilesCount" value="37818" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -94,7 +153,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal&quot;,
     &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
   }
 }</component>
@@ -107,23 +166,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3623248913129893" />
-      <entry key="MS500" value="2.833159144305883" />
-      <entry key="S2" value="3.642982340554608" />
-      <entry key="S5" value="3.850934325592285" />
-      <entry key="S10" value="3.924379496718416" />
-      <entry key="S30" value="3.9745471733440416" />
-      <entry key="S60" value="3.9872425654830224" />
-      <entry key="M2" value="3.99361350687571" />
-      <entry key="M5" value="3.997443533903117" />
-      <entry key="M10" value="3.9987214552568067" />
-      <entry key="M15" value="3.9991475675560486" />
-      <entry key="M30" value="3.999573750592564" />
-      <entry key="H1" value="3.999924893371533" />
-      <entry key="H2" value="4.044635979073895" />
-      <entry key="H4" value="4.842288006505035" />
-      <entry key="D1" value="36.298680141342665" />
-      <entry key="W1" value="143.6609088226527" />
+      <entry key="MS100" value="1.3558589711263107" />
+      <entry key="MS500" value="3.6418912035108506" />
+      <entry key="S2" value="6.297287763384427" />
+      <entry key="S5" value="7.240895018353027" />
+      <entry key="S10" value="7.605797383756337" />
+      <entry key="S30" value="7.86519501997506" />
+      <entry key="S60" value="7.94178905088814" />
+      <entry key="M2" value="8.16235817153936" />
+      <entry key="M5" value="9.18444659446454" />
+      <entry key="M10" value="10.182319056265818" />
+      <entry key="M15" value="10.67175785891567" />
+      <entry key="M30" value="11.269609628758616" />
+      <entry key="H1" value="11.616657588223157" />
+      <entry key="H2" value="11.84601775646508" />
+      <entry key="H4" value="12.721962101367545" />
+      <entry key="D1" value="44.147084371956915" />
+      <entry key="W1" value="151.57506410033787" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -134,34 +193,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="5.9195142420681415E-223" />
-      <entry key="M10" value="8.79551548084588E-112" />
-      <entry key="M15" value="1.0754561769568508E-74" />
-      <entry key="M30" value="1.4051630194865491E-37" />
-      <entry key="H1" value="5.240303873763733E-19" />
-      <entry key="H2" value="1.0210147199189042E-9" />
-      <entry key="H4" value="4.6450927761686294E-5" />
-      <entry key="D1" value="0.8012988187222654" />
-      <entry key="W1" value="5.714065283114467" />
+      <entry key="M5" value="1.774159183889791E-223" />
+      <entry key="M10" value="4.815202483287584E-112" />
+      <entry key="M15" value="7.197166607050941E-75" />
+      <entry key="M30" value="1.1495057040791215E-37" />
+      <entry key="H1" value="4.739676286870697E-19" />
+      <entry key="H2" value="9.71019850110173E-10" />
+      <entry key="H4" value="4.529939949910782E-5" />
+      <entry key="D1" value="0.7979533663355745" />
+      <entry key="W1" value="5.710651107084875" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3269310768388611" />
-      <entry key="MS500" value="2.8103665890071143" />
-      <entry key="S2" value="3.6347768294203613" />
-      <entry key="S5" value="3.847384922518675" />
-      <entry key="S10" value="3.9225572070519346" />
-      <entry key="S30" value="3.973928869576395" />
-      <entry key="S60" value="3.9869320352862925" />
-      <entry key="M2" value="3.9934578957527394" />
-      <entry key="M5" value="3.9973812062222307" />
-      <entry key="M10" value="3.9986902775289037" />
-      <entry key="M15" value="3.9991267793168612" />
-      <entry key="M30" value="3.9995633549290543" />
-      <entry key="H1" value="3.999919695031046" />
-      <entry key="H2" value="4.044633361339563" />
-      <entry key="H4" value="4.842332974508246" />
-      <entry key="D1" value="37.0999681026182" />
-      <entry key="W1" value="149.3749626071299" />
+      <entry key="MS100" value="1.3275283606556396" />
+      <entry key="MS500" value="3.62480135078374" />
+      <entry key="S2" value="6.290040405062103" />
+      <entry key="S5" value="7.2376009083169075" />
+      <entry key="S10" value="7.604075369337042" />
+      <entry key="S30" value="7.864603398409429" />
+      <entry key="S60" value="7.9414902264418155" />
+      <entry key="M2" value="8.162200911295468" />
+      <entry key="M5" value="9.184367933282648" />
+      <entry key="M10" value="10.18227197431574" />
+      <entry key="M15" value="10.671723932994045" />
+      <entry key="M30" value="11.269591114929465" />
+      <entry key="H1" value="11.61664788107812" />
+      <entry key="H2" value="11.84601276403884" />
+      <entry key="H4" value="12.72200470312875" />
+      <entry key="D1" value="44.94502671759117" />
+      <entry key="W1" value="157.2857036858579" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -185,8 +244,8 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/Portal",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -196,7 +255,7 @@
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
     "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
-    "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "ts.external.directory.path": "/Users/johannnefdt/RustroverProjects/Portal/rust_apps/Strongroom/e2e-tauri/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -300,6 +359,9 @@
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
       <workItem from="1784198914247" duration="46380000" />
+      <workItem from="1784406380538" duration="327000" />
+      <workItem from="1784406710871" duration="3576000" />
+      <workItem from="1784410539193" duration="2919000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />

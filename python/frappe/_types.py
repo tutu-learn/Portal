@@ -135,8 +135,14 @@ class _DocProxy(_dict):
         return out
 
     def get_blocked_modules(self):
-        bm = self.get("block_modules") or []
-        return [m.get("module") for m in bm if m.get("module")]
+        mods = self.get("block_modules") or []
+        if isinstance(mods, list):
+            return [
+                m.get("module")
+                for m in mods
+                if isinstance(m, dict) and m.get("module")
+            ]
+        return []
 
     def get_link_groups(self):
         """Mirror of Workspace.get_link_groups — groups links into cards."""
