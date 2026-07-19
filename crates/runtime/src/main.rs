@@ -4,11 +4,13 @@ use std::time::Duration;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
+mod executor;
 mod hooks;
 mod logging;
 mod pool_watchdog;
 mod registered_apps;
 mod rust_apps;
+mod scheduler_backend;
 mod startup;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -116,7 +118,10 @@ async fn main() -> error::Result<()> {
     if let Err(e) = hook_registry.load_from_path(&config.runtime.erpnext_path) {
         warn!("failed to load hooks: {}", e);
     }
-    let _hooks = Arc::new(hook_registry);
+    if let Err(e) = hook_registry.load_from_path(&config.runtime.frappe_path) {
+        warn!("failed to load frappe hooks: {}", e);
+    }
+    let hook_registry = Arc::new(hook_registry);
 
     // Initialize python-bridge with a default pool and pubsub
     let pubsub = Arc::new(queue::PubSub::new());
@@ -207,6 +212,11 @@ async fn main() -> error::Result<()> {
         let worker_default = queue::Worker::new("default");
         let worker_long = queue::Worker::new("long");
         let scheduler = queue::Scheduler::new();
+        let scheduler_backend = scheduler_backend::RuntimeSchedulerBackend::new(
+            app_state.clone(),
+            (*hook_registry).clone(),
+        );
+        let job_executor = executor::RuntimeExecutor::new(app_state.clone());
 
         // Workers re-read the pool from the map on every loop so they follow
         // the watchdog's pool swaps instead of holding a wedged pool forever.
@@ -216,8 +226,14 @@ async fn main() -> error::Result<()> {
         // from this process and would make the watchdog's heal fail.
         let pool_source = {
             let pools = pools.clone();
-            let site = pool_site.clone();
-            move || pools.get(&site).map(|r| r.clone())
+            move |site: &str| {
+                if site.is_empty() {
+                    // Default/fallback site used when the job has no site.
+                    pools.iter().next().map(|e| e.value().clone())
+                } else {
+                    pools.get(site).map(|e| e.value().clone())
+                }
+            }
         };
 
         let pool2 = pool_source.clone();
@@ -226,10 +242,10 @@ async fn main() -> error::Result<()> {
 
         tokio::select! {
             r = http_future => r?,
-            _ = worker_short.run_with_pool_source(pool2) => {},
-            _ = worker_default.run_with_pool_source(pool3) => {},
-            _ = worker_long.run_with_pool_source(pool4) => {},
-            _ = scheduler.run() => {},
+            _ = worker_short.run_with_pool_source(pool2, &job_executor) => {},
+            _ = worker_default.run_with_pool_source(pool3, &job_executor) => {},
+            _ = worker_long.run_with_pool_source(pool4, &job_executor) => {},
+            _ = scheduler.run(&scheduler_backend, pool_source.clone()) => {},
         }
     } else {
         http_future.await?;

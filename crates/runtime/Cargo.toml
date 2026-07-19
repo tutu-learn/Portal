@@ -21,6 +21,7 @@ metadata       = { path = "../metadata" }
 queue          = { path = "../queue" }
 http           = { path = "../http" }
 rust_apps_core = { path = "../../rust_apps/core" }
+async-trait    = "0.1"
 
 kiff_logger    = { path = "../kiff_logger" }
 log_engine     = { path = "../log_engine" }

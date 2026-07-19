@@ -1,7 +1,30 @@
 use crate::job::{Job, JobStatus};
+use async_trait::async_trait;
 use error::Result;
 use orm::DatabasePool;
+use std::collections::HashMap;
 use tracing::{error, info, warn};
+
+/// Executor invoked by [`Worker`] to run a queued job.
+///
+/// The runtime provides an implementation that dispatches to registered Rust
+/// app methods and falls back to Python whitelisted methods.
+#[async_trait]
+pub trait JobExecutor: Send + Sync {
+    async fn execute(&self, method: &str, kwargs: &HashMap<String, serde_json::Value>) -> Result<()>;
+}
+
+/// Executor that logs the call and succeeds. Used when no real executor is
+/// configured (e.g. in tests).
+pub struct NoopExecutor;
+
+#[async_trait]
+impl JobExecutor for NoopExecutor {
+    async fn execute(&self, method: &str, kwargs: &HashMap<String, serde_json::Value>) -> Result<()> {
+        info!("noop execute {} {:?}", method, kwargs);
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Worker {
@@ -15,34 +38,43 @@ impl Worker {
         }
     }
 
-    pub async fn run(&self, pool: &DatabasePool) -> Result<()> {
+    pub async fn run(&self, pool: &DatabasePool, executor: &dyn JobExecutor) -> Result<()> {
         let pool = pool.clone();
-        self.run_with_pool_source(move || Some(pool.clone())).await
+        self.run_with_pool_source(move |_| Some(pool.clone()), executor)
+            .await
     }
 
     /// Run the worker, re-fetching the pool from `get_pool` on every
-    /// iteration. The runtime uses this so the worker follows pool swaps
+    /// iteration. The closure receives the job's site name so multi-site
+    /// runtimes can route queue operations to the correct site's database
+    /// pool. The runtime uses this so the worker follows pool swaps
     /// performed by the watchdog after a wedged pool is replaced. A `None`
     /// means the pool is mid-heal (wedged one closed, replacement not yet
     /// connected); the worker just skips that iteration. Deliberately no
     /// fallback to a previously held pool: any surviving clone of a wedged
     /// pool keeps its file descriptors open, which on macOS prevents the
     /// replacement pool from connecting at all.
-    pub async fn run_with_pool_source<F>(&self, get_pool: F) -> Result<()>
+    pub async fn run_with_pool_source<F>(
+        &self,
+        get_pool: F,
+        executor: &dyn JobExecutor,
+    ) -> Result<()>
     where
-        F: Fn() -> Option<DatabasePool>,
+        F: Fn(&str) -> Option<DatabasePool>,
     {
         info!("worker started for queue: {}", self.queue);
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            let Some(pool) = get_pool() else {
+            let Some(pool) = get_pool("") else {
                 continue;
             };
             match self.dequeue(&pool).await {
                 Ok(Some(job)) => {
-                    if let Err(e) = self.execute(&job, &pool).await {
+                    // Re-resolve the pool for the job's site when possible.
+                    let job_pool = get_pool(&job.site).unwrap_or_else(|| pool.clone());
+                    if let Err(e) = self.execute(&job, &job_pool, executor).await {
                         error!("job {} failed: {}", job.id, e);
-                        let _ = self.mark_failed(&pool, &job.id, &format!("{}", e)).await;
+                        let _ = self.mark_failed(&job_pool, &job.id, &format!("{}", e)).await;
                     }
                 }
                 Ok(None) => {}
@@ -117,28 +149,16 @@ impl Worker {
         Ok(Some(job))
     }
 
-    async fn execute(&self, job: &Job, pool: &DatabasePool) -> Result<()> {
+    async fn execute(
+        &self,
+        job: &Job,
+        pool: &DatabasePool,
+        executor: &dyn JobExecutor,
+    ) -> Result<()> {
         info!("executing job {}: {}", job.id, job.method);
-        let parts: Vec<&str> = job.method.rsplitn(2, '.').collect();
-        if parts.len() != 2 {
-            return Err(error::RuntimeError::Validation(format!(
-                "invalid method: {}",
-                job.method
-            )));
-        }
-        let func = parts[0];
-        let module = parts[1];
 
-        // TODO: call via PyO3 — for now, log the call
-        // The runtime should pass an executor closure to Worker::run
-        // that handles the actual Python invocation.
-        info!("would call {}.{}({:?})", module, func, job.kwargs);
-        let result: error::Result<()> = Ok(());
-
-        match result {
-            Ok(()) => self.mark_completed(pool, &job.id).await?,
-            Err(e) => self.mark_failed(pool, &job.id, &format!("{}", e)).await?,
-        }
+        executor.execute(&job.method, &job.kwargs).await?;
+        self.mark_completed(pool, &job.id).await?;
 
         Ok(())
     }

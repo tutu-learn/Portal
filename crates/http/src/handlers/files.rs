@@ -1,4 +1,5 @@
 use crate::middleware::auth::authenticate_request;
+use crate::site::resolve_site_name;
 use crate::AppState;
 use axum::{
     extract::{Path, State},
@@ -10,10 +11,11 @@ use std::path::{Path as StdPath, PathBuf};
 
 pub async fn serve_public(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(filename): Path<String>,
 ) -> impl IntoResponse {
-    // Use first site for now
-    let site = state.site_manager.sites().values().next().cloned();
+    let site = resolve_site_name(&state, &headers)
+        .and_then(|name| state.site_manager.sites().get(&name).cloned());
     match site {
         Some(site) => {
             let base = site.public.join("files");
@@ -34,7 +36,8 @@ pub async fn serve_private(
     if authenticate_request(&state, &headers).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "authentication required").into_response();
     }
-    let site = state.site_manager.sites().values().next().cloned();
+    let site = resolve_site_name(&state, &headers)
+        .and_then(|name| state.site_manager.sites().get(&name).cloned());
     match site {
         Some(site) => {
             let base = site.private.join("files");

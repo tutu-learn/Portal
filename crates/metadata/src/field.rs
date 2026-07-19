@@ -20,4 +20,8 @@ pub struct Field {
     pub in_list_view: bool,
     #[serde(default)]
     pub in_standard_filter: bool,
+    /// Frappe permission level for this field. Fields at a permlevel higher
+    /// than the user is granted are hidden/read-only.
+    #[serde(default)]
+    pub permlevel: i32,
 }

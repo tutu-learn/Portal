@@ -6,7 +6,8 @@ use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
 pub struct HookRegistry {
-    hooks: HashMap<String, Vec<String>>, // event -> list of "module.function"
+    /// event -> list of "module.function"
+    pub(crate) hooks: HashMap<String, Vec<String>>,
 }
 
 impl HookRegistry {

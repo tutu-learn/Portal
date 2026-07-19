@@ -7,6 +7,7 @@ pub mod user_perms;
 use dashmap::DashMap;
 use error::Result;
 use orm::DatabasePool;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -114,8 +115,57 @@ impl PermissionEngine {
             }
         }
 
+        // Row-level role permissions denied; check document sharing.
+        if let Some(d) = doc {
+            if self
+                .has_share_permission(pool, user, doctype, &d.name, ptype)
+                .await?
+            {
+                return Ok(true);
+            }
+        }
+
         tracing::debug!("permission denied: {} {} {}", user, doctype, ptype);
         Ok(false)
+    }
+
+    /// Check whether `user` has been granted `ptype` ("read" or "write") on a
+    /// specific document via DocShare.
+    async fn has_share_permission(
+        &self,
+        pool: &DatabasePool,
+        user: &str,
+        doctype: &str,
+        name: &str,
+        ptype: &str,
+    ) -> Result<bool> {
+        let flag = match ptype {
+            "read" | "select" | "report" | "export" | "print" | "email" | "share" => "read",
+            "write" | "create" | "delete" | "submit" | "cancel" | "amend" | "import" => "write",
+            _ => return Ok(false),
+        };
+        let sql = format!(
+            r#"SELECT 1 FROM __kiff_docshare
+               WHERE share_doctype = {} AND share_name = {}
+                 AND (user = {} OR everyone = 1)
+                 AND "{}" = 1
+               LIMIT 1"#,
+            pool.placeholder(1),
+            pool.placeholder(2),
+            pool.placeholder(3),
+            flag
+        );
+        let rows = pool
+            .execute_sql(
+                &sql,
+                vec![
+                    Value::String(doctype.into()),
+                    Value::String(name.into()),
+                    Value::String(user.into()),
+                ],
+            )
+            .await?;
+        Ok(!rows.is_empty())
     }
 
     pub async fn get_roles(&self, pool: &DatabasePool, user: &str) -> Result<Vec<String>> {
@@ -237,8 +287,10 @@ impl PermissionEngine {
         let roles = self.get_roles(pool, user).await?;
         let perms = self.get_docperms(pool, doctype).await?;
 
-        // Build OR conditions for each role that has read permission
+        // Build OR conditions for each role that has read permission. Track
+        // whether any role grants full (non-owner-only) read.
         let mut conditions = Vec::new();
+        let mut full_read = false;
         for perm in perms {
             if !roles.contains(&perm.role) || !perm.read {
                 continue;
@@ -246,14 +298,26 @@ impl PermissionEngine {
             if perm.if_owner {
                 conditions.push(format!("owner = '{}'", user));
             } else {
-                // Full read permission — no condition needed
-                return Ok(None);
+                full_read = true;
             }
         }
 
-        if conditions.is_empty() {
+        // Apply User Permission link-field restrictions on top of row-level
+        // conditions. This lets administrators restrict users to documents that
+        // belong to a specific office, practice area, client, etc.
+        let user_perm_conditions = self
+            .user_permission_conditions(pool, user, doctype)
+            .await?;
+        conditions.extend(user_perm_conditions);
+
+        if !full_read && conditions.is_empty() {
             // No read permission at all — return a condition that returns nothing
             return Ok(Some("1 = 0".into()));
+        }
+
+        if conditions.is_empty() {
+            // Full read and no user-permission restrictions.
+            return Ok(None);
         }
 
         // Deduplicate conditions
@@ -443,6 +507,104 @@ impl PermissionEngine {
 
     pub fn clear_perm_cache(&self, doctype: &str) {
         self.perm_cache.remove(doctype);
+    }
+
+    /// Return the set of permlevels for which `user` has `ptype` permission on
+    /// `doctype`. Administrator receives all common levels. If no explicit
+    /// permission exists, permlevel 0 is assumed allowed so existing setups
+    /// keep working.
+    pub async fn allowed_permlevels(
+        &self,
+        pool: &DatabasePool,
+        user: &str,
+        doctype: &str,
+        ptype: &str,
+    ) -> Result<std::collections::HashSet<i32>> {
+        if user == "Administrator" {
+            return Ok((0..=9).collect());
+        }
+
+        let roles = self.get_roles(pool, user).await?;
+        let perms = self.get_docperms(pool, doctype).await?;
+        let mut levels = std::collections::HashSet::new();
+        for perm in perms {
+            if !roles.contains(&perm.role) {
+                continue;
+            }
+            if ptype_allowed(&perm, ptype) {
+                levels.insert(perm.permlevel);
+            }
+        }
+        if levels.is_empty() {
+            levels.insert(0);
+        }
+        Ok(levels)
+    }
+
+    /// Filter a document's fields in-place, keeping only those the user is
+    /// allowed to read based on permlevel. Standard columns (name, owner,
+    /// creation, modified, doctype) are always kept.
+    pub fn filter_readable_fields(
+        &self,
+        doc: &mut orm::Document,
+        meta: &metadata::doctype::DocType,
+        allowed_levels: &std::collections::HashSet<i32>,
+    ) {
+        let standard: std::collections::HashSet<&str> = [
+            "name", "owner", "creation", "modified", "modified_by", "docstatus", "doctype",
+        ]
+        .into_iter()
+        .collect();
+
+        let allowed_fields: std::collections::HashSet<&str> = meta
+            .fields
+            .iter()
+            .filter(|f| standard.contains(f.fieldname.as_str()) || allowed_levels.contains(&f.permlevel))
+            .map(|f| f.fieldname.as_str())
+            .collect();
+
+        doc.fields.retain(|k, _| {
+            standard.contains(k.as_str()) || allowed_fields.contains(k.as_str())
+        });
+    }
+
+    /// Return the field names the user is allowed to read/write for `doctype`.
+    pub fn allowed_fields(
+        &self,
+        meta: &metadata::doctype::DocType,
+        allowed_levels: &std::collections::HashSet<i32>,
+    ) -> std::collections::HashSet<String> {
+        meta.fields
+            .iter()
+            .filter(|f| allowed_levels.contains(&f.permlevel))
+            .map(|f| f.fieldname.clone())
+            .collect()
+    }
+
+    /// Check whether all `fields` are writable by the user. Returns the first
+    /// disallowed field name, if any. Internal fields (starting with `_`) are
+    /// ignored because they are never persisted.
+    pub fn check_writable_fields(
+        &self,
+        meta: &metadata::doctype::DocType,
+        allowed_levels: &std::collections::HashSet<i32>,
+        fields: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> Option<String> {
+        for name in fields.keys() {
+            if name.starts_with('_') {
+                continue;
+            }
+            let permlevel = meta
+                .fields
+                .iter()
+                .find(|f| f.fieldname == *name)
+                .map(|f| f.permlevel)
+                .unwrap_or(0);
+            if !allowed_levels.contains(&permlevel) {
+                return Some(name.clone());
+            }
+        }
+        None
     }
 }
 

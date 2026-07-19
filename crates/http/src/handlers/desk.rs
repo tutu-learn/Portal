@@ -1,3 +1,4 @@
+use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::{
     extract::{OriginalUri, Query, State},
@@ -63,14 +64,11 @@ pub async fn serve_desk(
         return Redirect::temporary(&format!("/login?{}", query)).into_response();
     }
 
-    // Rust app pages are mounted under /audit_ready/*; Frappe Desk routes Page
+    // Rust app pages are mounted under /kiff_logger/*; Frappe Desk routes Page
     // workspace links through /desk/<page_name>, so redirect those paths.
     match uri.path() {
-        "/desk/ops-portal" => {
-            return Redirect::temporary("/audit_ready/ops-portal").into_response();
-        }
         "/desk/server-token-ui" => {
-            return Redirect::temporary("/audit_ready/server-token-ui").into_response();
+            return Redirect::temporary("/kiff_logger/token-ui").into_response();
         }
         _ => {}
     }
@@ -80,7 +78,7 @@ pub async fn serve_desk(
     let bundle_map = load_bundle_map(&assets_base).await;
 
     // Build boot info
-    let boot = build_boot_info(&state, user.as_deref(), &bundle_map).await;
+    let boot = build_boot_info(&state, &headers, user.as_deref(), &bundle_map).await;
     let boot_json = match serde_json::to_string(&boot) {
         Ok(j) => j,
         Err(e) => return error_response(&format!("boot serialization error: {}", e)),
@@ -114,7 +112,7 @@ async fn extract_user_from_request(state: &AppState, headers: &HeaderMap) -> Opt
     let cookie_header = headers.get("cookie")?.to_str().ok()?;
     let sid = extract_cookie_value(cookie_header, "sid")?;
 
-    let pool = state.pools.iter().next()?.value().clone();
+    let (_, pool) = resolve_site_pool(state, headers)?;
     let store = session::SessionStore::new();
     match store.get(&pool, &sid).await {
         Ok(Some(session)) if !session.is_expired() => Some(session.user),
@@ -856,6 +854,7 @@ async fn compute_user_permission_lists(
 
 async fn build_boot_info(
     state: &AppState,
+    headers: &HeaderMap,
     user: Option<&str>,
     bundle_map: &HashMap<String, String>,
 ) -> serde_json::Value {
@@ -864,7 +863,7 @@ async fn build_boot_info(
 
     // Get DB pool for site queries first; workspace data is needed both for the
     // Python bootinfo overlay and for the fallback bootinfo.
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = resolve_site_pool(state, headers).map(|(_, p)| p);
 
     // Load the user's blocked module list so we can hide those workspaces/modules.
     let blocked_modules: HashSet<String> = if let Some(ref pool) = pool {
@@ -1428,21 +1427,7 @@ async fn build_boot_info(
                     );
                     allowed_pages.push("kiff-logger-token-ui");
                 }
-                if roles
-                    .iter()
-                    .any(|r| r == "Sebrus Log Rule Admin" || r == "Sebrus Log Rule Viewer")
-                {
-                    page_info.insert(
-                        "sebrus-logger-dashboard".to_string(),
-                        json!({
-                            "title": "Sebrus Logger Dashboard",
-                            "route": "sebrus-logger-dashboard",
-                            "module": "SebrusLogger",
-                            "icon": "fa fa-file-text"
-                        }),
-                    );
-                    allowed_pages.push("sebrus-logger-dashboard");
-                }
+
             }
         }
     }
@@ -1840,7 +1825,7 @@ pub async fn serve_login(
     // Bind before the `if let` so the pool map's shard guard (held inside
     // the `DashMap::iter()` temporary) is dropped before the `.await` below
     // instead of living for the whole block.
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     let social_buttons = if let Some(pool) = pool {
         let providers = get_social_login_providers(&pool).await;
         let providers_with_urls: Vec<_> = providers

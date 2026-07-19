@@ -17,7 +17,7 @@ members = [
     "crates/kiff_logger",
     "crates/protocol",
     "rust_apps/core",
-    "rust_apps/strongroom",
+    "rust_apps/Strongroom",
 ]
 
 [workspace.dependencies]
@@ -109,3 +109,4 @@ dashmap        = { workspace = true }
 strongroom = { path = "rust_apps/Strongroom" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
+kiff_logger = { path = "crates/kiff_logger" }

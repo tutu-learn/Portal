@@ -1,4 +1,5 @@
 use crate::middleware::auth::authenticate_request;
+use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::{
     extract::{Query, State},
@@ -31,7 +32,7 @@ async fn require_permission_manager(
         return Ok(session.user);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(state, headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return Err((
@@ -67,17 +68,26 @@ async fn require_permission_manager(
 ///
 /// Returns the list of DocTypes, Roles, and a permission-type map needed by the
 /// desk permission manager UI.
-pub async fn get_roles_and_doctypes_get(State(state): State<AppState>) -> impl IntoResponse {
-    get_roles_and_doctypes_impl(state).await
+pub async fn get_roles_and_doctypes_get(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    get_roles_and_doctypes_impl(state, headers).await
 }
 
 /// POST variant used by Frappe Desk, which sends `frappe.call` requests as POST.
-pub async fn get_roles_and_doctypes_post(State(state): State<AppState>) -> impl IntoResponse {
-    get_roles_and_doctypes_impl(state).await
+pub async fn get_roles_and_doctypes_post(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    get_roles_and_doctypes_impl(state, headers).await
 }
 
-async fn get_roles_and_doctypes_impl(state: AppState) -> impl IntoResponse {
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+async fn get_roles_and_doctypes_impl(
+    state: AppState,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -149,25 +159,28 @@ async fn get_roles_and_doctypes_impl(state: AppState) -> impl IntoResponse {
 /// `frappe.core.page.permission_manager.permission_manager.get_permissions`.
 pub async fn get_permissions_get(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    get_permissions_impl(state, params).await
+    get_permissions_impl(state, headers, params).await
 }
 
 /// POST variant used by Frappe Desk, which sends `frappe.call` requests as POST.
 pub async fn get_permissions_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
     let params = params_from_body(body);
-    get_permissions_impl(state, params).await
+    get_permissions_impl(state, headers, params).await
 }
 
 async fn get_permissions_impl(
     state: AppState,
+    headers: axum::http::HeaderMap,
     params: HashMap<String, String>,
 ) -> impl IntoResponse {
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -302,7 +315,7 @@ pub async fn add_permission_post(
         return resp;
     }
     let params = params_from_body(body);
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -385,7 +398,7 @@ pub async fn update_permission_post(
         return resp;
     }
     let params = params_from_body(body);
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -505,7 +518,7 @@ pub async fn remove_permission_post(
         return resp;
     }
     let params = params_from_body(body);
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -568,7 +581,7 @@ pub async fn get_users_with_role_post(
         return resp;
     }
     let params = params_from_body(body);
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(&state, &headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (

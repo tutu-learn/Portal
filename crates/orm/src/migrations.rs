@@ -291,6 +291,25 @@ impl Migrator {
             // exist yet when migrations run on a fresh site, so keep the
             // migration record but use no-op SQL — same as 007-009 above.
             ("010_doctype_restrict_to_domain", "SELECT 1"),
+            (
+                "011_docshare_table",
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_docshare (
+                    name TEXT PRIMARY KEY,
+                    user TEXT NOT NULL,
+                    share_doctype TEXT NOT NULL,
+                    share_name TEXT NOT NULL,
+                    "read" INTEGER NOT NULL DEFAULT 0,
+                    "write" INTEGER NOT NULL DEFAULT 0,
+                    "share" INTEGER NOT NULL DEFAULT 0,
+                    everyone INTEGER NOT NULL DEFAULT 0,
+                    creation TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_docshare_lookup ON __kiff_docshare(user, share_doctype, share_name);
+                CREATE INDEX IF NOT EXISTS idx_docshare_everyone ON __kiff_docshare(everyone, share_doctype, share_name);
+                "#,
+            ),
         ];
 
         for (name, sql) in migrations {

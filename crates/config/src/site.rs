@@ -11,6 +11,10 @@ pub struct SiteConfig {
     pub encryption_key: String,
     #[serde(default)]
     pub secret_key: String,
+    /// Optional host name mapping for multi-site routing. When set, requests
+    /// whose `Host` header matches this value are routed to this site.
+    #[serde(default)]
+    pub host_name: Option<String>,
     #[serde(default)]
     pub mail_server: String,
     #[serde(default = "default_mail_port")]
@@ -41,6 +45,7 @@ impl Default for SiteConfig {
             db_url: default_db_url(),
             encryption_key: String::new(),
             secret_key: String::new(),
+            host_name: None,
             mail_server: String::new(),
             mail_port: default_mail_port(),
             mail_login: String::new(),

@@ -1,4 +1,5 @@
 use crate::middleware::auth::authenticate_request;
+use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::{
     extract::{Path, Query, State},
@@ -46,8 +47,8 @@ pub async fn get_list(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+        Some(sp) => sp,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -89,8 +90,27 @@ pub async fn get_list(
         }
     };
 
+    // Restrict list/report view columns by permlevel when metadata is available.
+    let allowed_columns = if let Ok(meta) = state.metadata.get(&pool, &doctype).await {
+        if let Ok(levels) = state
+            .permissions
+            .allowed_permlevels(&pool, &user, &doctype, "read")
+            .await
+        {
+            let allowed = state.permissions.allowed_fields(&meta, &levels);
+            valid_columns
+                .intersection(&allowed)
+                .cloned()
+                .collect::<std::collections::HashSet<_>>()
+        } else {
+            valid_columns
+        }
+    } else {
+        valid_columns
+    };
+
     let fields = match q.fields {
-        Some(s) => match validate_fields(&s, &valid_columns) {
+        Some(s) => match validate_fields(&s, &allowed_columns) {
             Ok(f) if !f.is_empty() => Some(f),
             Ok(_) => None,
             Err(e) => {
@@ -104,7 +124,7 @@ pub async fn get_list(
     };
 
     let order_by = match q.order_by {
-        Some(s) => match parse_order_by(&s, &valid_columns) {
+        Some(s) => match parse_order_by(&s, &allowed_columns) {
             Ok(ob) => ob,
             Err(e) => {
                 return (
@@ -209,8 +229,8 @@ pub async fn get_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+        Some(sp) => sp,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -224,13 +244,25 @@ pub async fn get_doc(
         .unwrap_or_else(|| "Guest".into());
 
     match pool.get_doc(&doctype, &name).await {
-        Ok(doc) => {
+        Ok(mut doc) => {
             match state
                 .permissions
                 .has_permission(&pool, &user, &doctype, "read", Some(&doc))
                 .await
             {
-                Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "data": doc }))),
+                Ok(true) => {
+                    // Enforce field-level / permlevel read restrictions.
+                    if let Ok(meta) = state.metadata.get(&pool, &doctype).await {
+                        if let Ok(levels) = state
+                            .permissions
+                            .allowed_permlevels(&pool, &user, &doctype, "read")
+                            .await
+                        {
+                            state.permissions.filter_readable_fields(&mut doc, &meta, &levels);
+                        }
+                    }
+                    (StatusCode::OK, Json(serde_json::json!({ "data": doc })))
+                }
                 Ok(false) => (
                     StatusCode::FORBIDDEN,
                     Json(serde_json::json!({ "error": "permission denied" })),
@@ -266,8 +298,8 @@ pub async fn insert_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+        Some(sp) => sp,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -360,8 +392,8 @@ pub async fn update_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+        Some(sp) => sp,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -516,7 +548,7 @@ async fn delete_doc_inner(
         }
     };
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = crate::site::resolve_site_pool(state, headers).map(|(_, p)| p);
     match pool {
         Some(pool) => {
             let doc = pool.get_doc(doctype, name).await.ok();
@@ -641,7 +673,7 @@ async fn getpage_response(
         }
     };
 
-    match load_page(state, name, &user).await {
+    match load_page(state, name, &user, headers).await {
         Ok(doc) => {
             let mut resp = serde_json::Map::new();
             resp.insert("docs".to_string(), serde_json::Value::Array(vec![doc]));
@@ -662,28 +694,34 @@ async fn getpage_response(
     }
 }
 
-async fn load_page(state: &AppState, name: &str, user: &str) -> Result<serde_json::Value, String> {
+async fn load_page(
+    state: &AppState,
+    name: &str,
+    user: &str,
+    headers: &axum::http::HeaderMap,
+) -> Result<serde_json::Value, String> {
     // Try Rust app fixtures first. These are loaded into memory at startup so
     // pages work even when the app's source tree is not deployed.
     for fixture in state.rust_apps.all_pages() {
         if fixture.name == name {
-            return load_page_from_fixture(state, user, &fixture).await;
+            return load_page_from_fixture(state, user, &fixture, headers).await;
         }
     }
 
     // Fall back to on-disk JSON for Frappe core pages.
-    load_page_from_json(state, name, user).await
+    load_page_from_json(state, name, user, headers).await
 }
 
 async fn load_page_from_fixture(
     state: &AppState,
     user: &str,
     fixture: &PageFixture,
+    headers: &axum::http::HeaderMap,
 ) -> Result<serde_json::Value, String> {
     let mut doc: serde_json::Value =
         serde_json::from_str(&fixture.json).map_err(|e| format!("parse error: {}", e))?;
 
-    check_page_roles(state, &doc, user).await?;
+    check_page_roles(state, &doc, user, headers).await?;
 
     let script = build_page_script(&fixture.templates, &fixture.script);
 
@@ -713,10 +751,11 @@ async fn check_page_roles(
     state: &AppState,
     doc: &serde_json::Value,
     user: &str,
+    headers: &axum::http::HeaderMap,
 ) -> Result<(), String> {
     let allowed_roles = extract_page_roles(doc);
     if !allowed_roles.is_empty() && user != "Administrator" {
-        let user_roles = get_user_roles(state, user).await;
+        let user_roles = get_user_roles(state, user, headers).await;
         let has_role = user_roles.iter().any(|r| allowed_roles.contains(r));
         if !has_role {
             return Err("not_permitted".into());
@@ -737,6 +776,7 @@ async fn load_page_from_json(
     state: &AppState,
     name: &str,
     user: &str,
+    headers: &axum::http::HeaderMap,
 ) -> Result<serde_json::Value, String> {
     let scrubbed = name.to_lowercase().replace(" ", "_").replace("-", "_");
 
@@ -762,7 +802,6 @@ async fn load_page_from_json(
     if page_path.is_none() {
         let custom_bases: Vec<PathBuf> = vec![
             PathBuf::from("crates/kiff_logger/src/pages"),
-            PathBuf::from("rust_apps/sebrus_logger/src/pages"),
         ];
         for base in custom_bases {
             let path = base.join(&scrubbed).join(format!("{}.json", scrubbed));
@@ -780,7 +819,7 @@ async fn load_page_from_json(
     let mut doc: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("parse error: {}", e))?;
 
-    check_page_roles(state, &doc, user).await?;
+    check_page_roles(state, &doc, user, headers).await?;
 
     // Load assets from the page directory.
     let dir = path.parent().unwrap().to_path_buf();
@@ -889,8 +928,12 @@ fn scrub_html_template(content: &str) -> String {
     result
 }
 
-async fn get_user_roles(state: &AppState, user: &str) -> Vec<String> {
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+async fn get_user_roles(
+    state: &AppState,
+    user: &str,
+    headers: &axum::http::HeaderMap,
+) -> Vec<String> {
+    let pool = crate::site::resolve_site_pool(state, headers).map(|(_, p)| p);
     match pool {
         Some(pool) => state
             .permissions
@@ -935,7 +978,7 @@ pub async fn getdoc_native(
         return getdoc_new(state, &doctype, &name, &headers).await;
     }
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = crate::site::resolve_site_pool(&state, &headers).map(|(_, p)| p);
     match pool {
         Some(pool) => match pool.get_doc(&doctype, &name).await {
             Ok(mut doc) => {
@@ -1080,7 +1123,7 @@ async fn getdoc_new(
         Err(_) => json!({}),
     };
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = crate::site::resolve_site_pool(&state, headers).map(|(_, p)| p);
     let user = authenticate_request(&state, headers).await.map(|u| u.user);
     let owner = user.as_deref().unwrap_or("Administrator");
 
@@ -1183,9 +1226,10 @@ pub async fn getdoctype_native(
 /// Native Rust implementation of `frappe.desk.search.search_link` (GET).
 pub async fn search_link(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    search_link_impl(state, params).await
+    search_link_impl(state, &headers, params).await
 }
 
 /// Native Rust implementation of `frappe.desk.search.search_link` (POST).
@@ -1193,6 +1237,7 @@ pub async fn search_link(
 /// Link fields send POST requests once the user starts typing.
 pub async fn search_link_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
     let mut params = HashMap::new();
@@ -1215,7 +1260,7 @@ pub async fn search_link_post(
             }
         }
     }
-    search_link_impl(state, params).await
+    search_link_impl(state, &headers, params).await
 }
 
 /// Native Rust implementation of `frappe.client.validate_link_and_fetch`.
@@ -1227,12 +1272,14 @@ pub async fn search_link_post(
 pub async fn validate_link_and_fetch(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
-    validate_link_and_fetch_impl(state, params).await
+    validate_link_and_fetch_impl(state, params, headers).await
 }
 
 pub async fn validate_link_and_fetch_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
     let mut params = HashMap::new();
@@ -1255,15 +1302,16 @@ pub async fn validate_link_and_fetch_post(
             }
         }
     }
-    validate_link_and_fetch_impl(state, params).await
+    validate_link_and_fetch_impl(state, params, headers).await
 }
 
 async fn validate_link_and_fetch_impl(
     state: AppState,
     params: HashMap<String, String>,
+    headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let pool = match resolve_site_pool(&state, &headers) {
+        Some((_site, p)) => p,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -1316,6 +1364,7 @@ const MAX_REPORTVIEW_PAGE_LENGTH: usize = 500;
 
 pub async fn reportview_get(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> Response {
     let params = reportview_params_from_body(body);
@@ -1333,6 +1382,10 @@ pub async fn reportview_get(
         return reportview_kiff_log_get(state, params).await;
     }
 
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+
     info!(
         "reportview.get doctype={} fields={:?} filters={:?}",
         doctype,
@@ -1342,8 +1395,8 @@ pub async fn reportview_get(
 
     // For non-virtual DocTypes, use the ORM's get_list and compress the result
     // into the reportview shape.
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let pool = match resolve_site_pool(&state, &headers) {
+        Some((_site, p)) => p,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -1382,16 +1435,31 @@ pub async fn reportview_get(
                         .collect()
                 })
                 .unwrap_or_default();
-            if cols.is_empty() {
-                Some(fields)
+            let cols = if cols.is_empty() {
+                cols
             } else {
-                Some(
-                    fields
-                        .into_iter()
-                        .filter(|f| cols.contains(f))
-                        .collect::<Vec<_>>(),
-                )
-            }
+                // Restrict report view columns by permlevel when metadata is available.
+                if let Ok(meta) = state.metadata.get(&pool, &doctype).await {
+                    if let Ok(levels) = state
+                        .permissions
+                        .allowed_permlevels(&pool, &user, &doctype, "read")
+                        .await
+                    {
+                        let allowed = state.permissions.allowed_fields(&meta, &levels);
+                        cols.intersection(&allowed).cloned().collect()
+                    } else {
+                        cols
+                    }
+                } else {
+                    cols
+                }
+            };
+            Some(
+                fields
+                    .into_iter()
+                    .filter(|f| cols.contains(f))
+                    .collect::<Vec<_>>(),
+            )
         }
         None => None,
     };
@@ -1450,6 +1518,7 @@ pub async fn reportview_get(
 /// Native Rust implementation of `frappe.desk.reportview.get_count`.
 pub async fn reportview_get_count(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> Response {
     let params = reportview_params_from_body(body);
@@ -1467,8 +1536,8 @@ pub async fn reportview_get_count(
         return kiff_log_count(state, params).await;
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
-        Some(p) => p,
+    let pool = match resolve_site_pool(&state, &headers) {
+        Some((_site, p)) => p,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -1805,8 +1874,12 @@ fn log_record_to_doc(rec: LogRecord, idx: usize) -> Value {
     Value::Object(doc)
 }
 
-async fn search_link_impl(state: AppState, params: HashMap<String, String>) -> impl IntoResponse {
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+async fn search_link_impl(
+    state: AppState,
+    headers: &axum::http::HeaderMap,
+    params: HashMap<String, String>,
+) -> impl IntoResponse {
+    let pool = match resolve_site_pool(&state, headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -2358,7 +2431,7 @@ async fn desk_form_save(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+    let pool = match resolve_site_pool(state, headers).map(|(_, p)| p) {
         Some(p) => p,
         None => {
             return (
@@ -2434,6 +2507,25 @@ async fn desk_form_save(
             )
         }
         Err(e) => return frappe_error_response(e),
+    }
+
+    // Enforce field-level / permlevel write restrictions.
+    if let Ok(meta) = state.metadata.get(&pool, &doctype).await {
+        if let Ok(levels) = state
+            .permissions
+            .allowed_permlevels(&pool, &user, &doctype, "write")
+            .await
+        {
+            if let Some(field) = state
+                .permissions
+                .check_writable_fields(&meta, &levels, &doc.fields)
+            {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({ "error": format!("no permission to write field '{}'", field) })),
+                );
+            }
+        }
     }
 
     if is_new {
@@ -2584,7 +2676,7 @@ async fn call_rust_or_python_method(
     if let Some(map) = result.as_object() {
         if map.get("type").and_then(|v| v.as_str()) == Some("redirect") {
             if let Some(location) = map.get("location").and_then(|v| v.as_str()) {
-                let cookie = session_cookie_after_py_login(state, user.as_deref()).await;
+                let cookie = session_cookie_after_py_login(state, headers, user.as_deref()).await;
                 return Ok(MethodResponse::Redirect {
                     location: location.to_string(),
                     cookie,
@@ -2602,7 +2694,7 @@ async fn call_rust_or_python_method(
     // otherwise live for the whole block — i.e. across the commit().await —
     // and a wedged commit would park the guard and block the pool
     // watchdog's heal indefinitely.
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = resolve_site_pool(state, headers).map(|(_, p)| p);
     if let Some(pool) = pool {
         if let Err(e) = pool.commit().await {
             tracing::warn!(error = %e, "failed to commit transaction after Python method");
@@ -2617,13 +2709,14 @@ async fn call_rust_or_python_method(
 /// return a formatted Set-Cookie header.
 async fn session_cookie_after_py_login(
     state: &AppState,
+    headers: &axum::http::HeaderMap,
     existing_user: Option<&str>,
 ) -> Option<String> {
     // Don't create a new session if the request already carried a valid one.
     if existing_user.is_some() {
         return None;
     }
-    let pool = state.pools.iter().next()?.value().clone();
+    let (_, pool) = resolve_site_pool(state, headers)?;
     let py_user = kiff_core::current_py_session_user()?;
     if py_user == "Guest" {
         return None;

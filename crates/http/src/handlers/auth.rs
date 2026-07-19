@@ -1,3 +1,4 @@
+use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::{
     extract::{ConnectInfo, State},
@@ -41,7 +42,7 @@ pub async fn login(
         .unwrap_or("")
         .to_string();
 
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     match pool {
         Some(pool) => {
             let metadata = session::SessionMetadata {
@@ -85,7 +86,7 @@ pub async fn login(
 }
 
 pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     match pool {
         Some(pool) => {
             // Extract the session id from the cookie and delete it server-side.

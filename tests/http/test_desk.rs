@@ -52,14 +52,14 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
     // cross-app aggregation.
     pool.execute_sql(
         r#"INSERT OR REPLACE INTO "module_def" (name, module_name, app_name)
-           VALUES ('Sebrus Logger Extra', 'Sebrus Logger Extra', 'sebrus_logger')"#,
+           VALUES ('Kiff Logger Extra', 'Kiff Logger Extra', 'kiff_logger')"#,
         vec![],
     )
     .await
     .unwrap();
     pool.execute_sql(
         r#"INSERT OR REPLACE INTO "workspace" (name, label, module, public)
-           VALUES ('sebrus-logger-extra', 'Sebrus Logger Extra', 'Sebrus Logger Extra', 1)"#,
+           VALUES ('kiff-logger-extra', 'Kiff Logger Extra', 'Kiff Logger Extra', 1)"#,
         vec![],
     )
     .await
@@ -138,8 +138,8 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         .expect("module_app should be an object");
     assert_eq!(module_app.get("core"), Some(&serde_json::json!("frappe")));
     assert_eq!(
-        module_app.get("sebrus_logger_extra"),
-        Some(&serde_json::json!("sebrus_logger"))
+        module_app.get("kiff_logger_extra"),
+        Some(&serde_json::json!("kiff_logger"))
     );
 
     // app_data contains frappe and any Rust apps.
@@ -173,25 +173,25 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         "Core module should belong to frappe"
     );
 
-    let sebrus_app = app_data
+    let kiff_logger_app = app_data
         .iter()
-        .find(|a| a.get("app_name") == Some(&serde_json::json!("sebrus_logger")))
-        .expect("sebrus_logger app_data entry");
-    let sebrus_modules = sebrus_app
+        .find(|a| a.get("app_name") == Some(&serde_json::json!("kiff_logger")))
+        .expect("kiff_logger app_data entry");
+    let kiff_logger_modules = kiff_logger_app
         .get("modules")
         .and_then(|v| v.as_array())
-        .expect("sebrus_logger modules should be an array");
+        .expect("kiff_logger modules should be an array");
     assert!(
-        sebrus_modules.iter().any(|m| m == "Sebrus Logger Extra"),
-        "Sebrus Logger Extra module should belong to sebrus_logger"
+        kiff_logger_modules.iter().any(|m| m == "Kiff Logger Extra"),
+        "Kiff Logger Extra module should belong to kiff_logger"
     );
-    let sebrus_workspaces = sebrus_app
+    let kiff_logger_workspaces = kiff_logger_app
         .get("workspaces")
         .and_then(|v| v.as_array())
-        .expect("sebrus_logger workspaces should be an array");
+        .expect("kiff_logger workspaces should be an array");
     assert!(
-        sebrus_workspaces.iter().any(|w| w == "sebrus-logger-extra"),
-        "sebrus-logger-extra should belong to sebrus_logger"
+        kiff_logger_workspaces.iter().any(|w| w == "kiff-logger-extra"),
+        "kiff-logger-extra workspace should belong to kiff_logger"
     );
 
     // allowed_modules is populated for the desktop.

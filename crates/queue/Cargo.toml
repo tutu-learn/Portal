@@ -14,3 +14,5 @@ tracing     = { workspace = true }
 pyo3        = { workspace = true }
 dashmap     = { workspace = true }
 uuid        = { workspace = true }
+async-trait = "0.1"
+cron        = "0.17"

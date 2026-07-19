@@ -2,6 +2,7 @@ pub mod extract;
 pub mod handlers;
 pub mod middleware;
 pub mod router;
+pub mod site;
 pub mod websocket;
 
 pub use rust_apps_core::AppState;

@@ -1,3 +1,4 @@
+use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::http::HeaderMap;
 use axum::{
@@ -47,7 +48,7 @@ pub async fn authenticate_request(state: &AppState, headers: &HeaderMap) -> Opti
     // 1. Cookie session.
     if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
         if let Some(sid) = extract_cookie_value(cookie_header, "sid") {
-            let pool = state.pools.iter().next().map(|e| e.value().clone());
+            let pool = resolve_site_pool(state, headers).map(|(_, p)| p);
             if let Some(pool) = pool {
                 let store = session::SessionStore::new();
                 match store.get(&pool, &sid).await {
@@ -83,7 +84,7 @@ pub async fn authenticate_request(state: &AppState, headers: &HeaderMap) -> Opti
     // 2. Bearer token.
     if let Some(auth_header) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
         if let Some(token) = auth_header.strip_prefix("Bearer ").map(str::trim) {
-            let pool = state.pools.iter().next().map(|e| e.value().clone());
+            let pool = resolve_site_pool(state, headers).map(|(_, p)| p);
             if let Some(pool) = pool {
                 match kiff_logger::verify_bearer_token(&pool, token).await {
                     Ok(Some(verified)) => {

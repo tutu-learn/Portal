@@ -286,6 +286,7 @@ async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
             fieldtype TEXT,
             label TEXT,
             options TEXT,
+            permlevel INTEGER DEFAULT 0,
             reqd INTEGER DEFAULT 0,
             read_only INTEGER DEFAULT 0,
             hidden INTEGER DEFAULT 0,
@@ -321,6 +322,10 @@ async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
         )
     "#;
     pool.execute_sql(docfield_sql, vec![]).await?;
+
+    // Handle upgrades from databases created before permlevel enforcement was
+    // added to the docfield metadata table.
+    add_column_if_missing(pool, "docfield", "permlevel", "permlevel INTEGER DEFAULT 0").await?;
 
     pool.execute_sql(
         "CREATE INDEX IF NOT EXISTS idx_docfield_parent ON docfield(parent)",
@@ -411,7 +416,7 @@ async fn insert_docfield(
         INSERT OR REPLACE INTO "docfield" (
             name, creation, modified, modified_by, owner, docstatus,
             parent, parentfield, parenttype, idx, fieldname, fieldtype,
-            label, options, reqd, read_only, hidden, in_list_view,
+            label, options, permlevel, reqd, read_only, hidden, in_list_view,
             in_standard_filter, in_preview, in_global_search, in_filter,
             bold, italic, no_copy, allow_in_quick_entry, translatable,
             collapsible, "unique", set_only_once, remember_last_selected_value,
@@ -419,7 +424,7 @@ async fn insert_docfield(
             search_index, show_dashboard, "default", depends_on, description,
             fetch_from, fetch_if_empty, mandatory_depends_on,
             read_only_depends_on, placeholder, tooltip, is_system_generated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     "#;
 
     let params = vec![
@@ -437,6 +442,7 @@ async fn insert_docfield(
         val(json_str(field, "fieldtype")),
         val(json_str(field, "label")),
         val(json_str(field, "options")),
+        num(json_i64(field, "permlevel")),
         num(json_i64(field, "reqd")),
         num(json_i64(field, "read_only")),
         num(json_i64(field, "hidden")),
