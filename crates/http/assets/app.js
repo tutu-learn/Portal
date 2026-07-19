@@ -36,8 +36,8 @@ function renderLogin() {
             <div class="card login-card">
                 <h2>Login to Kiff</h2>
                 <form id="login-form">
-                    <div class="form-group"><label>Email / Username</label><input name="usr" value="Administrator" required></div>
-                    <div class="form-group"><label>Password</label><input type="password" name="pwd" value="admin" required></div>
+                    <div class="form-group"><label>Email / Username</label><input name="usr" required></div>
+                    <div class="form-group"><label>Password</label><input type="password" name="pwd" required></div>
                     <button type="submit" class="btn btn-primary" style="width:100%">Login</button>
                 </form>
             </div>

@@ -1,14 +1,19 @@
+use crate::middleware::auth::authenticate_request;
 use crate::AppState;
 use axum::{
     extract::{
         ws::{Message, WebSocketUpgrade},
         Query, State,
     },
+    http::StatusCode,
     response::IntoResponse,
 };
 use serde::Deserialize;
-use std::collections::HashSet;
 use tokio::sync::broadcast;
+
+/// Hard cap on total room subscriptions per connection, bounding the
+/// per-connection receiver growth.
+const MAX_SUBSCRIPTIONS_PER_CONNECTION: usize = 16;
 
 #[derive(Debug, Deserialize)]
 pub struct WsQuery {
@@ -20,22 +25,41 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<WsQuery>,
     State(state): State<AppState>,
-) -> impl IntoResponse {
-    let rooms: Vec<String> = query
+    headers: axum::http::HeaderMap,
+) -> axum::response::Response {
+    // Authenticate BEFORE upgrading; unauthenticated clients get a plain 401.
+    let session = match authenticate_request(&state, &headers).await {
+        Some(s) => s,
+        None => {
+            return (StatusCode::UNAUTHORIZED, "authentication required").into_response();
+        }
+    };
+
+    // The only rooms a connection may ever join are the global room and the
+    // authenticated user's own room. Nothing is derived from client-supplied
+    // room names beyond membership in this allowlist.
+    let allowed: Vec<String> = vec!["global".to_string(), format!("user:{}", session.user)];
+
+    let requested: Vec<String> = query
         .rooms
         .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
-        .unwrap_or_else(|| vec!["global".to_string()]);
+        .unwrap_or_default();
+
+    let mut rooms: Vec<String> = requested
+        .into_iter()
+        .filter(|r| allowed.contains(r))
+        .collect();
+    if rooms.is_empty() {
+        rooms = allowed.clone();
+    }
+    rooms.truncate(MAX_SUBSCRIPTIONS_PER_CONNECTION);
 
     ws.on_upgrade(move |mut socket| async move {
+        let mut rooms = rooms;
         let mut receivers: Vec<broadcast::Receiver<String>> = Vec::new();
         for room in &rooms {
             receivers.push(state.pubsub.subscribe(room));
         }
-
-        // Also subscribe to user-specific room if session is available
-        // For now, use a generic user room based on first room
-        let user_room = format!("user:{}", rooms.get(0).cloned().unwrap_or_else(|| "anonymous".into()));
-        receivers.push(state.pubsub.subscribe(&user_room));
 
         loop {
             tokio::select! {
@@ -47,7 +71,14 @@ pub async fn ws_handler(
                                 if let Some(event) = json.get("event").and_then(|v| v.as_str()) {
                                     if event == "subscribe" {
                                         if let Some(room) = json.get("room").and_then(|v| v.as_str()) {
-                                            receivers.push(state.pubsub.subscribe(room));
+                                            let room = room.to_string();
+                                            if allowed.contains(&room)
+                                                && !rooms.contains(&room)
+                                                && rooms.len() < MAX_SUBSCRIPTIONS_PER_CONNECTION
+                                            {
+                                                receivers.push(state.pubsub.subscribe(&room));
+                                                rooms.push(room);
+                                            }
                                         }
                                     }
                                 }
@@ -73,4 +104,5 @@ pub async fn ws_handler(
             }
         }
     })
+    .into_response()
 }

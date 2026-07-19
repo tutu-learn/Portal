@@ -1112,6 +1112,28 @@ async fn insert_client_script_fixtures(
     Ok(())
 }
 
+/// Generate a random alphanumeric Administrator password for a new site.
+fn generate_admin_password() -> String {
+    use rand::Rng;
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(24)
+        .map(char::from)
+        .collect()
+}
+
+/// Hash a password with argon2id for storage in `__auth`.
+fn hash_admin_password(password: &str) -> Result<String> {
+    use argon2::password_hash::{rand_core::OsRng, SaltString};
+    use argon2::{Argon2, PasswordHasher};
+
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|h| h.to_string())
+        .map_err(|e| RuntimeError::Validation(format!("failed to hash admin password: {}", e)))
+}
+
 /// Ensure the core users, roles, and Administrator role links exist.
 ///
 /// This is safe to call on every startup: it upserts the default records and
@@ -1179,20 +1201,46 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ).await?;
     }
 
-    // Administrator password hash for "admin".
-    // Generated with: argon2 hash of "admin".
-    // Use INSERT OR IGNORE so a user-changed password survives restarts.
-    let admin_hash = "$argon2id$v=19$m=19456,t=2,p=1$UEWqTMicBrdEJXqPMhP4oA$bR1RecCR37Rw+Spup2ULPNKAZ7H6vZTX4VeqNAfvdkY";
-    pool.execute_sql(
-        &format!(
-            r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
-               VALUES ('Administrator', 'User', 'password', {}, 0)
-               ON CONFLICT(name, doctype, fieldname) DO NOTHING"#,
-            pool.placeholder(1)
-        ),
-        vec![serde_json::Value::String(admin_hash.into())],
-    )
-    .await?;
+    // Administrator password seed. Only inserted on first bootstrap: when a
+    // password row already exists we do nothing, so a user-changed password
+    // survives restarts and we never print a generated password that isn't
+    // actually stored.
+    let admin_password_exists = !pool
+        .execute_sql(
+            r#"SELECT 1 FROM "__auth" WHERE name = 'Administrator' AND doctype = 'User' AND fieldname = 'password' LIMIT 1"#,
+            vec![],
+        )
+        .await?
+        .is_empty();
+
+    if !admin_password_exists {
+        // The seed password is determined at runtime: KIFF_ADMIN_PASSWORD
+        // when set (non-empty), otherwise a random password printed once to
+        // stderr. Never log the password itself.
+        let admin_password = match std::env::var("KIFF_ADMIN_PASSWORD") {
+            Ok(pw) if !pw.is_empty() => pw,
+            _ => {
+                let pw = generate_admin_password();
+                eprintln!(
+                    "Generated Administrator password for new site: {} — store it and change it after first login",
+                    pw
+                );
+                warn!("generated a random Administrator password for new site (printed to stderr)");
+                pw
+            }
+        };
+        let admin_hash = hash_admin_password(&admin_password)?;
+        pool.execute_sql(
+            &format!(
+                r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
+                   VALUES ('Administrator', 'User', 'password', {}, 0)
+                   ON CONFLICT(name, doctype, fieldname) DO NOTHING"#,
+                pool.placeholder(1)
+            ),
+            vec![serde_json::Value::String(admin_hash.into())],
+        )
+        .await?;
+    }
 
     // Roles
     for (role, desk_access) in [

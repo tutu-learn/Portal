@@ -1,3 +1,4 @@
+use crate::middleware::auth::authenticate_request;
 use crate::AppState;
 use axum::{
     extract::{Query, State},
@@ -6,6 +7,60 @@ use axum::{
 };
 use serde_json::Value;
 use std::collections::HashMap;
+
+/// Require an authenticated session whose user may manage permissions:
+/// `Administrator` or any user holding the `System Manager` role.
+///
+/// Returns the authenticated username on success, or an error response
+/// (401 for guests, 403 for authenticated users without the role).
+async fn require_permission_manager(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let session = match authenticate_request(state, headers).await {
+        Some(s) => s,
+        None => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "error": "authentication required" })),
+            ))
+        }
+    };
+
+    if session.user == "Administrator" {
+        return Ok(session.user);
+    }
+
+    let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
+        Some(p) => p,
+        None => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            ))
+        }
+    };
+
+    let roles = state
+        .permissions
+        .get_roles(&pool, &session.user)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("{}", e) })),
+            )
+        })?;
+
+    if roles.iter().any(|r| r == "System Manager") {
+        Ok(session.user)
+    } else {
+        Err((
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "permission denied" })),
+        ))
+    }
+}
 
 /// Native implementation of
 /// `frappe.core.page.permission_manager.permission_manager.get_roles_and_doctypes`.
@@ -240,8 +295,12 @@ fn params_from_body(body: Value) -> HashMap<String, String> {
 /// `frappe.core.page.permission_manager.permission_manager.add`.
 pub async fn add_permission_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_permission_manager(&state, &headers).await {
+        return resp;
+    }
     let params = params_from_body(body);
     let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
         Some(p) => p,
@@ -319,8 +378,12 @@ pub async fn add_permission_post(
 /// `frappe.core.page.permission_manager.permission_manager.update`.
 pub async fn update_permission_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_permission_manager(&state, &headers).await {
+        return resp;
+    }
     let params = params_from_body(body);
     let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
         Some(p) => p,
@@ -435,8 +498,12 @@ pub async fn update_permission_post(
 /// `frappe.core.page.permission_manager.permission_manager.remove`.
 pub async fn remove_permission_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_permission_manager(&state, &headers).await {
+        return resp;
+    }
     let params = params_from_body(body);
     let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
         Some(p) => p,
@@ -494,8 +561,12 @@ pub async fn remove_permission_post(
 /// `frappe.core.page.permission_manager.permission_manager.get_users_with_role`.
 pub async fn get_users_with_role_post(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     crate::extract::AnyBody(body): crate::extract::AnyBody,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_permission_manager(&state, &headers).await {
+        return resp;
+    }
     let params = params_from_body(body);
     let pool = match state.pools.iter().next().map(|e| e.value().clone()) {
         Some(p) => p,

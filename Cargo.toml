@@ -17,7 +17,7 @@ members = [
     "crates/kiff_logger",
     "crates/protocol",
     "rust_apps/core",
-    "rust_apps/Strongroom",
+    "rust_apps/strongroom",
 ]
 
 [workspace.dependencies]

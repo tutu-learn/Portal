@@ -224,10 +224,34 @@ async fn test_getdoc_native_includes_onload_modules() {
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
 
+    // getdoc requires an authenticated session (it previously served
+    // documents to Guests — that was a vulnerability).
+    let login_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/method/login")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"usr": "Administrator", "pwd": "admin"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_response.status(), StatusCode::OK);
+    let cookie = login_response
+        .headers()
+        .get_all("set-cookie")
+        .iter()
+        .find(|c| c.to_str().unwrap().starts_with("sid="))
+        .cloned()
+        .unwrap();
+
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/method/frappe.desk.form.load.getdoc?doctype=User&name=Administrator")
+                .header("cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
