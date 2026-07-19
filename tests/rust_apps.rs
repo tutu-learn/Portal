@@ -26,9 +26,9 @@ fn build_state() -> AppState {
 }
 
 #[tokio::test]
-async fn sebrus_logger_app_route_is_mounted() {
+async fn audit_ready_app_route_is_mounted() {
     let state = build_state();
-    let app = sebrus_logger::SebrusLoggerApp;
+    let app = audit_ready::AuditReadyApp;
     let ctx = AppContext::new(app.name(), state.clone());
     let router = app
         .routes(&ctx, http::router::create_router())
@@ -37,7 +37,7 @@ async fn sebrus_logger_app_route_is_mounted() {
     let response = router
         .oneshot(
             Request::builder()
-                .uri("/sebrus_logger/health")
+                .uri("/audit_ready/health")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -47,29 +47,29 @@ async fn sebrus_logger_app_route_is_mounted() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(json["app"], "sebrus_logger");
+    assert_eq!(json["app"], "audit_ready");
 }
 
 #[tokio::test]
-async fn sebrus_logger_app_api_method() {
+async fn audit_ready_app_api_method() {
     let state = build_state();
     let registry =
-        rust_apps_core::RustAppRegistry::new(vec![Box::new(sebrus_logger::SebrusLoggerApp)]);
+        rust_apps_core::RustAppRegistry::new(vec![Box::new(audit_ready::AuditReadyApp)]);
     let params = HashMap::from([("name".to_string(), serde_json::json!("Tester"))]);
 
     let result = registry
-        .call_method("sebrus_logger.hello", state, params, None)
+        .call_method("audit_ready.hello", state, params, None)
         .await
         .unwrap()
         .expect("method should be found");
 
-    assert_eq!(result["message"], "Hello from sebrus_logger: Tester");
+    assert_eq!(result["message"], "Hello from audit_ready: Tester");
 }
 
 #[tokio::test]
-async fn sebrus_logger_app_workspaces() {
-    let app = sebrus_logger::SebrusLoggerApp;
+async fn audit_ready_app_workspaces() {
+    let app = audit_ready::AuditReadyApp;
     let workspaces = app.workspaces();
     assert!(!workspaces.is_empty());
-    assert_eq!(workspaces[0].name, "Sebrus Logger");
+    assert_eq!(workspaces[0].name, "ISO 27001");
 }

@@ -52,7 +52,7 @@ pub struct ServerConfig {
 }
 
 fn default_host() -> String {
-    "0.0.0.0".into()
+    "127.0.0.1".into()
 }
 fn default_port() -> u16 {
     8000
@@ -114,7 +114,7 @@ impl Default for RuntimeConfig {
                 url: "./sites/{site}/site.db".into(),
             },
             server: ServerConfig {
-                host: "0.0.0.0".into(),
+                host: "127.0.0.1".into(),
                 port: 8000,
                 workers: 4,
             },

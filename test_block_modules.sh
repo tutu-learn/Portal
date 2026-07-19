@@ -10,7 +10,8 @@ curl_json() {
 }
 
 echo "=== LOGIN ==="
-curl_json "$BASE/api/method/login" -X POST -d "usr=Administrator&pwd=admin" | python3 -m json.tool
+ADMIN_PASSWORD="${KIFF_ADMIN_PASSWORD:-admin}"
+curl_json "$BASE/api/method/login" -X POST -d "usr=Administrator&pwd=${ADMIN_PASSWORD}" | python3 -m json.tool
 
 echo ""
 echo "=== WORKFLOW 1: system_user_block_modules ==="
