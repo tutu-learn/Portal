@@ -17,6 +17,28 @@ except ImportError:
     _rust = None
 
 
+def _connect_readonly(db_path):
+    """Open the site DB read-only so this shim can never checkpoint or delete
+    the WAL on close.
+
+    POSIX fcntl locks are per-process: a read-write connection opened inside
+    the server process can look like the "last" user of the file on close
+    (the Rust pool holds no locks while idle), so SQLite checkpoints and
+    deletes the -wal out from under the live pool. The pool watchdog then
+    sees the WAL inode change and heals — and because the Python side keeps
+    falling back to raw sqlite, the cycle repeats forever. Read-only
+    connections never checkpoint, so they cannot trigger it.
+    """
+    import sqlite3 as _sqlite3
+    try:
+        return _sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except _sqlite3.OperationalError:
+        # Read-only open fails when the WAL needs recovery and no -shm exists
+        # (e.g. the server is not running). A read-write open is safe then:
+        # with no live pool, close-time checkpointing hurts no one.
+        return _sqlite3.connect(db_path)
+
+
 def _sqlite_query(sql, params=None):
     """Direct Python sqlite3 query — bypasses the Rust pool entirely."""
     import sqlite3 as _sqlite3
@@ -36,10 +58,20 @@ def _sqlite_query(sql, params=None):
             break
     if db_path is None:
         raise FileNotFoundError(f"site.db not found. Tried: {candidates}")
-    conn = _sqlite3.connect(db_path)
+    conn = _connect_readonly(db_path)
     conn.row_factory = _sqlite3.Row
     try:
-        cur = conn.execute(sql, params or [])
+        try:
+            cur = conn.execute(sql, params or [])
+        except _sqlite3.OperationalError as e:
+            if "readonly" not in str(e).lower():
+                raise
+            # Write statement on a read-only connection (only reachable when
+            # the Rust bridge is unavailable); retry on a read-write one.
+            conn.close()
+            conn = _sqlite3.connect(db_path)
+            conn.row_factory = _sqlite3.Row
+            cur = conn.execute(sql, params or [])
         rows = [dict(r) for r in cur.fetchall()]
         return rows
     finally:

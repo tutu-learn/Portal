@@ -709,9 +709,51 @@ fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
     Ok(())
 }
 
+/// Python-callable pool reset, invoked by the runtime's pool watchdog after
+/// it heals a wedged site database. This .so instance has its own POOL
+/// static, separate from the binary's statically-linked instance, so the
+/// watchdog swapping the binary's pool is not enough: left alone, this
+/// instance keeps file handles to the quarantined WAL and stays wedged
+/// across heals, re-triggering the heal cycle after every heal.
+///
+/// The old pool is deliberately leaked, not closed: its close-time
+/// checkpoint could copy garbage pages into the freshly restored main DB.
+/// Costs a few file descriptors per heal; reclaimed on process exit.
+#[pyfunction]
+fn reset_pool_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
+    use pyo3::exceptions::PyRuntimeError;
+
+    // Take the current pool out of service immediately so in-flight Python
+    // calls fail fast instead of writing into the wedged view. Leak it (see
+    // docstring) rather than closing it.
+    if let Some(old) = clear_pool() {
+        std::mem::forget(old);
+    }
+
+    if RUNTIME.get().is_none() {
+        // Never initialized (startup init failed): a fresh init creates both
+        // the runtime and the pool.
+        return init_from_url(db_driver, db_url);
+    }
+
+    let rt = RUNTIME.get().expect("RUNTIME checked above");
+    let pool = rt
+        .block_on(async {
+            match db_driver {
+                "postgres" => orm::DatabasePool::connect_postgres(db_url).await,
+                _ => orm::DatabasePool::connect_sqlite(db_url).await,
+            }
+        })
+        .map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
+
+    let _ = swap_pool(pool);
+    Ok(())
+}
+
 #[pymodule]
 fn kiff_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init_from_url, m)?)?;
+    m.add_function(wrap_pyfunction!(reset_pool_from_url, m)?)?;
     m.add_function(wrap_pyfunction!(db::get_doc, m)?)?;
     m.add_function(wrap_pyfunction!(db::get_list, m)?)?;
     m.add_function(wrap_pyfunction!(db::get_value, m)?)?;
