@@ -1,16 +1,9 @@
 //! Static list of Rust Frappe apps to load at startup.
 //!
-//! This file is generated at build time by `crates/runtime/build.rs` from
-//! `rust_apps/apps.json`. Do not edit it by hand; update the JSON config
-//! instead.
+//! This file is a stable stub. The actual `registered_apps()` function is
+//! generated at build time by `crates/runtime/build.rs` from
+//! `rust_apps/apps.json` and included from `OUT_DIR` below.
 //!
-//! If `rust_apps/apps.json` is missing or malformed the generated list falls
-//! back to empty, so only `kiff_logger` (appended by `rust_apps.rs`) is loaded.
+//! To add or remove an app, edit `rust_apps/apps.json` and rebuild.
 
-use rust_apps_core::RustApp;
-
-pub fn registered_apps() -> Vec<Box<dyn RustApp>> {
-    vec![
-        Box::new(strongroom::StrongroomApp),
-    ]
-}
+include!(concat!(env!("OUT_DIR"), "/registered_apps.rs"));

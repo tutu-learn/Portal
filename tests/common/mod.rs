@@ -138,9 +138,17 @@ fn build_state_with_apps(
     let pools = Arc::new(DashMap::new());
     pools.insert("test_site".into(), pool);
 
+    let site = config::site::Site::new(
+        "test_site".into(),
+        std::path::PathBuf::from("/tmp/test_site"),
+        config::site::SiteConfig::default(),
+    );
+    let mut site_manager = config::SiteManager::default();
+    site_manager.register_site(site);
+
     http::AppState {
         config: Arc::new(config::RuntimeConfig::default()),
-        site_manager: Arc::new(config::SiteManager::default()),
+        site_manager: Arc::new(site_manager),
         pools,
         sessions: Arc::new(session::SessionStore::new()),
         permissions: Arc::new(permissions::PermissionEngine::new()),

@@ -243,6 +243,10 @@ impl SiteManager {
         &self.sites
     }
 
+    pub fn register_site(&mut self, site: Site) {
+        self.sites.insert(site.name.clone(), site);
+    }
+
     pub fn sites_path(&self) -> &Path {
         &self.sites_path
     }
