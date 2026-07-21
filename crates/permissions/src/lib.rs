@@ -569,16 +569,35 @@ impl PermissionEngine {
     }
 
     /// Return the field names the user is allowed to read/write for `doctype`.
+    ///
+    /// Standard columns are always allowed: they are not listed in
+    /// `meta.fields` (Frappe only stores data fields there), so without them
+    /// the permlevel intersection in list/report view rejects requests like
+    /// `fields=["name","title"]` with 400 "invalid field: name".
     pub fn allowed_fields(
         &self,
         meta: &metadata::doctype::DocType,
         allowed_levels: &std::collections::HashSet<i32>,
     ) -> std::collections::HashSet<String> {
-        meta.fields
+        let mut out: std::collections::HashSet<String> = meta
+            .fields
             .iter()
             .filter(|f| allowed_levels.contains(&f.permlevel))
             .map(|f| f.fieldname.clone())
-            .collect()
+            .collect();
+        for standard in [
+            "name",
+            "owner",
+            "creation",
+            "modified",
+            "modified_by",
+            "docstatus",
+            "idx",
+            "doctype",
+        ] {
+            out.insert(standard.to_string());
+        }
+        out
     }
 
     /// Check whether all `fields` are writable by the user. Returns the first
@@ -854,5 +873,37 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn allowed_fields_includes_standard_columns() {
+        // DocType JSON only lists data fields; standard columns (name,
+        // modified, ...) are implicit. List/report views request them
+        // explicitly (`fields=["name","title"]`), so they must always be in
+        // the allowed set regardless of permlevel.
+        let meta: metadata::doctype::DocType = serde_json::from_value(serde_json::json!({
+            "name": "Infrastructure Server",
+            "module": "Infrastructure",
+            "fields": [
+                { "fieldname": "title", "fieldtype": "Data" },
+                { "fieldname": "admin_note", "fieldtype": "Data", "permlevel": 3 }
+            ]
+        }))
+        .expect("meta deserializes");
+
+        let engine = PermissionEngine::new();
+        let levels: std::collections::HashSet<i32> = [0].into_iter().collect();
+        let allowed = engine.allowed_fields(&meta, &levels);
+
+        assert!(allowed.contains("name"));
+        assert!(allowed.contains("owner"));
+        assert!(allowed.contains("modified"));
+        assert!(allowed.contains("docstatus"));
+        assert!(allowed.contains("idx"));
+        assert!(allowed.contains("title"));
+        assert!(
+            !allowed.contains("admin_note"),
+            "permlevel-3 field must stay hidden at level 0"
+        );
     }
 }
