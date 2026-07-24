@@ -40,6 +40,10 @@ pub fn create_router() -> Router<AppState> {
             get(api::search_link).post(api::search_link_post),
         )
         .route(
+            "/api/method/frappe.desk.search.get_link_title",
+            get(api::get_link_title).post(api::get_link_title_post),
+        )
+        .route(
             "/api/method/frappe.client.validate_link_and_fetch",
             get(api::validate_link_and_fetch).post(api::validate_link_and_fetch_post),
         )

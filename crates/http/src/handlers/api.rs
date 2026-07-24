@@ -1263,6 +1263,123 @@ pub async fn search_link_post(
     search_link_impl(state, &headers, params).await
 }
 
+/// Native Rust implementation of `frappe.desk.search.get_link_title` (GET).
+///
+/// The desk JS calls this (via `frappe.utils.fetch_link_title`) to resolve the
+/// display title of a link value. Without a native handler the xcall falls
+/// through to Python, where the missing `show_title_field_in_link` column
+/// means titles can never be resolved.
+pub async fn get_link_title(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    get_link_title_impl(state, &headers, params).await
+}
+
+/// Native Rust implementation of `frappe.desk.search.get_link_title` (POST).
+pub async fn get_link_title_post(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    crate::extract::AnyBody(body): crate::extract::AnyBody,
+) -> impl IntoResponse {
+    get_link_title_impl(state, &headers, any_body_to_params(&body)).await
+}
+
+/// Extract flat string params from a JSON/form body, honoring the `args` JSON
+/// string envelope the desk client sometimes wraps arguments in. Mirrors the
+/// param handling of `search_link_post` and `validate_link_and_fetch_post`.
+fn any_body_to_params(body: &Value) -> HashMap<String, String> {
+    let mut params = HashMap::new();
+    if let Some(map) = body.as_object() {
+        if let Some(Value::String(args)) = map.get("args") {
+            if let Ok(parsed) = serde_json::from_str::<HashMap<String, Value>>(args) {
+                for (k, v) in parsed {
+                    if let Some(s) = v.as_str() {
+                        params.insert(k, s.to_string());
+                    }
+                }
+            }
+        }
+        for (k, v) in map {
+            if k == "args" {
+                continue;
+            }
+            if let Some(s) = v.as_str() {
+                params.insert(k.clone(), s.to_string());
+            }
+        }
+    }
+    params
+}
+
+async fn get_link_title_impl(
+    state: AppState,
+    headers: &axum::http::HeaderMap,
+    params: HashMap<String, String>,
+) -> impl IntoResponse {
+    let pool = match resolve_site_pool(&state, headers).map(|(_, p)| p) {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": null })),
+            );
+        }
+    };
+
+    let doctype = params.get("doctype").cloned().unwrap_or_default();
+    let docname = params.get("docname").cloned().unwrap_or_default();
+
+    if doctype.is_empty() || docname.is_empty() {
+        return (StatusCode::OK, Json(json!({ "message": docname })));
+    }
+
+    let title_field: Option<String> = pool
+        .execute_sql(
+            r#"SELECT title_field FROM "doctype" WHERE name = ?"#,
+            vec![Value::String(doctype.clone())],
+        )
+        .await
+        .ok()
+        .and_then(|mut rows| rows.pop())
+        .and_then(|mut row| row.remove("title_field"))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .filter(|s| !s.is_empty() && s != "name");
+
+    let title = match title_field {
+        Some(t) => {
+            let table = doctype_table_name(&doctype);
+            let sql = format!(
+                r#"SELECT "{}" FROM "{}" WHERE "name" = ? LIMIT 1"#,
+                t, table
+            );
+            match pool
+                .execute_sql(&sql, vec![Value::String(docname.clone())])
+                .await
+            {
+                Ok(mut rows) => rows
+                    .pop()
+                    .and_then(|mut row| row.remove(&t))
+                    .and_then(|v| v.as_str().map(|s| s.to_string())),
+                Err(e) => {
+                    warn!(
+                        "get_link_title failed for {} {}: {}",
+                        doctype, docname, e
+                    );
+                    None
+                }
+            }
+        }
+        None => None,
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({ "message": title_or_name(title.as_deref(), &docname) })),
+    )
+}
+
 /// Native Rust implementation of `frappe.client.validate_link_and_fetch`.
 ///
 /// Link fields call this after a value is selected to confirm the document
@@ -1327,32 +1444,79 @@ async fn validate_link_and_fetch_impl(
         return (StatusCode::OK, Json(json!({ "message": {} })));
     }
 
+    // Fields the Link control wants pulled off the linked document (the
+    // doctype's `fetch_from` mappings, e.g. ["hostname", "ip_address"]).
+    // frappe.call JSON-stringifies array args, so this arrives as one string.
+    let fields_to_fetch = parse_fields_to_fetch(params.get("fields_to_fetch"));
+
     let table = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
     let table = table.strip_prefix("tab").unwrap_or(&table);
 
-    let sql = format!(r#"SELECT "name" FROM "{}" WHERE "name" = ? LIMIT 1"#, table);
-    let exists = match pool
+    // Only select columns that actually exist on the target doctype; column
+    // identifiers are double-quoted like everywhere else in this file.
+    let fetch_cols: Vec<String> = if fields_to_fetch.is_empty() {
+        Vec::new()
+    } else {
+        match pool.get_doctype_columns(&doctype).await {
+            Ok(cols) => fields_to_fetch
+                .into_iter()
+                .filter(|f| cols.contains(f))
+                .collect(),
+            Err(e) => {
+                warn!("validate_link_and_fetch columns for {}: {}", doctype, e);
+                Vec::new()
+            }
+        }
+    };
+
+    let mut select = String::from(r#""name""#);
+    for c in &fetch_cols {
+        select.push_str(&format!(r#", "{}""#, c));
+    }
+    let sql = format!(
+        r#"SELECT {} FROM "{}" WHERE "name" = ? LIMIT 1"#,
+        select, table
+    );
+    match pool
         .execute_sql(&sql, vec![Value::String(docname.clone())])
         .await
     {
-        Ok(rows) => !rows.is_empty(),
+        Ok(mut rows) if !rows.is_empty() => {
+            let mut row = rows.pop().unwrap_or_default();
+            let mut msg = serde_json::Map::new();
+            msg.insert("name".to_string(), Value::String(docname));
+            for c in &fetch_cols {
+                if let Some(v) = row.remove(c) {
+                    msg.insert(c.clone(), v);
+                }
+            }
+            (StatusCode::OK, Json(json!({ "message": Value::Object(msg) })))
+        }
+        Ok(_) => (StatusCode::OK, Json(json!({ "message": {} }))),
         Err(e) => {
             warn!(
                 "validate_link_and_fetch failed for {} {}: {}",
                 doctype, docname, e
             );
-            false
+            (StatusCode::OK, Json(json!({ "message": {} })))
         }
-    };
-
-    if exists {
-        (
-            StatusCode::OK,
-            Json(json!({ "message": { "name": docname } })),
-        )
-    } else {
-        (StatusCode::OK, Json(json!({ "message": {} })))
     }
+}
+
+/// Parse the `fields_to_fetch` argument of `frappe.client.validate_link_and_fetch`.
+/// The desk client JSON-stringifies the array before sending, so the param is a
+/// single string like `["hostname","ip_address"]`. Each entry must be a plain
+/// column identifier; anything else is dropped.
+fn parse_fields_to_fetch(raw: Option<&String>) -> Vec<String> {
+    raw.and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|f| {
+            !f.is_empty()
+                && f.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+        .collect()
 }
 
 /// Native Rust implementation of `frappe.desk.reportview.get`.
@@ -1901,25 +2065,7 @@ async fn search_link_impl(
         return (StatusCode::OK, Json(json!({ "message": [] })));
     }
 
-    let table = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
-    let table = table.strip_prefix("tab").unwrap_or(&table);
-
-    let mut conditions = Vec::new();
-    let mut query_params: Vec<Value> = Vec::new();
-
-    // Equality filters (dict of field -> value). Link queries commonly send
-    // {"istable": 0} for DocType, {"enabled": 1}, etc.
-    if !filters_json.is_empty() {
-        if let Ok(filters) = serde_json::from_str::<HashMap<String, Value>>(&filters_json) {
-            for (field, value) in filters {
-                if field == "include_disabled" {
-                    continue;
-                }
-                conditions.push(format!("\"{}\" = ?", field));
-                query_params.push(value);
-            }
-        }
-    }
+    let table = doctype_table_name(&doctype);
 
     // Text search on the name column (and title, if one is configured).
     let search_term = format!("%{}%", txt.replace('%', "\\%").replace('_', "\\_"));
@@ -1938,42 +2084,120 @@ async fn search_link_impl(
         .filter(|s| !s.is_empty() && s != "name")
     };
 
-    let mut or_conditions = vec![format!("\"name\" LIKE ?")];
-    query_params.push(Value::String(search_term.clone()));
-    if let Some(t) = title_field {
-        if t != "name" {
-            or_conditions.push(format!("\"{}\" LIKE ?", t));
-            query_params.push(Value::String(search_term));
-        }
-    }
-    conditions.push(format!("({})", or_conditions.join(" OR ")));
+    // Builds the SELECT and its bind params. With `with_title` false the title
+    // column is dropped from both the SELECT list and the LIKE conditions —
+    // used as a retry when the title column does not exist in the table.
+    let build_query = |with_title: bool| -> (String, Vec<Value>) {
+        let mut conditions = Vec::new();
+        let mut query_params: Vec<Value> = Vec::new();
 
-    let where_clause = if conditions.is_empty() {
-        String::new()
-    } else {
-        format!(" WHERE {}", conditions.join(" AND "))
+        // Equality filters (dict of field -> value). Link queries commonly send
+        // {"istable": 0} for DocType, {"enabled": 1}, etc.
+        if !filters_json.is_empty() {
+            if let Ok(filters) = serde_json::from_str::<HashMap<String, Value>>(&filters_json) {
+                for (field, value) in filters {
+                    if field == "include_disabled" {
+                        continue;
+                    }
+                    conditions.push(format!("\"{}\" = ?", field));
+                    query_params.push(value);
+                }
+            }
+        }
+
+        let title = title_field.as_deref().filter(|_| with_title);
+        let mut or_conditions = vec![format!("\"name\" LIKE ?")];
+        query_params.push(Value::String(search_term.clone()));
+        if let Some(t) = title {
+            or_conditions.push(format!("\"{}\" LIKE ?", t));
+            query_params.push(Value::String(search_term.clone()));
+        }
+        conditions.push(format!("({})", or_conditions.join(" OR ")));
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            r#"SELECT {} FROM "{}"{} ORDER BY "name" LIMIT {}"#,
+            search_link_select_columns(title),
+            table,
+            where_clause,
+            page_length
+        );
+        (sql, query_params)
     };
 
-    let sql = format!(
-        r#"SELECT "name" FROM "{}"{} ORDER BY "name" LIMIT {}"#,
-        table, where_clause, page_length
-    );
-
-    let results = match pool.execute_sql(&sql, query_params).await {
-        Ok(rows) => rows
-            .into_iter()
-            .filter_map(|mut row| {
-                let name = row.remove("name")?.as_str()?.to_string();
-                Some(json!({ "value": name.clone(), "description": name }))
-            })
-            .collect::<Vec<_>>(),
+    let (sql, query_params) = build_query(true);
+    let rows = match pool.execute_sql(&sql, query_params).await {
+        Ok(rows) => rows,
         Err(e) => {
             warn!("search_link failed for {}: {}", doctype, e);
-            vec![]
+            if title_field.is_some() {
+                // The title column may not exist in the table; retry without it.
+                let (sql, query_params) = build_query(false);
+                match pool.execute_sql(&sql, query_params).await {
+                    Ok(rows) => rows,
+                    Err(e) => {
+                        warn!("search_link retry without title failed for {}: {}", doctype, e);
+                        vec![]
+                    }
+                }
+            } else {
+                vec![]
+            }
         }
     };
 
+    let results = rows
+        .into_iter()
+        .filter_map(|row| search_link_row_to_json(row, title_field.as_deref()))
+        .collect::<Vec<_>>();
+
     (StatusCode::OK, Json(json!({ "message": results })))
+}
+
+/// Derive the SQL table name for a DocType the same way the rest of this file
+/// does: lowercase, spaces/dashes to underscores, drop a `tab` prefix.
+fn doctype_table_name(doctype: &str) -> String {
+    let table = doctype.to_lowercase().replace(" ", "_").replace("-", "_");
+    let table = table.strip_prefix("tab").unwrap_or(&table);
+    table.to_string()
+}
+
+/// Columns selected by `search_link`: always `name`, plus the title field when
+/// the DocType has one.
+fn search_link_select_columns(title_field: Option<&str>) -> String {
+    match title_field {
+        Some(t) if !t.is_empty() && t != "name" => format!(r#""name", "{}""#, t),
+        _ => r#""name""#.to_string(),
+    }
+}
+
+/// Map a `search_link` row to the `{value, description}` shape the desk
+/// expects. `description` is the title when present and non-blank, otherwise
+/// the doc name (the previous behavior).
+fn search_link_row_to_json(
+    mut row: HashMap<String, Value>,
+    title_field: Option<&str>,
+) -> Option<Value> {
+    let name = row.remove("name")?.as_str()?.to_string();
+    let title = title_field
+        .and_then(|t| row.remove(t))
+        .and_then(|v| v.as_str().map(|s| s.to_string()));
+    let description = title_or_name(title.as_deref(), &name);
+    Some(json!({ "value": name, "description": description }))
+}
+
+/// Pick the display title for a link field, falling back to the doc name when
+/// the title is missing or blank.
+fn title_or_name(title: Option<&str>, name: &str) -> String {
+    match title {
+        Some(t) if !t.is_empty() => t.to_string(),
+        _ => name.to_string(),
+    }
 }
 
 /// Load DocType metadata. Rust app fixtures are checked first because they are
@@ -2861,6 +3085,21 @@ mod tests {
     }
 
     #[test]
+    fn parse_fields_to_fetch_parses_json_array_and_drops_bad_identifiers() {
+        let raw = r#"["hostname","ip_address"]"#.to_string();
+        assert_eq!(
+            parse_fields_to_fetch(Some(&raw)),
+            vec!["hostname".to_string(), "ip_address".to_string()]
+        );
+        // Non-JSON, empty, and unsafe identifiers all yield nothing usable.
+        assert!(parse_fields_to_fetch(None).is_empty());
+        assert!(parse_fields_to_fetch(Some(&"hostname".to_string())).is_empty());
+        assert!(
+            parse_fields_to_fetch(Some(&r#"["name\"; DROP TABLE x --"]"#.to_string())).is_empty()
+        );
+    }
+
+    #[test]
     fn frappe_error_response_returns_frappe_shape_for_python() {
         let err = error::RuntimeError::Python("ValueError: invalid email".into());
         let (status, Json(body)) = frappe_error_response(err);
@@ -2868,5 +3107,89 @@ mod tests {
         assert_eq!(body["exc_type"], "ValueError");
         assert!(body["exc"].as_str().unwrap().contains("invalid email"));
         assert_eq!(body["_server_messages"], "[]");
+    }
+
+    #[test]
+    fn search_link_select_columns_includes_title_field() {
+        assert_eq!(
+            search_link_select_columns(Some("title")),
+            r#""name", "title""#
+        );
+        assert_eq!(search_link_select_columns(None), r#""name""#);
+        assert_eq!(search_link_select_columns(Some("")), r#""name""#);
+        assert_eq!(search_link_select_columns(Some("name")), r#""name""#);
+    }
+
+    #[test]
+    fn search_link_row_to_json_uses_title_as_description() {
+        let mut row = HashMap::new();
+        row.insert("name".to_string(), Value::String("uuid-1234".into()));
+        row.insert("title".to_string(), Value::String("Web Server 01".into()));
+        let result = search_link_row_to_json(row, Some("title")).unwrap();
+        assert_eq!(result["value"], "uuid-1234");
+        assert_eq!(result["description"], "Web Server 01");
+    }
+
+    #[test]
+    fn search_link_row_to_json_falls_back_to_name() {
+        // No title field configured.
+        let mut row = HashMap::new();
+        row.insert("name".to_string(), Value::String("uuid-1234".into()));
+        let result = search_link_row_to_json(row, None).unwrap();
+        assert_eq!(result["description"], "uuid-1234");
+
+        // Title column missing from the row.
+        let mut row = HashMap::new();
+        row.insert("name".to_string(), Value::String("uuid-1234".into()));
+        let result = search_link_row_to_json(row, Some("title")).unwrap();
+        assert_eq!(result["description"], "uuid-1234");
+
+        // Null title.
+        let mut row = HashMap::new();
+        row.insert("name".to_string(), Value::String("uuid-1234".into()));
+        row.insert("title".to_string(), Value::Null);
+        let result = search_link_row_to_json(row, Some("title")).unwrap();
+        assert_eq!(result["description"], "uuid-1234");
+
+        // Empty title.
+        let mut row = HashMap::new();
+        row.insert("name".to_string(), Value::String("uuid-1234".into()));
+        row.insert("title".to_string(), Value::String(String::new()));
+        let result = search_link_row_to_json(row, Some("title")).unwrap();
+        assert_eq!(result["description"], "uuid-1234");
+    }
+
+    #[test]
+    fn search_link_row_to_json_skips_rows_without_name() {
+        let row = HashMap::new();
+        assert!(search_link_row_to_json(row, Some("title")).is_none());
+    }
+
+    #[test]
+    fn title_or_name_prefers_non_empty_title() {
+        assert_eq!(title_or_name(Some("Web Server 01"), "uuid-1234"), "Web Server 01");
+        assert_eq!(title_or_name(Some(""), "uuid-1234"), "uuid-1234");
+        assert_eq!(title_or_name(None, "uuid-1234"), "uuid-1234");
+    }
+
+    #[test]
+    fn doctype_table_name_matches_existing_derivation() {
+        assert_eq!(doctype_table_name("Infrastructure Server"), "infrastructure_server");
+        assert_eq!(doctype_table_name("Kubernetes-Cluster"), "kubernetes_cluster");
+        assert_eq!(doctype_table_name("tabUser"), "user");
+    }
+
+    #[test]
+    fn any_body_to_params_reads_flat_and_args_envelope() {
+        let body = serde_json::json!({"doctype": "Infrastructure Server", "docname": "uuid-1234"});
+        let params = any_body_to_params(&body);
+        assert_eq!(params.get("doctype").unwrap(), "Infrastructure Server");
+        assert_eq!(params.get("docname").unwrap(), "uuid-1234");
+
+        let body = serde_json::json!({"args": "{\"doctype\":\"User\",\"docname\":\"a@b.c\"}"});
+        let params = any_body_to_params(&body);
+        assert_eq!(params.get("doctype").unwrap(), "User");
+        assert_eq!(params.get("docname").unwrap(), "a@b.c");
+        assert!(!params.contains_key("args"));
     }
 }
