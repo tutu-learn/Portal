@@ -27,7 +27,8 @@ fn main() {
     let apps = read_apps(&apps_json).unwrap_or_default();
     let generated = generate_registered_apps(&apps);
 
-    let out_path = manifest_dir.join("src/registered_apps.rs");
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
+    let out_path = out_dir.join("registered_apps.rs");
     write_if_changed(&out_path, &generated);
 
     // Keep Cargo.toml manifests in sync with apps.json so adding/removing an
@@ -82,21 +83,21 @@ fn read_apps(path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
 
 fn generate_registered_apps(apps: &[String]) -> String {
     let mut lines = Vec::new();
-    lines.push("//! Static list of Rust Frappe apps to load at startup.".to_string());
-    lines.push("//!".to_string());
+    lines.push("// Static list of Rust Frappe apps to load at startup.".to_string());
+    lines.push("//".to_string());
     lines.push(
-        "//! This file is generated at build time by `crates/runtime/build.rs` from".to_string(),
+        "// This file is generated at build time by `crates/runtime/build.rs` from".to_string(),
     );
     lines.push(
-        "//! `rust_apps/apps.json`. Do not edit it by hand; update the JSON config".to_string(),
+        "// `rust_apps/apps.json`. Do not edit it by hand; update the JSON config".to_string(),
     );
-    lines.push("//! instead.".to_string());
-    lines.push("//!".to_string());
+    lines.push("// instead.".to_string());
+    lines.push("//".to_string());
     lines.push(
-        "//! If `rust_apps/apps.json` is missing or malformed the generated list falls".to_string(),
+        "// If `rust_apps/apps.json` is missing or malformed the generated list falls".to_string(),
     );
     lines.push(
-        "//! back to empty, so only `kiff_logger` (appended by `rust_apps.rs`) is loaded."
+        "// back to empty, so only `kiff_logger` (appended by `rust_apps.rs`) is loaded."
             .to_string(),
     );
     lines.push(String::new());

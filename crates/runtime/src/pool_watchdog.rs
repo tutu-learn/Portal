@@ -60,6 +60,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
+use pyo3::types::PyAnyMethods;
 use tracing::{error, info, warn};
 
 const PROBE_INTERVAL: Duration = Duration::from_secs(10);
@@ -252,6 +253,33 @@ async fn insert_with_timeout(
     }
 }
 
+/// The embedded Python loads `kiff_core` as a separate cdylib with its own
+/// POOL static (`init_from_url`), so swapping the binary's bridge pool is
+/// not enough: the .so instance keeps file handles to the quarantined WAL
+/// and stays wedged across heals, re-triggering the heal cycle after every
+/// heal. Ask that instance — over the Python boundary, the only way to
+/// reach its statics — to retire and reconnect its pool. Best-effort: if
+/// the .so was never loaded, the binary bridge is still healed.
+async fn reset_embedded_python_pool(driver: &str, db_url: &str) {
+    let driver = driver.to_string();
+    let db_url = db_url.to_string();
+    // spawn_blocking: `reset_pool_from_url` uses `Runtime::block_on`, which
+    // panics when called from an async worker thread.
+    let result = tokio::task::spawn_blocking(move || {
+        pyo3::Python::with_gil(|py| -> Result<(), pyo3::PyErr> {
+            let kc = py.import("kiff_core")?;
+            kc.call_method1("reset_pool_from_url", (driver, db_url))?;
+            Ok(())
+        })
+    })
+    .await;
+    match result {
+        Ok(Ok(())) => info!("reset embedded Python kiff_core pool"),
+        Ok(Err(e)) => warn!("failed to reset embedded Python kiff_core pool: {e}"),
+        Err(e) => warn!("embedded Python pool reset task failed: {e}"),
+    }
+}
+
 /// The heal described in the module docs. Returns true when a fresh pool is
 /// in place.
 async fn heal(
@@ -289,6 +317,7 @@ async fn heal(
                     return false;
                 }
                 info!("swapped in a fresh database pool for site {}", site_name);
+                reset_embedded_python_pool(driver, db_url).await;
                 true
             }
             Err(e) => {
@@ -355,6 +384,7 @@ async fn heal(
                 "swapped in a fresh database pool for site {} after WAL wedge",
                 site_name
             );
+            reset_embedded_python_pool(driver, db_url).await;
             true
         }
         Err(e) => {

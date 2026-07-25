@@ -42,10 +42,22 @@ impl DatabasePool {
             .min_connections(1)
             .max_connections(max_connections)
             .acquire_timeout(std::time::Duration::from_secs(10))
-            // NOTE: no max_lifetime here. Recycling connections sounds like
-            // a safety net, but a wedged pool retired by the watchdog must
-            // never close a connection again: the close-time checkpoint of a
-            // split-brain WAL would bake garbage pages into the main DB.
+            // Connections must never be recycled: every close-time WAL
+            // checkpoint of a sibling connection can delete the shared -wal
+            // out from under the rest of the pool (POSIX fcntl locks are
+            // per-process, so a closing connection cannot see the others and
+            // believes it is the last user of the file). Simply omitting these
+            // setters is NOT enough — sqlx defaults to idle_timeout = 10 min
+            // and max_lifetime = 30 min, and the resulting expiry close is
+            // exactly what repeatedly wedged the pool (observed as the
+            // watchdog reporting "WAL file was replaced externally" every
+            // ~20 minutes, driven by the libkiff_core.dylib bridge pool
+            // recycling its idle connection).
+            .max_lifetime(None)
+            .idle_timeout(None)
+            // A wedged pool retired by the watchdog must likewise never close
+            // a connection again: the close-time checkpoint of a split-brain
+            // WAL would bake garbage pages into the main DB.
             .connect_with(opts)
             .await?;
         Ok(DatabasePool::Sqlite(pool))

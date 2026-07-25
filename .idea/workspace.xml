@@ -8,9 +8,6 @@
       <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/email">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/error">
         <feature name="default" enabled="true" />
       </package>
@@ -50,13 +47,13 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/session">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/sql-translator">
-        <feature name="default" enabled="true" />
-      </package>
-      <package file="$PROJECT_DIR$/rust_apps/Strongroom">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/protocol">
@@ -65,35 +62,20 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="● Yes, there are a few behavioral changes that could break code relying on the old (incorrect) behavior:                                                                                                                              &#10;                                                                                                                                                                                                                                       &#10;   1. frappe.user is now an object, not a string                                                                                                                                                                                       &#10;       • Before: frappe.user == &quot;Administrator&quot; worked.                                                                                                                                                                                &#10;       • Now: frappe.user.name == &quot;Administrator&quot; is required, matching real Frappe.                                                                                                                                                   &#10;       • Any custom shim code or scripts treating frappe.user as a string will need updating.                                                                                                                                          &#10;                                                                                                                                                                                                                                       &#10;   2. Error response body shape changed for ORM/validation/Python errors                                                                                                                                                               &#10;       • Before: REST endpoints returned {&quot;error&quot;: &quot;...&quot;} (or {&quot;message&quot;: &quot;...&quot;} for reportview) with various HTTP statuses.                                                                                                           &#10;       • Now: Python/validation/permission/auth errors return Frappe-shaped JSON: {&quot;exc&quot;: &quot;...&quot;, &quot;exc_type&quot;: &quot;...&quot;, &quot;_server_messages&quot;: &quot;[]&quot;} with HTTP 200, matching what Frappe JS expects.                                          &#10;       • Any non-Frappe client manually parsing the old error/message field for these endpoints will need to handle the new shape.                                                                                                     &#10;       • RuntimeError::NotFound in get_doc/update_doc still returns HTTP 404, but the body is now Frappe-shaped rather than {&quot;error&quot;: ...}.                                                                                            &#10;                                                                                                                                                                                                                                       &#10;   3. Filter operators now actually work                                                                                                                                                                                               &#10;       • Before: {&quot;field&quot;: [&quot;in&quot;, [&quot;a&quot;,&quot;b&quot;]]} was treated as equality against the array (effectively a no-match).                                                                                                                      &#10;       • Now: it generates a real IN clause. This fixes wrong/empty results, but any client that accidentally relied on the no-op behavior will see different data.                                                                    &#10;                                                                                                                                                                                                                                       &#10;   The core API contracts (endpoint URLs, request payloads, successful response shapes) are unchanged. These are correctness fixes that align Kiff with real Frappe semantics, but they are breaking if you had code depending on the  &#10;   previous incorrect implementations.">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
+      <change afterPath="$PROJECT_DIR$/RUNTIME_SETUP.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/http/src/site.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/runtime/src/executor.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/runtime/src/scheduler_backend.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/site.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/site.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/auth.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/files.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/files.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/permissions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/permissions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/middleware/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/middleware/auth.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/metadata/src/field.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/metadata/src/field.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/metadata/src/meta.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/metadata/src/meta.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/migrations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/migrations.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/permissions/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/permissions/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/permissions/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/permissions/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/permissions/src/user_perms.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/permissions/src/user_perms.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/scheduler.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/worker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/hooks.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/hooks.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/Strongroom/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/Strongroom/tests/common/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/build.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/registered_apps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/common/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/http/test_desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/http/test_desk.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +83,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="20014" />
+    <option name="cachedIndexableFilesCount" value="456" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -117,7 +99,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal&quot;,
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
     &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
   }
 }</component>
@@ -130,23 +112,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3440339277497784" />
-      <entry key="MS500" value="2.0970281090912932" />
-      <entry key="S2" value="3.179411893182916" />
-      <entry key="S5" value="3.6259738734543503" />
-      <entry key="S10" value="3.804334157735553" />
-      <entry key="S30" value="3.9327494851244293" />
-      <entry key="S60" value="3.966114261910592" />
-      <entry key="M2" value="3.982991619005582" />
-      <entry key="M5" value="4.000334257025838" />
-      <entry key="M10" value="4.280758353580284" />
-      <entry key="M15" value="4.9796027421244915" />
-      <entry key="M30" value="7.417236912301299" />
-      <entry key="H1" value="10.397318415415285" />
-      <entry key="H2" value="12.790954391886954" />
-      <entry key="H4" value="14.959413463861392" />
-      <entry key="D1" value="47.06339474038473" />
-      <entry key="W1" value="155.03785829843991" />
+      <entry key="MS100" value="1.4176837695759523" />
+      <entry key="MS500" value="2.8618351170071064" />
+      <entry key="S2" value="4.435843430101086" />
+      <entry key="S5" value="6.988082682212329" />
+      <entry key="S10" value="8.925708768384531" />
+      <entry key="S30" value="10.812574140397285" />
+      <entry key="S60" value="11.38357063324959" />
+      <entry key="M2" value="11.760330773743453" />
+      <entry key="M5" value="13.579459946831443" />
+      <entry key="M10" value="16.813803412857112" />
+      <entry key="M15" value="18.88654147542526" />
+      <entry key="M30" value="21.87844519486778" />
+      <entry key="H1" value="24.19194673626242" />
+      <entry key="H2" value="26.178068462019077" />
+      <entry key="H4" value="27.904912260341924" />
+      <entry key="D1" value="65.56771834823293" />
+      <entry key="W1" value="163.31763189269338" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -157,38 +139,35 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="1.3818391999523293E-226" />
-      <entry key="M10" value="1.3438383068336726E-113" />
-      <entry key="M15" value="6.621908841932656E-76" />
-      <entry key="M30" value="3.4867591678418915E-38" />
-      <entry key="H1" value="2.6103821521021594E-19" />
-      <entry key="H2" value="7.20619173630117E-10" />
-      <entry key="H4" value="3.90239563802616E-5" />
-      <entry key="D1" value="0.7783662321268378" />
-      <entry key="W1" value="5.690411791475773" />
+      <entry key="M5" value="2.0823143267109845E-164" />
+      <entry key="M10" value="1.6496484603071363E-82" />
+      <entry key="M15" value="3.5238124916108394E-55" />
+      <entry key="M30" value="8.043345940638132E-28" />
+      <entry key="H1" value="3.964710578884283E-14" />
+      <entry key="H2" value="2.808403543873149E-7" />
+      <entry key="H4" value="7.703855834968603E-4" />
+      <entry key="D1" value="1.2796173745124886" />
+      <entry key="W1" value="6.109223329771113" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3028882905923644" />
-      <entry key="MS500" value="2.083557994093353" />
-      <entry key="S2" value="3.172962077218897" />
-      <entry key="S5" value="3.622842001409653" />
-      <entry key="S10" value="3.802656065120256" />
-      <entry key="S30" value="3.9321630130231173" />
-      <entry key="S60" value="3.9658174920669493" />
-      <entry key="M2" value="3.9828423393886005" />
-      <entry key="M5" value="4.000274267732948" />
-      <entry key="M10" value="4.280727039440991" />
-      <entry key="M15" value="4.97957961254396" />
-      <entry key="M30" value="7.417221288460246" />
-      <entry key="H1" value="10.39730806413767" />
-      <entry key="H2" value="12.79094818409733" />
-      <entry key="H4" value="14.959448912437475" />
-      <entry key="D1" value="47.84175001374807" />
-      <entry key="W1" value="160.72825857938682" />
+      <entry key="MS100" value="1.3826607777017348" />
+      <entry key="MS500" value="2.845284473912641" />
+      <entry key="S2" value="4.428336616342313" />
+      <entry key="S5" value="6.982288992546753" />
+      <entry key="S10" value="8.921716608307301" />
+      <entry key="S30" value="10.810883945786054" />
+      <entry key="S60" value="11.38267088669806" />
+      <entry key="M2" value="11.759863041736583" />
+      <entry key="M5" value="13.579240905000589" />
+      <entry key="M10" value="16.8136663593138" />
+      <entry key="M15" value="18.886438481914613" />
+      <entry key="M30" value="21.87838543794683" />
+      <entry key="H1" value="24.191913941825298" />
+      <entry key="H2" value="26.17805129121777" />
+      <entry key="H4" value="27.905673484354185" />
+      <entry key="D1" value="66.84731769765362" />
+      <entry key="W1" value="169.42684281392604" />
     </decayedShown>
-  </component>
-  <component name="ProblemsViewState">
-    <option name="selectedTabId" value="AISelfReview" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4,
@@ -212,7 +191,7 @@
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/Portal&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/logger&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -222,12 +201,13 @@
     &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
     &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/RustroverProjects/Portal/rust_apps/Strongroom/e2e-tauri/node_modules/typescript/lib&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/apps" />
     </key>
   </component>
@@ -325,10 +305,7 @@
       <workItem from="1783678568811" duration="154000" />
       <workItem from="1783679184532" duration="29477000" />
       <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784198914247" duration="46380000" />
-      <workItem from="1784406380538" duration="327000" />
-      <workItem from="1784406710871" duration="3576000" />
-      <workItem from="1784410539193" duration="2919000" />
+      <workItem from="1784188874819" duration="4893000" />
     </task>
     <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
       <option name="closed" value="true" />
@@ -618,63 +595,7 @@
       <option name="project" value="LOCAL" />
       <updated>1784102007028</updated>
     </task>
-    <task id="LOCAL-00037" summary="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load.">
-      <option name="closed" value="true" />
-      <created>1784199823012</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1784199823012</updated>
-    </task>
-    <task id="LOCAL-00038" summary="Remove auto-generated server token logic&#10;&#10;Eliminated legacy code for auto-creating tokens during server or client insertion, reinforcing explicit token generation via the API for better security and consistency. Updated related tests and SQL filtering, and added new token-related unit tests for validation.">
-      <option name="closed" value="true" />
-      <created>1784205192863</created>
-      <option name="number" value="00038" />
-      <option name="presentableId" value="LOCAL-00038" />
-      <option name="project" value="LOCAL" />
-      <updated>1784205192863</updated>
-    </task>
-    <task id="LOCAL-00039" summary="Add tunnel agent reconnection logic to Ops Portal&#10;&#10;Introduced an automatic reconnection mechanism that waits for the tunnel agent to come online before establishing a WebSocket connection. Enhanced user feedback with updated status indicators and streamlined session cleanup to handle reconnection scenarios effectively.">
-      <option name="closed" value="true" />
-      <created>1784206769489</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1784206769489</updated>
-    </task>
-    <task id="LOCAL-00040" summary="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback.">
-      <option name="closed" value="true" />
-      <created>1784208690979</created>
-      <option name="number" value="00040" />
-      <option name="presentableId" value="LOCAL-00040" />
-      <option name="project" value="LOCAL" />
-      <updated>1784208690979</updated>
-    </task>
-    <task id="LOCAL-00041" summary="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;">
-      <option name="closed" value="true" />
-      <created>1784231598025</created>
-      <option name="number" value="00041" />
-      <option name="presentableId" value="LOCAL-00041" />
-      <option name="project" value="LOCAL" />
-      <updated>1784231598025</updated>
-    </task>
-    <task id="LOCAL-00042" summary="Add per-server activity cache and node-level network/process views&#10;&#10;Introduced an in-memory cache for per-server process and network activity to enable real-time data retrieval. Enhanced the frontend with live network monitoring and process inspection for individual nodes, including efficient renders for large data sets and dynamic view updates.">
-      <option name="closed" value="true" />
-      <created>1784300910935</created>
-      <option name="number" value="00042" />
-      <option name="presentableId" value="LOCAL-00042" />
-      <option name="project" value="LOCAL" />
-      <updated>1784300910935</updated>
-    </task>
-    <task id="LOCAL-00043" summary="● Yes, there are a few behavioral changes that could break code relying on the old (incorrect) behavior:                                                                                                                              &#10;                                                                                                                                                                                                                                       &#10;   1. frappe.user is now an object, not a string                                                                                                                                                                                       &#10;       • Before: frappe.user == &quot;Administrator&quot; worked.                                                                                                                                                                                &#10;       • Now: frappe.user.name == &quot;Administrator&quot; is required, matching real Frappe.                                                                                                                                                   &#10;       • Any custom shim code or scripts treating frappe.user as a string will need updating.                                                                                                                                          &#10;                                                                                                                                                                                                                                       &#10;   2. Error response body shape changed for ORM/validation/Python errors                                                                                                                                                               &#10;       • Before: REST endpoints returned {&quot;error&quot;: &quot;...&quot;} (or {&quot;message&quot;: &quot;...&quot;} for reportview) with various HTTP statuses.                                                                                                           &#10;       • Now: Python/validation/permission/auth errors return Frappe-shaped JSON: {&quot;exc&quot;: &quot;...&quot;, &quot;exc_type&quot;: &quot;...&quot;, &quot;_server_messages&quot;: &quot;[]&quot;} with HTTP 200, matching what Frappe JS expects.                                          &#10;       • Any non-Frappe client manually parsing the old error/message field for these endpoints will need to handle the new shape.                                                                                                     &#10;       • RuntimeError::NotFound in get_doc/update_doc still returns HTTP 404, but the body is now Frappe-shaped rather than {&quot;error&quot;: ...}.                                                                                            &#10;                                                                                                                                                                                                                                       &#10;   3. Filter operators now actually work                                                                                                                                                                                               &#10;       • Before: {&quot;field&quot;: [&quot;in&quot;, [&quot;a&quot;,&quot;b&quot;]]} was treated as equality against the array (effectively a no-match).                                                                                                                      &#10;       • Now: it generates a real IN clause. This fixes wrong/empty results, but any client that accidentally relied on the no-op behavior will see different data.                                                                    &#10;                                                                                                                                                                                                                                       &#10;   The core API contracts (endpoint URLs, request payloads, successful response shapes) are unchanged. These are correctness fixes that align Kiff with real Frappe semantics, but they are breaking if you had code depending on the  &#10;   previous incorrect implementations.">
-      <option name="closed" value="true" />
-      <created>1784471206498</created>
-      <option name="number" value="00043" />
-      <option name="presentableId" value="LOCAL-00043" />
-      <option name="project" value="LOCAL" />
-      <updated>1784471206498</updated>
-    </task>
-    <option name="localTasksCounter" value="44" />
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -684,6 +605,16 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
+    <MESSAGE value="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward." />
+    <MESSAGE value="fixed bugs" />
+    <MESSAGE value="fixee" />
+    <MESSAGE value="Enhance OAuth handling with improved error logging and input validation" />
+    <MESSAGE value="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers." />
+    <MESSAGE value="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement." />
+    <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
+    <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
+    <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
+    <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
     <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
     <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
     <MESSAGE value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
@@ -699,16 +630,6 @@
     <MESSAGE value="Add dynamic configuration and improve batching efficiency&#10;&#10;Introduce environment variable-based overrides for various parameters, such as log engine heap size, max SQLite connections, batch sizes, and intervals, to enhance configurability. Refactor existing bulk operations and background tasks to process in chunks, reducing contention and improving performance. Additionally, adjust defaults for more resource-efficient operation on constrained systems." />
     <MESSAGE value="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads." />
     <MESSAGE value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
-    <MESSAGE value="Optimize database pool management and enhance vulnerability data handling.&#10;&#10;Added self-healing mechanisms for wedged SQLite pools to prevent data corruption and improve reliability. Introduced shared fetch caches and payload capping for vulnerability alerts in the frontend to enhance performance and reduce server load." />
-    <MESSAGE value="Remove auto-generated server token logic&#10;&#10;Eliminated legacy code for auto-creating tokens during server or client insertion, reinforcing explicit token generation via the API for better security and consistency. Updated related tests and SQL filtering, and added new token-related unit tests for validation." />
-    <MESSAGE value="Add tunnel agent wait loop for remote shell connections&#10;&#10;Introduced automatic retries for connecting to disconnected tunnel agents. Updated shell status display to differentiate between &quot;CONNECTING&quot; and &quot;WAITING FOR AGENT&quot; states. Refactored tunnel connection logic for improved maintainability." />
-    <MESSAGE value="Add tunnel agent reconnection logic to Ops Portal&#10;&#10;Introduced an automatic reconnection mechanism that waits for the tunnel agent to come online before establishing a WebSocket connection. Enhanced user feedback with updated status indicators and streamlined session cleanup to handle reconnection scenarios effectively." />
-    <MESSAGE value="Add diagnostic tracking for agent connection attempts&#10;&#10;Introduced `AgentAttempt` to track and surface diagnostic details about agent connection attempts, aiding server admins in debugging connection issues. Updated Ops Portal to display the last attempt's status and message. Enhanced broker logic to record both successful and failed attempts, with relevant details shared in API responses." />
-    <MESSAGE value="Add diagnostics for agent connection attempts in Ops Portal&#10;&#10;Extended server response to include details on the most recent agent connection attempt when no agent is connected. Added support for tracking connection attempt timestamps, success status, and error messages in `BrokerState`. Updated the frontend to display this information for better debugging and user feedback." />
-    <MESSAGE value="&quot;Implement WebSocket keepalive ping for idle timeout prevention&#10;&#10;Added a periodic keepalive ping mechanism to maintain active WebSocket connections by preventing idle timeouts. Adjusted the connection interval and idle task management to ensure dead connections are reaped while live connections remain responsive. Updated related documentation to explain the new behavior.&quot;" />
-    <MESSAGE value="Add per-server activity cache and node-level network/process views&#10;&#10;Introduced an in-memory cache for per-server process and network activity to enable real-time data retrieval. Enhanced the frontend with live network monitoring and process inspection for individual nodes, including efficient renders for large data sets and dynamic view updates." />
-    <MESSAGE value="Add toggle for node processes visibility in ops portal&#10;&#10;Introduced a toggle button to show/hide the node processes block in the node panel, enhancing session-level user preferences. Updated related CSS for a smaller button size and adjusted the HTML structure to accommodate visibility states. Runtime log file was extended, and a minor &quot;opstamp&quot; value change was made in the meta.json file." />
-    <MESSAGE value="● Yes, there are a few behavioral changes that could break code relying on the old (incorrect) behavior:                                                                                                                              &#10;                                                                                                                                                                                                                                       &#10;   1. frappe.user is now an object, not a string                                                                                                                                                                                       &#10;       • Before: frappe.user == &quot;Administrator&quot; worked.                                                                                                                                                                                &#10;       • Now: frappe.user.name == &quot;Administrator&quot; is required, matching real Frappe.                                                                                                                                                   &#10;       • Any custom shim code or scripts treating frappe.user as a string will need updating.                                                                                                                                          &#10;                                                                                                                                                                                                                                       &#10;   2. Error response body shape changed for ORM/validation/Python errors                                                                                                                                                               &#10;       • Before: REST endpoints returned {&quot;error&quot;: &quot;...&quot;} (or {&quot;message&quot;: &quot;...&quot;} for reportview) with various HTTP statuses.                                                                                                           &#10;       • Now: Python/validation/permission/auth errors return Frappe-shaped JSON: {&quot;exc&quot;: &quot;...&quot;, &quot;exc_type&quot;: &quot;...&quot;, &quot;_server_messages&quot;: &quot;[]&quot;} with HTTP 200, matching what Frappe JS expects.                                          &#10;       • Any non-Frappe client manually parsing the old error/message field for these endpoints will need to handle the new shape.                                                                                                     &#10;       • RuntimeError::NotFound in get_doc/update_doc still returns HTTP 404, but the body is now Frappe-shaped rather than {&quot;error&quot;: ...}.                                                                                            &#10;                                                                                                                                                                                                                                       &#10;   3. Filter operators now actually work                                                                                                                                                                                               &#10;       • Before: {&quot;field&quot;: [&quot;in&quot;, [&quot;a&quot;,&quot;b&quot;]]} was treated as equality against the array (effectively a no-match).                                                                                                                      &#10;       • Now: it generates a real IN clause. This fixes wrong/empty results, but any client that accidentally relied on the no-op behavior will see different data.                                                                    &#10;                                                                                                                                                                                                                                       &#10;   The core API contracts (endpoint URLs, request payloads, successful response shapes) are unchanged. These are correctness fixes that align Kiff with real Frappe semantics, but they are breaking if you had code depending on the  &#10;   previous incorrect implementations." />
-    <option name="LAST_COMMIT_MESSAGE" value="● Yes, there are a few behavioral changes that could break code relying on the old (incorrect) behavior:                                                                                                                              &#10;                                                                                                                                                                                                                                       &#10;   1. frappe.user is now an object, not a string                                                                                                                                                                                       &#10;       • Before: frappe.user == &quot;Administrator&quot; worked.                                                                                                                                                                                &#10;       • Now: frappe.user.name == &quot;Administrator&quot; is required, matching real Frappe.                                                                                                                                                   &#10;       • Any custom shim code or scripts treating frappe.user as a string will need updating.                                                                                                                                          &#10;                                                                                                                                                                                                                                       &#10;   2. Error response body shape changed for ORM/validation/Python errors                                                                                                                                                               &#10;       • Before: REST endpoints returned {&quot;error&quot;: &quot;...&quot;} (or {&quot;message&quot;: &quot;...&quot;} for reportview) with various HTTP statuses.                                                                                                           &#10;       • Now: Python/validation/permission/auth errors return Frappe-shaped JSON: {&quot;exc&quot;: &quot;...&quot;, &quot;exc_type&quot;: &quot;...&quot;, &quot;_server_messages&quot;: &quot;[]&quot;} with HTTP 200, matching what Frappe JS expects.                                          &#10;       • Any non-Frappe client manually parsing the old error/message field for these endpoints will need to handle the new shape.                                                                                                     &#10;       • RuntimeError::NotFound in get_doc/update_doc still returns HTTP 404, but the body is now Frappe-shaped rather than {&quot;error&quot;: ...}.                                                                                            &#10;                                                                                                                                                                                                                                       &#10;   3. Filter operators now actually work                                                                                                                                                                                               &#10;       • Before: {&quot;field&quot;: [&quot;in&quot;, [&quot;a&quot;,&quot;b&quot;]]} was treated as equality against the array (effectively a no-match).                                                                                                                      &#10;       • Now: it generates a real IN clause. This fixes wrong/empty results, but any client that accidentally relied on the no-op behavior will see different data.                                                                    &#10;                                                                                                                                                                                                                                       &#10;   The core API contracts (endpoint URLs, request payloads, successful response shapes) are unchanged. These are correctness fixes that align Kiff with real Frappe semantics, but they are breaking if you had code depending on the  &#10;   previous incorrect implementations." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
   </component>
 </project>

@@ -1,4 +1,4 @@
-use crate::{json_to_py, pool, py_to_json, rt};
+use crate::{pool, py_to_json, rt};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 

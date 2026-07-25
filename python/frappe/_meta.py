@@ -26,13 +26,25 @@ def _site_db_path():
     return None
 
 
+def _connect_readonly(db_path):
+    """Open the site DB read-only so close-time can never checkpoint or
+    delete the WAL out from under the live Rust pool (POSIX fcntl locks are
+    per-process, so a read-write connection here can look like the "last"
+    user on close; see _db.py). Falls back to read-write only when the
+    read-only open fails (WAL recovery needed, i.e. no server running)."""
+    try:
+        return _sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except _sqlite3.OperationalError:
+        return _sqlite3.connect(db_path)
+
+
 def _db_rows(sql, params=None):
     """Run a read-only query against the site SQLite database."""
     db_path = _site_db_path()
     if not db_path:
         return []
     try:
-        conn = _sqlite3.connect(db_path)
+        conn = _connect_readonly(db_path)
         conn.row_factory = _sqlite3.Row
         cur = conn.execute(sql, params or [])
         rows = [dict(r) for r in cur.fetchall()]
