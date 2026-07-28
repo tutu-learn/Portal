@@ -115,6 +115,9 @@ module.exports = async function globalSetup() {
     env: {
       ...process.env,
       KIFF_RUNTIME_CONFIG: path.join(runtimeDir, 'runtime.toml'),
+      // The bootstrap seeds the Administrator password into __auth on first
+      // run; pin it so auth.setup.js can log in with Administrator/admin.
+      KIFF_ADMIN_PASSWORD: 'admin',
     },
   });
 
@@ -130,7 +133,9 @@ module.exports = async function globalSetup() {
   fs.writeFileSync(LOCKFILE, JSON.stringify(lock, null, 2));
 
   try {
-    await waitForServer(`http://127.0.0.1:${E2E_BASE_PORT}/api/method/audit_ready.hello`);
+    // Probe a built-in route (no registered app required): /desk serves the
+    // desk or redirects to /login; both count as "ready" for waitForServer.
+    await waitForServer(`http://127.0.0.1:${E2E_BASE_PORT}/desk`);
     log('server ready');
   } catch (e) {
     log('server failed to start, killing process');

@@ -560,6 +560,11 @@ impl DatabasePool {
             if table_field_names.contains(k) {
                 continue;
             }
+            // Skip internal UI state (`__onload`, `__islocal`, ...): injected
+            // by get_doc or the Desk client, never a real column.
+            if k.starts_with("__") {
+                continue;
+            }
             sets.push(format!("{} = {}", k, self.placeholder(params.len() + 1)));
             params.push(v.clone());
         }
@@ -607,6 +612,11 @@ impl DatabasePool {
 
         for (k, v) in &doc.fields {
             if table_field_names.contains(k) {
+                continue;
+            }
+            // Skip internal UI state (`__onload`, `__islocal`, ...): injected
+            // by get_doc or the Desk client, never a real column.
+            if k.starts_with("__") {
                 continue;
             }
             cols.push(k.clone());

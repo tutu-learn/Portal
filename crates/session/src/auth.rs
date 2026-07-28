@@ -51,7 +51,10 @@ impl AuthService {
         self.store.delete(pool, session_id).await
     }
 
-    async fn get_password_hash(&self, pool: &DatabasePool, username: &str) -> Result<String> {
+    /// Look up a user's password hash by username (`name`) or email.
+    /// Public so non-HTTP shells (e.g. the Tauri desktop app) can verify
+    /// credentials without creating an HTTP session record.
+    pub async fn get_password_hash(&self, pool: &DatabasePool, username: &str) -> Result<String> {
         // Try to read from __auth table by username, falling back to email.
         for filter_col in ["name", "email"] {
             let rows = pool

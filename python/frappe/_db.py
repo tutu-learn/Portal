@@ -596,7 +596,20 @@ class _Database:
     # ------------------------------------------------------------------
     # set_value / set_single_value
     # ------------------------------------------------------------------
-    def set_value(self, doctype, name, field, value=None, **kwargs):
+    def set_value(
+        self,
+        doctype,
+        name,
+        field,
+        value=None,
+        modified=None,
+        modified_by=None,
+        update_modified=True,
+        **kwargs,
+    ):
+        # Signature mirrors real Frappe's db.set_value; `modified`,
+        # `modified_by` and `update_modified` are accepted for compatibility
+        # (the Rust layer maintains `modified` itself) and otherwise ignored.
         if _rust is None:
             return
         if isinstance(field, dict):

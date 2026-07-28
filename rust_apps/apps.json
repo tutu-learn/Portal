@@ -1,5 +1,3 @@
 {
-  "apps": [
-    "sebrus_logger"
-  ]
+  "apps": ["strongroom"]
 }

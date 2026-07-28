@@ -8,7 +8,7 @@ name = "kiff-runtime"
 path = "src/main.rs"
 
 [dependencies]
-audit_ready = { path = "../../rust_apps/audit_ready" }
+strongroom = { path = "../../rust_apps/Strongroom" }
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
