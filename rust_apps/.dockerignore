@@ -1,0 +1,24 @@
+# VCS and IDE metadata
+.git
+../.idea
+**/.git
+
+# Rust build output
+target
+
+# Node / Playwright
+node_modules
+playwright/.auth
+test-results
+
+# Python
+.venv
+__pycache__
+**/*.pyc
+
+# Local runtime state (never belongs in an image)
+sites
+sites-e2e
+localhost/logs
+logengine-data
+*.db
