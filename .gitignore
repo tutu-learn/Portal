@@ -22,5 +22,5 @@ python/frappe/**/*.pyc
 /sites-e2e/
 
 # Independently managed repos checked out under rust_apps/ (own git history/remote)
-/rust_apps/Strongroom/
+/rust_apps/audit_ready/
 /rust_apps/sebrus_logger/

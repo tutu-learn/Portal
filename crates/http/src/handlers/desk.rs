@@ -1687,11 +1687,25 @@ async fn get_social_login_providers(pool: &orm::DatabasePool) -> Vec<SocialLogin
         .collect()
 }
 
-/// Build the OAuth2 authorization URL for a provider.
+/// Legacy OAuth state format expected by Frappe <= 16.25: a base64-encoded
+/// JSON blob validated client-side by the callback (no server-side cache).
+fn legacy_oauth_state(site_url: &str, redirect_to: Option<&str>) -> String {
+    let token = uuid::Uuid::new_v4().simple().to_string();
+    let state = json!({
+        "site": site_url,
+        "token": token,
+        "redirect_to": redirect_to.unwrap_or(""),
+    });
+    BASE64.encode(state.to_string().as_bytes())
+}
+
+/// Build the OAuth2 authorization URL for a provider. `state` is created by
+/// the caller: via `kiff_core::create_oauth_state` on Frappe versions
+/// that validate state server-side, or [`legacy_oauth_state`] on older ones.
 fn build_authorize_url(
     provider: &SocialLoginProvider,
     site_url: &str,
-    redirect_to: Option<&str>,
+    state: &str,
 ) -> Option<String> {
     let authorize_url = if provider.custom_base_url {
         match &provider.base_url {
@@ -1714,18 +1728,10 @@ fn build_authorize_url(
         )
     };
 
-    let token = uuid::Uuid::new_v4().simple().to_string();
-    let state = json!({
-        "site": site_url,
-        "token": token,
-        "redirect_to": redirect_to.unwrap_or(""),
-    });
-    let state_b64 = BASE64.encode(state.to_string().as_bytes());
-
     let mut params: HashMap<String, String> = HashMap::new();
     params.insert("client_id".to_string(), provider.client_id.clone());
     params.insert("redirect_uri".to_string(), redirect_uri);
-    params.insert("state".to_string(), state_b64);
+    params.insert("state".to_string(), state.to_string());
 
     if let Some(Value::Object(map)) = &provider.auth_url_data {
         for (k, v) in map {
@@ -1831,7 +1837,14 @@ pub async fn serve_login(
         let providers_with_urls: Vec<_> = providers
             .into_iter()
             .filter_map(|p| {
-                let url = build_authorize_url(&p, &site_url, redirect_to)?;
+                // The callback runs in the embedded Python and (on Frappe
+                // versions newer than 16.25) validates `state` against a
+                // cache entry written by create_oauth_state — so the state
+                // must come from there when the API exists. Older Frappe
+                // expects the legacy self-contained base64 state instead.
+                let state = kiff_core::create_oauth_state(redirect_to)
+                    .unwrap_or_else(|| legacy_oauth_state(&site_url, redirect_to));
+                let url = build_authorize_url(&p, &site_url, &state)?;
                 Some((p, url))
             })
             .collect();
@@ -1899,13 +1912,13 @@ mod tests {
             icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
         };
 
-        let url = build_authorize_url(&provider, "http://localhost:8000", Some("/app")).unwrap();
+        let url = build_authorize_url(&provider, "http://localhost:8000", "test-state").unwrap();
         assert!(url.starts_with("https://login.microsoftonline.com/common/oauth2/authorize?"));
         assert!(url.contains("client_id=test-client-id"));
         assert!(url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_office365"));
         assert!(url.contains("response_type=code"));
         assert!(url.contains("scope=openid"));
-        assert!(url.contains("state="));
+        assert!(url.contains("state=test-state"));
     }
 
     #[test]
@@ -1925,7 +1938,7 @@ mod tests {
         let url = build_authorize_url(
             &provider,
             "https://compliance-system.sebrus.dev",
-            Some("/desk"),
+            "test-state",
         )
         .unwrap();
         assert!(url.starts_with("https://login.microsoftonline.com/1d6f2f1f-694e-4308-a2ba-bb00bb00fa46/oauth2/v2.0/authorize?"));
@@ -1933,7 +1946,20 @@ mod tests {
         assert!(url.contains("redirect_uri=https%3A%2F%2Fcompliance-system.sebrus.dev%2Fapi%2Fmethod%2Ffrappe.integrations.oauth2_logins.login_via_microsoft"));
         assert!(url.contains("response_type=code"));
         assert!(url.contains("scope=openid+email+profile"));
-        assert!(url.contains("state="));
+        assert!(url.contains("state=test-state"));
+    }
+
+    #[test]
+    fn test_legacy_oauth_state_is_base64_json() {
+        let state = legacy_oauth_state("http://localhost:8000", Some("/desk"));
+        let decoded: Value = serde_json::from_slice(&BASE64.decode(&state).unwrap()).unwrap();
+        assert_eq!(decoded["site"], "http://localhost:8000");
+        assert_eq!(decoded["redirect_to"], "/desk");
+        assert!(decoded["token"].as_str().unwrap().len() >= 32);
+
+        let state = legacy_oauth_state("http://localhost:8000", None);
+        let decoded: Value = serde_json::from_slice(&BASE64.decode(&state).unwrap()).unwrap();
+        assert_eq!(decoded["redirect_to"], "");
     }
 
     #[test]
