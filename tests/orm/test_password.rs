@@ -99,9 +99,14 @@ async fn test_get_doc_masks_password_fields() -> Result<()> {
     doc.set_field("title", "masked");
     pool.insert_doc(&doc).await?;
 
-    // No stored secret: the field is absent from the loaded document.
+    // No stored secret: the field loads as null (Frappe initialises every
+    // non-table field to None; controllers rely on the attribute existing).
     let fetched = pool.get_doc("TestDocType", "DOC-P3").await?;
-    assert!(fetched.get_field("client_secret").is_none());
+    assert!(
+        fetched
+            .get_field("client_secret")
+            .is_some_and(|v| v.is_null())
+    );
 
     // Stored secret: the loaded document shows the dummy placeholder.
     let mut fields = std::collections::HashMap::new();

@@ -164,16 +164,19 @@ pub async fn apply_password_fields(
 
 /// Mask Password fields on a freshly loaded document: fields with a stored
 /// secret become the dummy placeholder; anything else (e.g. a legacy
-/// plaintext column value) is removed so it never reaches API responses.
+ /// plaintext column value) is nulled out so it never reaches API responses.
+/// The key is always kept present — Frappe initialises every non-table field
+/// to None on the document, and Python controllers rely on the attribute
+/// existing (e.g. `if self.new_password:` in User.validate).
 pub async fn mask_password_fields(pool: &DatabasePool, doc: &mut Document) -> Result<()> {
     let fields = password_fields(pool, &doc.doctype).await?;
     for fieldname in fields {
-        if has_auth(pool, &doc.doctype, &doc.name, &fieldname).await? {
-            doc.fields
-                .insert(fieldname, Value::String(DUMMY_PASSWORD.into()));
+        let value = if has_auth(pool, &doc.doctype, &doc.name, &fieldname).await? {
+            Value::String(DUMMY_PASSWORD.into())
         } else {
-            doc.fields.remove(&fieldname);
-        }
+            Value::Null
+        };
+        doc.fields.insert(fieldname, value);
     }
     Ok(())
 }
