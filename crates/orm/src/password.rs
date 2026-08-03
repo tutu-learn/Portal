@@ -1,28 +1,29 @@
 //! Password field persistence matching Frappe's `__auth` architecture.
 //!
-//! Frappe never stores Password field values in the document table. On save,
-//! `Document._save_passwords()` encrypts the value with the site's Fernet
-//! `encryption_key` and upserts it into `__auth`, keeping only a dummy
-//! `"*****"` placeholder in memory. The native Rust save path previously
-//! copied Password fields straight into the document table (in plaintext)
-//! and never wrote `__auth`, which broke OAuth logins
-//! (`get_decrypted_password` throwing "Password not found") and leaked
+//! Frappe stores Password fields in two places (see
+//! `BaseDocument._save_passwords`):
+//!
+//! - the real secret lives Fernet-encrypted in `__auth` (encrypted with the
+//!   site's `encryption_key`)
+//! - the document table keeps a normal text column holding only a dummy
+//!   placeholder (`"*" * len(secret)`), so controllers can always read the
+//!   attribute (e.g. `if self.new_password:` in User.validate) without ever
+//!   seeing the secret
+//!
+//! The native Rust save path previously copied Password values straight into
+//! the data table in plaintext and never wrote `__auth`, which broke OAuth
+//! logins (`get_decrypted_password` throwing "Password not found") and leaked
 //! secrets through document reads.
 
-use crate::document::Document;
 use crate::pool::DatabasePool;
 use error::{Result, RuntimeError};
 use serde_json::Value;
 use std::collections::HashMap;
 use tracing::warn;
 
-/// Placeholder returned in place of a stored password, mirroring Frappe's
-/// dummy password convention.
-pub const DUMMY_PASSWORD: &str = "**********";
-
 /// Frappe: `"".join(set(pwd)) == "*"` — true when the value consists solely
-/// of `*` characters, which is the placeholder Desk sends back for an
-/// unchanged secret.
+/// of `*` characters, which is the placeholder stored in the data table and
+/// sent back by Desk for an unchanged secret.
 pub fn is_dummy_password(pwd: &str) -> bool {
     !pwd.is_empty() && pwd.chars().all(|c| c == '*')
 }
@@ -98,57 +99,29 @@ async fn delete_auth(pool: &DatabasePool, doctype: &str, name: &str, fieldname: 
     Ok(())
 }
 
-async fn has_auth(pool: &DatabasePool, doctype: &str, name: &str, fieldname: &str) -> Result<bool> {
-    let sql = format!(
-        r#"SELECT 1 FROM "__auth" WHERE doctype = {} AND name = {} AND fieldname = {} LIMIT 1"#,
-        pool.placeholder(1),
-        pool.placeholder(2),
-        pool.placeholder(3)
-    );
-    let rows = pool
-        .execute_sql(
-            &sql,
-            vec![
-                Value::String(doctype.into()),
-                Value::String(name.into()),
-                Value::String(fieldname.into()),
-            ],
-        )
-        .await?;
-    Ok(!rows.is_empty())
-}
-
-/// Remove Password fields from a document's field map before it is written to
-/// the document table, returning the extracted values for
-/// [`apply_password_fields`]. Password values must never reach the data table.
-pub async fn extract_password_fields(
-    pool: &DatabasePool,
-    doctype: &str,
-    fields: &mut HashMap<String, Value>,
-) -> Result<Vec<(String, Value)>> {
-    let mut extracted = Vec::new();
-    for fieldname in password_fields(pool, doctype).await? {
-        if let Some(value) = fields.remove(&fieldname) {
-            extracted.push((fieldname, value));
-        }
-    }
-    Ok(extracted)
-}
-
-/// Persist extracted Password values into `__auth`, mirroring Frappe's
-/// `_save_passwords`. Call this after the document row has been saved.
+/// Process Password fields on a document about to be saved, mirroring
+/// Frappe's `_save_passwords`. Must be called before `insert_doc`/`save_doc`
+/// so the data table only ever receives the dummy placeholder:
 ///
 /// - empty / null values delete any stored secret (Desk cleared the field)
-/// - dummy values (`*****`) are skipped (Desk sent back an unchanged secret)
-/// - anything else is Fernet-encrypted with the site key and upserted
-pub async fn apply_password_fields(
+///   and stay empty in the document
+/// - dummy values (`*****`) are left untouched (unchanged secret)
+/// - anything else is Fernet-encrypted into `__auth` and replaced in the
+///   document with `"*" * len(secret)`
+///
+/// `name` is the document name the row will be saved under (generated before
+/// insert for new documents).
+pub async fn process_password_fields_for_save(
     pool: &DatabasePool,
     doctype: &str,
     name: &str,
     encryption_key: &str,
-    extracted: &[(String, Value)],
+    fields: &mut HashMap<String, Value>,
 ) -> Result<()> {
-    for (fieldname, value) in extracted {
+    for fieldname in password_fields(pool, doctype).await? {
+        let Some(value) = fields.get(&fieldname) else {
+            continue;
+        };
         let secret = value.as_str().unwrap_or_default();
         if secret.is_empty() {
             delete_auth(pool, doctype, name, &fieldname).await?;
@@ -157,36 +130,20 @@ pub async fn apply_password_fields(
         } else {
             let encrypted = fernet_encrypt(encryption_key, secret)?;
             upsert_auth(pool, doctype, name, &fieldname, &encrypted).await?;
+            fields.insert(fieldname, Value::String("*".repeat(secret.chars().count())));
         }
     }
     Ok(())
 }
 
-/// Mask Password fields on a freshly loaded document: fields with a stored
-/// secret become the dummy placeholder; anything else (e.g. a legacy
- /// plaintext column value) is nulled out so it never reaches API responses.
-/// The key is always kept present — Frappe initialises every non-table field
-/// to None on the document, and Python controllers rely on the attribute
-/// existing (e.g. `if self.new_password:` in User.validate).
-pub async fn mask_password_fields(pool: &DatabasePool, doc: &mut Document) -> Result<()> {
-    let fields = password_fields(pool, &doc.doctype).await?;
-    for fieldname in fields {
-        let value = if has_auth(pool, &doc.doctype, &doc.name, &fieldname).await? {
-            Value::String(DUMMY_PASSWORD.into())
-        } else {
-            Value::Null
-        };
-        doc.fields.insert(fieldname, value);
-    }
-    Ok(())
-}
-
-/// One-time migration for databases created before Password fields were kept
-/// out of the data tables: move every plaintext value from the legacy column
-/// into `__auth` (Fernet-encrypted), then drop the column. Skips doctypes
-/// whose table or column does not exist. When the encryption key is invalid
-/// the migration is skipped entirely so secrets are never destroyed.
-pub async fn migrate_plaintext_password_columns(
+/// One-time migration for databases written before Password fields were
+/// handled: move every plaintext value from the document table's password
+/// columns into `__auth` (Fernet-encrypted) and replace the column value
+/// with the dummy placeholder. The columns themselves are kept — Frappe
+/// schemas include them and controllers expect the attributes to exist.
+/// Skips doctypes whose table or column does not exist, and skips entirely
+/// when the encryption key is invalid so secrets are never destroyed.
+pub async fn migrate_plaintext_password_values(
     pool: &DatabasePool,
     encryption_key: &str,
 ) -> Result<()> {
@@ -228,6 +185,7 @@ pub async fn migrate_plaintext_password_columns(
             fieldname, table, fieldname, fieldname
         );
         let secrets = pool.execute_sql(&select, vec![]).await?;
+        let mut migrated = 0u32;
         for mut secret_row in secrets {
             let (Some(name), Some(secret)) = (
                 secret_row.remove("name").and_then(|v| v.as_str().map(String::from)),
@@ -240,14 +198,31 @@ pub async fn migrate_plaintext_password_columns(
             }
             let encrypted = fernet_encrypt(encryption_key, &secret)?;
             upsert_auth(pool, &doctype, &name, &fieldname, &encrypted).await?;
+            // Replace the plaintext in the data table with the dummy,
+            // exactly what _save_passwords leaves behind.
+            let update = format!(
+                r#"UPDATE "{}" SET "{}" = {} WHERE name = {}"#,
+                table,
+                fieldname,
+                pool.placeholder(1),
+                pool.placeholder(2)
+            );
+            pool.execute_sql(
+                &update,
+                vec![
+                    Value::String("*".repeat(secret.chars().count())),
+                    Value::String(name),
+                ],
+            )
+            .await?;
+            migrated += 1;
         }
-
-        let alter = format!(r#"ALTER TABLE "{}" DROP COLUMN "{}""#, table, fieldname);
-        pool.execute_sql(&alter, vec![]).await?;
-        warn!(
-            "migrated plaintext password column {}.{} into __auth and dropped it",
-            table, fieldname
-        );
+        if migrated > 0 {
+            warn!(
+                "migrated {} plaintext password(s) from {}.{} into __auth",
+                migrated, table, fieldname
+            );
+        }
     }
     Ok(())
 }

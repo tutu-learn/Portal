@@ -298,7 +298,6 @@ impl DatabasePool {
         let mut doc = Document::from_map(m)?;
         self.load_child_tables(&mut doc, doctype).await?;
         self.add_onload_data(&mut doc, doctype).await?;
-        crate::password::mask_password_fields(self, &mut doc).await?;
         Ok(doc)
     }
 

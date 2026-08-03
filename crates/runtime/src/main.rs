@@ -52,11 +52,10 @@ async fn main() -> error::Result<()> {
                 } else {
                     info!("migrations complete for site {}", name);
                 }
-                // Move any legacy plaintext Password columns into __auth.
-                // Runs before doctype sync so a table recreate during sync
-                // cannot drop a plaintext column before its values are moved.
+                // Move any legacy plaintext Password values into __auth,
+                // leaving only dummy placeholders in the data tables.
                 if let Err(e) =
-                    orm::password::migrate_plaintext_password_columns(&p, &site.config.encryption_key)
+                    orm::password::migrate_plaintext_password_values(&p, &site.config.encryption_key)
                         .await
                 {
                     error!(

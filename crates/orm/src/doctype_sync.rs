@@ -867,9 +867,6 @@ fn is_ui_or_child_field(fieldtype: &str) -> bool {
             | "Heading"
             | "HTML"
             | "Button"
-            // Password values live Fernet-encrypted in __auth, never in a
-            // plaintext column on the data table (Frappe's architecture).
-            | "Password"
     )
 }
 
