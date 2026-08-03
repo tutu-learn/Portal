@@ -11,16 +11,24 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/metadata/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/orm/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/permissions/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/protocol/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/python-bridge/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/queue/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/runtime/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/session/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/sql-translator/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/rust_apps/core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sebrus_apps/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sebrus_logger/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/email/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/Strongroom/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/Strongroom/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/orm/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/protocol/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/examples" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/rust_apps/Strongroom/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

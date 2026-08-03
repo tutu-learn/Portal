@@ -1,0 +1,630 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/config">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/error">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/http">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/cli">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/kiff_logger">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/log_engine">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/metadata">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/orm">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/permissions">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/python-bridge">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/queue">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/runtime">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rust_apps/core">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/session">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/sql-translator">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/protocol">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Fiixed massive db error">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Portal.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Portal.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="19658" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;nefdtie101&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
+    &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
+  }
+}</component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="IP9ele17" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0008740545794668" />
+      <entry key="MS500" value="1.2832195814989946" />
+      <entry key="S2" value="3.0991581438655054" />
+      <entry key="S5" value="5.382514516404964" />
+      <entry key="S10" value="6.8522434860237675" />
+      <entry key="S30" value="8.189476680588225" />
+      <entry key="S60" value="8.581477448207952" />
+      <entry key="M2" value="8.812571483354622" />
+      <entry key="M5" value="10.25443351341621" />
+      <entry key="M10" value="14.704093193748623" />
+      <entry key="M15" value="18.675929070980708" />
+      <entry key="M30" value="25.837089774980715" />
+      <entry key="H1" value="31.742454126004898" />
+      <entry key="H2" value="36.10556880515334" />
+      <entry key="H4" value="39.237372231269084" />
+      <entry key="D1" value="77.94845501007136" />
+      <entry key="W1" value="176.10410476353698" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="1.5874846284461604E-165" />
+      <entry key="M10" value="4.554838960606591E-83" />
+      <entry key="M15" value="1.4941718082171817E-55" />
+      <entry key="M30" value="5.237579420731387E-28" />
+      <entry key="H1" value="3.199325491716954E-14" />
+      <entry key="H2" value="2.522800920538426E-7" />
+      <entry key="H4" value="7.301630998392313E-4" />
+      <entry key="D1" value="1.2682321271078187" />
+      <entry key="W1" value="6.101428397655183" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9802645787042837" />
+      <entry key="MS500" value="1.2771761158147752" />
+      <entry key="S2" value="3.094487928947744" />
+      <entry key="S5" value="5.378492425578582" />
+      <entry key="S10" value="6.849429223479366" />
+      <entry key="S30" value="8.188277900440802" />
+      <entry key="S60" value="8.580838575307626" />
+      <entry key="M2" value="8.812240253495546" />
+      <entry key="M5" value="10.254271336307259" />
+      <entry key="M10" value="14.703967856991184" />
+      <entry key="M15" value="18.67581990862425" />
+      <entry key="M30" value="25.837012645439902" />
+      <entry key="H1" value="31.742406681798993" />
+      <entry key="H2" value="36.10554234186995" />
+      <entry key="H4" value="39.23808804334772" />
+      <entry key="D1" value="79.21666830618324" />
+      <entry key="W1" value="182.205520629902" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3GDlWNud9lzF5IvpxhrI9tHQY1r" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Build audit_ready.executor": "Run",
+    "Cargo.Run kiff-runtime.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "yarn",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/apps" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Cargo.Run kiff-runtime">
+    <configuration name="Build audit_ready" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="build --package audit_ready --lib" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run kiff-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="run --package runtime --bin kiff-runtime" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run kiff" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run --package kiff --bin kiff" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test open_frappe" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --workspace" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Build audit_ready" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="" />
+      <created>1783514050462</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1783514050462</updated>
+      <workItem from="1783514051586" duration="7833000" />
+      <workItem from="1783525353057" duration="26213000" />
+      <workItem from="1783585354201" duration="38163000" />
+      <workItem from="1783670437523" duration="6505000" />
+      <workItem from="1783678568811" duration="154000" />
+      <workItem from="1783679184532" duration="29477000" />
+      <workItem from="1783773069519" duration="106516000" />
+      <workItem from="1784188874819" duration="4893000" />
+    </task>
+    <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
+      <option name="closed" value="true" />
+      <created>1783516287347</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1783516287347</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests.">
+      <option name="closed" value="true" />
+      <created>1783532335345</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1783532335345</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions.">
+      <option name="closed" value="true" />
+      <created>1783583306744</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1783583306744</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions.">
+      <option name="closed" value="true" />
+      <created>1783583338908</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1783583338908</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly.">
+      <option name="closed" value="true" />
+      <created>1783701589796</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1783701589796</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
+      <option name="closed" value="true" />
+      <created>1783709174937</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1783709174937</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
+      <option name="closed" value="true" />
+      <created>1783710512504</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1783710512504</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
+      <option name="closed" value="true" />
+      <created>1783710894064</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1783710894064</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Add Playwright E2E tests for Infrastructure Server and Kubernetes Cluster creation&#10;&#10;Introduced end-to-end tests to validate the creation and persistence of Infrastructure Servers and Kubernetes Clusters via the UI, ensuring backend data integrity and expected UI behavior.">
+      <option name="closed" value="true" />
+      <created>1783711031187</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1783711031187</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward.">
+      <option name="closed" value="true" />
+      <created>1783806367627</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1783806367627</updated>
+    </task>
+    <task id="LOCAL-00011" summary="fixed bugs">
+      <option name="closed" value="true" />
+      <created>1783861706505</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1783861706505</updated>
+    </task>
+    <task id="LOCAL-00012" summary="fixed bugs">
+      <option name="closed" value="true" />
+      <created>1783863442876</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1783863442876</updated>
+    </task>
+    <task id="LOCAL-00013" summary="fixee">
+      <option name="closed" value="true" />
+      <created>1783864940643</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1783864940643</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Enhance OAuth handling with improved error logging and input validation">
+      <option name="closed" value="true" />
+      <created>1783868056759</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1783868056759</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers.">
+      <option name="closed" value="true" />
+      <created>1783870573315</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1783870573315</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement.">
+      <option name="closed" value="true" />
+      <created>1783872272112</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1783872272112</updated>
+    </task>
+    <task id="LOCAL-00017" summary="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration.">
+      <option name="closed" value="true" />
+      <created>1783873644289</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1783873644289</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts.">
+      <option name="closed" value="true" />
+      <created>1783878638724</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1783878638724</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases.">
+      <option name="closed" value="true" />
+      <created>1783880249820</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1783880249820</updated>
+    </task>
+    <task id="LOCAL-00020" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783881458014</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1783881458014</updated>
+    </task>
+    <task id="LOCAL-00021" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783883019878</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1783883019878</updated>
+    </task>
+    <task id="LOCAL-00022" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
+      <option name="closed" value="true" />
+      <created>1783886013566</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1783886013566</updated>
+    </task>
+    <task id="LOCAL-00023" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
+      <option name="closed" value="true" />
+      <created>1783888820229</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1783888820230</updated>
+    </task>
+    <task id="LOCAL-00024" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
+      <option name="closed" value="true" />
+      <created>1783890315530</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1783890315530</updated>
+    </task>
+    <task id="LOCAL-00025" summary="Add enhanced logging and tenant-specific handling for OAuth providers&#10;&#10;Improved debug and warning logs for OAuth provider flows. Added logic to rewrite `/common/` Microsoft OAuth endpoints to tenant-specific URLs. Enhanced flow configuration to ensure compatibility and accuracy of authorization and token exchange mechanisms.">
+      <option name="closed" value="true" />
+      <created>1783928283062</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1783928283062</updated>
+    </task>
+    <task id="LOCAL-00026" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
+      <option name="closed" value="true" />
+      <created>1783932398301</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1783932398301</updated>
+    </task>
+    <task id="LOCAL-00027" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
+      <option name="closed" value="true" />
+      <created>1783937006043</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1783937006043</updated>
+    </task>
+    <task id="LOCAL-00028" summary="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling">
+      <option name="closed" value="true" />
+      <created>1783946699298</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1783946699298</updated>
+    </task>
+    <task id="LOCAL-00029" summary="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`.">
+      <option name="closed" value="true" />
+      <created>1783952296620</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1783952296620</updated>
+    </task>
+    <task id="LOCAL-00030" summary="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments.">
+      <option name="closed" value="true" />
+      <created>1783966205438</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1783966205438</updated>
+    </task>
+    <task id="LOCAL-00031" summary="Add workspace redirects and enhance fleet UI filtering&#10;&#10;Introduced redirects for custom workspace pages in Rust runtime to align with new URL structure. Enhanced fleet UI with status-based filtering and visibility counts, improving user experience in Ops Portal. Updated log engine data files and index metadata to reflect recent changes in logs and segments.">
+      <option name="closed" value="true" />
+      <created>1783971205448</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1783971205448</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
+      <option name="closed" value="true" />
+      <created>1784049011223</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1784049011223</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
+      <option name="closed" value="true" />
+      <created>1784049058101</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1784049058101</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Add in-memory caches for telemetry and job handling.&#10;&#10;Introduced RAM-based caches for patch jobs, software inventories, and log staging to reduce SQLite contention and enhance system responsiveness. Updated APIs and the log engine to leverage these caches for high-frequency tasks, ensuring consistent, real-time performance while persisting data asynchronously.">
+      <option name="closed" value="true" />
+      <created>1784060571483</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1784060571483</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads.">
+      <option name="closed" value="true" />
+      <created>1784095629273</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1784095629273</updated>
+    </task>
+    <task id="LOCAL-00036" summary="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
+      <option name="closed" value="true" />
+      <created>1784102007028</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1784102007028</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement." />
+    <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
+    <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
+    <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
+    <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
+    <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
+    <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
+    <MESSAGE value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
+    <MESSAGE value="Add enhanced logging and tenant-specific handling for OAuth providers&#10;&#10;Improved debug and warning logs for OAuth provider flows. Added logic to rewrite `/common/` Microsoft OAuth endpoints to tenant-specific URLs. Enhanced flow configuration to ensure compatibility and accuracy of authorization and token exchange mechanisms." />
+    <MESSAGE value="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps" />
+    <MESSAGE value="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling" />
+    <MESSAGE value="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`." />
+    <MESSAGE value="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments." />
+    <MESSAGE value="Add workspace redirects and enhance fleet UI filtering&#10;&#10;Introduced redirects for custom workspace pages in Rust runtime to align with new URL structure. Enhanced fleet UI with status-based filtering and visibility counts, improving user experience in Ops Portal. Updated log engine data files and index metadata to reflect recent changes in logs and segments." />
+    <MESSAGE value="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance." />
+    <MESSAGE value="Add real-time RAM caching for log ingestion and fleet status.&#10;&#10;Introduced an in-memory staging buffer for log records to enhance ingestion performance by reducing disk writes. Extended fleet status and patch job handling to leverage RAM caches for real-time updates, minimizing SQLite queries and improving responsiveness across both APIs and the UI." />
+    <MESSAGE value="Add in-memory caches for telemetry and job handling.&#10;&#10;Introduced RAM-based caches for patch jobs, software inventories, and log staging to reduce SQLite contention and enhance system responsiveness. Updated APIs and the log engine to leverage these caches for high-frequency tasks, ensuring consistent, real-time performance while persisting data asynchronously." />
+    <MESSAGE value="Add dynamic configuration and improve batching efficiency&#10;&#10;Introduce environment variable-based overrides for various parameters, such as log engine heap size, max SQLite connections, batch sizes, and intervals, to enhance configurability. Refactor existing bulk operations and background tasks to process in chunks, reducing contention and improving performance. Additionally, adjust defaults for more resource-efficient operation on constrained systems." />
+    <MESSAGE value="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads." />
+    <MESSAGE value="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions." />
+    <MESSAGE value="Improve error handling for Kubernetes step failure details in frontend&#10;&#10;Enhanced the logic for handling missing step details by displaying a fallback message when the server lacks the `k8s_step_failure_detail` implementation." />
+    <MESSAGE value="Add support for dismissing pending OS updates&#10;&#10;Introduced a new &quot;Dismiss&quot; action in the frontend to hide pending updates already installed outside the agent. Added backend API method `audit_ready.dismiss_pending_update` to apply dismiss" />
+    <MESSAGE value="Add support for dismissing pending OS updates&#10;&#10;Introduced a new &quot;Dismiss&quot; action in the frontend to hide pending updates already installed outside the agent. Added backend API method `audit_ready.dismiss_pending_update` to apply dismissals persistently and filter them from pending updates. Updated README and relevant modules." />
+    <MESSAGE value="Replace `strongroom` with `audit_ready` in runtime workspace dependencies" />
+    <MESSAGE value="Fiixed massive db error" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fiixed massive db error" />
+  </component>
+</project>

@@ -375,6 +375,26 @@ pub fn current_py_session_user() -> Option<String> {
     })
 }
 
+/// Create a single-use OAuth login state via the embedded Frappe.
+///
+/// Frappe versions newer than 16.25 validate the OAuth callback's `state`
+/// against a cache entry written by `frappe.utils.oauth.create_oauth_state`
+/// (single-use, 10-minute TTL). The login page is rendered by Rust, so the
+/// state must be created here — in the same process and cache that the
+/// Python callback later consults — or every social login is rejected with
+/// "Your login attempt is invalid or has expired" (417).
+///
+/// Returns `None` when the embedded Frappe predates that API (the caller
+/// then falls back to the legacy base64-JSON state those versions expect)
+/// or when Python is unavailable.
+pub fn create_oauth_state(redirect_to: Option<&str>) -> Option<String> {
+    Python::with_gil(|py| {
+        let oauth = py.import("frappe.utils.oauth").ok()?;
+        let func = oauth.getattr("create_oauth_state").ok()?;
+        func.call1((redirect_to,)).ok()?.extract::<String>().ok()
+    })
+}
+
 pub fn call_method_with_user(
     method_path: &str,
     kwargs: &serde_json::Value,
