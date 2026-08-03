@@ -4,6 +4,7 @@ pub mod document;
 pub mod filters;
 pub mod hooks;
 pub mod migrations;
+pub mod password;
 pub mod pool;
 pub mod query;
 

@@ -17,7 +17,7 @@ members = [
     "crates/kiff_logger",
     "crates/protocol",
     "rust_apps/core",
-    "rust_apps/sebrus_apps",
+    "rust_apps/audit_ready",
 ]
 
 [workspace.dependencies]
@@ -69,6 +69,7 @@ tower        = { version = "0.5" }
 tower-http   = { version = "0.5",  features = ["trace", "cors", "fs"] }
 base64       = { version = "0.21" }
 rand         = { version = "0.8" }
+fernet       = { version = "0.2" }
 
 # internal crates
 error        = { path = "crates/error" }
@@ -110,3 +111,4 @@ sebrus_apps = { path = "rust_apps/sebrus_apps" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
 kiff_logger = { path = "crates/kiff_logger" }
+fernet = { workspace = true }

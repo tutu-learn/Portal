@@ -298,7 +298,7 @@ pub async fn insert_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+    let (site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
         Some(sp) => sp,
         None => {
             return (
@@ -334,8 +334,25 @@ pub async fn insert_doc(
     for (k, v) in body.fields.clone() {
         doc.set_field(k, v);
     }
+    // Password fields go Fernet-encrypted into __auth, never into the table.
+    let extracted_passwords =
+        match orm::password::extract_password_fields(&pool, &doctype, &mut doc.fields).await {
+            Ok(v) => v,
+            Err(e) => return frappe_error_response(e),
+        };
     match pool.insert_doc(&doc).await {
         Ok(name) => {
+            if let Err(e) = orm::password::apply_password_fields(
+                &pool,
+                &doctype,
+                &name,
+                &site.config.encryption_key,
+                &extracted_passwords,
+            )
+            .await
+            {
+                return frappe_error_response(e);
+            }
             if is_user_doctype {
                 state.permissions.clear_roles_cache(&name);
             }
@@ -392,7 +409,7 @@ pub async fn update_doc(
         return virtual_doctype_error(&doctype);
     }
 
-    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+    let (site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
         Some(sp) => sp,
         None => {
             return (
@@ -427,8 +444,27 @@ pub async fn update_doc(
             for (k, v) in body.clone() {
                 doc.set_field(k, v);
             }
+            // Password fields go Fernet-encrypted into __auth, never into the
+            // table.
+            let extracted_passwords =
+                match orm::password::extract_password_fields(&pool, &doctype, &mut doc.fields).await
+                {
+                    Ok(v) => v,
+                    Err(e) => return frappe_error_response(e),
+                };
             match pool.save_doc(&doc).await {
                 Ok(_) => {
+                    if let Err(e) = orm::password::apply_password_fields(
+                        &pool,
+                        &doctype,
+                        &name,
+                        &site.config.encryption_key,
+                        &extracted_passwords,
+                    )
+                    .await
+                    {
+                        return frappe_error_response(e);
+                    }
                     if doctype == "User" {
                         state.permissions.clear_roles_cache(&name);
                     }
@@ -2655,8 +2691,8 @@ async fn desk_form_save(
         return virtual_doctype_error(&doctype);
     }
 
-    let pool = match resolve_site_pool(state, headers).map(|(_, p)| p) {
-        Some(p) => p,
+    let (site, pool) = match resolve_site_pool(state, headers) {
+        Some(sp) => sp,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -2752,6 +2788,15 @@ async fn desk_form_save(
         }
     }
 
+    // Password fields are never written to the data table: strip them from
+    // the document and persist them Fernet-encrypted in __auth after the row
+    // save succeeds.
+    let extracted_passwords =
+        match orm::password::extract_password_fields(&pool, &doctype, &mut doc.fields).await {
+            Ok(v) => v,
+            Err(e) => return frappe_error_response(e),
+        };
+
     if is_new {
         match pool.insert_doc(&doc).await {
             Ok(saved_name) => doc.name = saved_name,
@@ -2760,6 +2805,29 @@ async fn desk_form_save(
     } else {
         if let Err(e) = pool.save_doc(&doc).await {
             return frappe_error_response(e);
+        }
+    }
+
+    if let Err(e) = orm::password::apply_password_fields(
+        &pool,
+        &doctype,
+        &doc.name,
+        &site.config.encryption_key,
+        &extracted_passwords,
+    )
+    .await
+    {
+        return frappe_error_response(e);
+    }
+
+    // Echo the dummy placeholder for fields that still hold a secret so Desk
+    // keeps showing the password as set after save (Frappe does the same).
+    for (fieldname, value) in &extracted_passwords {
+        if value.as_str().is_some_and(|s| !s.is_empty()) {
+            doc.fields.insert(
+                fieldname.clone(),
+                json!(orm::password::DUMMY_PASSWORD),
+            );
         }
     }
 

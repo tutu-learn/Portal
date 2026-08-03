@@ -52,6 +52,18 @@ async fn main() -> error::Result<()> {
                 } else {
                     info!("migrations complete for site {}", name);
                 }
+                // Move any legacy plaintext Password columns into __auth.
+                // Runs before doctype sync so a table recreate during sync
+                // cannot drop a plaintext column before its values are moved.
+                if let Err(e) =
+                    orm::password::migrate_plaintext_password_columns(&p, &site.config.encryption_key)
+                        .await
+                {
+                    error!(
+                        "plaintext password migration failed for site {}: {}",
+                        name, e
+                    );
+                }
                 // Sync Frappe doctypes: metadata tables, dynamic data tables, seed data
                 let fixtures = rust_app_registry.all_doctypes();
                 let workspace_fixtures: Vec<(String, String, String)> = rust_app_registry

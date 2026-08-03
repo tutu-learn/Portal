@@ -826,7 +826,7 @@ async fn recreate_table_with_migration(
     Ok(())
 }
 
-fn data_table_name(doctype: &str) -> String {
+pub(crate) fn data_table_name(doctype: &str) -> String {
     let name = doctype.to_lowercase().replace(" ", "_");
     name.strip_prefix("tab").unwrap_or(&name).to_string()
 }
@@ -867,6 +867,9 @@ fn is_ui_or_child_field(fieldtype: &str) -> bool {
             | "Heading"
             | "HTML"
             | "Button"
+            // Password values live Fernet-encrypted in __auth, never in a
+            // plaintext column on the data table (Frappe's architecture).
+            | "Password"
     )
 }
 

@@ -28,6 +28,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/protocol/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/rust_apps/audit_ready/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rust_apps/sebrus_apps/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/rust_apps/Strongroom/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
