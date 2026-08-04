@@ -41,7 +41,7 @@
         },
         {
             "fieldname": "token_hash",
-            "fieldtype": "Password",
+            "fieldtype": "Data",
             "label": "Token Hash",
             "read_only": 1,
             "hidden": 1
