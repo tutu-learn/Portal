@@ -38,12 +38,15 @@ impl AuthService {
         site: &str,
         metadata: crate::session::SessionMetadata,
     ) -> Result<Session> {
-        let hash = self.get_password_hash(pool, username).await?;
+        let (canonical_user, hash) = self.find_user_credentials(pool, username).await?;
         if !self.verify_password(password, &hash).await? {
             return Err(RuntimeError::Auth("invalid password".into()));
         }
+        // Create the session under the canonical User name, not the raw login
+        // string: users may log in with their email while their User document
+        // (and therefore has_role.parent) is keyed by a different name.
         self.store
-            .create_with_metadata(pool, username.into(), site.into(), metadata)
+            .create_with_metadata(pool, canonical_user, site.into(), metadata)
             .await
     }
 
@@ -55,12 +58,24 @@ impl AuthService {
     /// Public so non-HTTP shells (e.g. the Tauri desktop app) can verify
     /// credentials without creating an HTTP session record.
     pub async fn get_password_hash(&self, pool: &DatabasePool, username: &str) -> Result<String> {
+        self.find_user_credentials(pool, username)
+            .await
+            .map(|(_, hash)| hash)
+    }
+
+    /// Find a user by login string (`name` or email) and return their
+    /// canonical User document name together with the stored password hash.
+    async fn find_user_credentials(
+        &self,
+        pool: &DatabasePool,
+        username: &str,
+    ) -> Result<(String, String)> {
         // Try to read from __auth table by username, falling back to email.
         for filter_col in ["name", "email"] {
             let rows = pool
                 .execute_sql(
                     &format!(
-                        r#"SELECT a.password FROM "__auth" a
+                        r#"SELECT u.name AS user_name, a.password FROM "__auth" a
                        JOIN "user" u ON u.name = a.name
                        WHERE u.{} = ? AND a.doctype = 'User' AND a.fieldname = 'password'"#,
                         filter_col
@@ -70,8 +85,16 @@ impl AuthService {
                 .await?;
 
             if let Some(row) = rows.into_iter().next() {
-                if let Some(hash) = row.get("password").and_then(|v| v.as_str()) {
-                    return Ok(hash.to_string());
+                let hash = row
+                    .get("password")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let name = row
+                    .get("user_name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                if let (Some(name), Some(hash)) = (name, hash) {
+                    return Ok((name, hash));
                 }
             }
         }

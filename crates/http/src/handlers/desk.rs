@@ -648,6 +648,102 @@ fn slugify(name: &str) -> String {
     name.to_lowercase().replace(' ', "-")
 }
 
+/// Build `desktop_icons` boot entries, mirroring Frappe's
+/// `create_desktop_icons_from_installed_apps` and
+/// `create_desktop_icons_from_workspace`: one "App" icon per installed app
+/// and one "Link" icon per public workspace. The desk sidebar dropdown and
+/// the /desk icon grid are driven entirely by this list — when it is empty
+/// there is no way to navigate to another app's workspaces (e.g. Sebrus
+/// Apps) from the sidebar.
+fn build_desktop_icons(workspaces: &[Value], app_data: &[Value]) -> Vec<Value> {
+    let mut icons = Vec::new();
+    for (idx, app) in app_data.iter().enumerate() {
+        let label = app
+            .get("app_title")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        if label.is_empty() {
+            continue;
+        }
+        icons.push(json!({
+            "name": label,
+            "label": label,
+            "icon_type": "App",
+            "link_type": "External",
+            "link": app.get("app_route").cloned().unwrap_or(Value::Null),
+            "app": app.get("app_name").cloned().unwrap_or(Value::Null),
+            "logo_url": app.get("app_logo_url").cloned().unwrap_or(Value::Null),
+            "icon": "",
+            "parent_icon": Value::Null,
+            "idx": idx,
+            "standard": 1,
+            "hidden": 0,
+        }));
+    }
+    let offset = icons.len();
+    for (i, ws) in workspaces.iter().enumerate() {
+        let title = ws.get("title").and_then(|v| v.as_str()).unwrap_or_default();
+        let name = ws.get("name").and_then(|v| v.as_str()).unwrap_or_default();
+        if title.is_empty() || name.is_empty() {
+            continue;
+        }
+        icons.push(json!({
+            "name": title,
+            "label": title,
+            "icon_type": "Link",
+            "link_type": "Workspace Sidebar",
+            "link_to": name,
+            "link": Value::Null,
+            "icon": ws.get("icon").cloned().unwrap_or(Value::Null),
+            "app": ws.get("app").cloned().unwrap_or(Value::Null),
+            "logo_url": "",
+            "parent_icon": Value::Null,
+            "idx": offset + i,
+            "standard": 1,
+            "hidden": 0,
+        }));
+    }
+    icons
+}
+
+/// Rust equivalent of Frappe's `get_desktop_icon_urls`: scan each installed
+/// app's `public/icons/desktop_icons/{subtle,solid}` directories and map app
+/// name → variant → asset URLs. The desk frontend reads
+/// `frappe.boot.desktop_icon_urls[app][variant]` when rendering desktop
+/// icons and crashes without it.
+fn load_desktop_icon_urls(installed_apps: &[String]) -> Map<String, Value> {
+    let mut map = Map::new();
+    for app in installed_apps {
+        let icons_dir = PathBuf::from("apps")
+            .join(app)
+            .join(app)
+            .join("public")
+            .join("icons")
+            .join("desktop_icons");
+        if !icons_dir.is_dir() {
+            continue;
+        }
+        let mut variants = Map::new();
+        for variant in ["subtle", "solid"] {
+            let mut urls = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(icons_dir.join(variant)) {
+                for entry in entries.flatten() {
+                    let fname = entry.file_name().to_string_lossy().to_string();
+                    if fname.ends_with(".svg") {
+                        urls.push(json!(format!(
+                            "assets/{}/icons/desktop_icons/{}/{}",
+                            app, variant, fname
+                        )));
+                    }
+                }
+            }
+            variants.insert(variant.to_string(), json!(urls));
+        }
+        map.insert(app.clone(), Value::Object(variants));
+    }
+    map
+}
+
 /// Read the Frappe apps installed on this site and append the registered
 /// Rust apps so both Python and Rust workspaces show up in the app switcher.
 async fn get_installed_apps(rust_apps: &rust_apps_core::RustAppRegistry) -> Vec<String> {
@@ -908,6 +1004,8 @@ async fn build_boot_info(
 
     let (workspaces_value, workspace_sidebar_item_value, default_workspace_obj) =
         build_workspace_boot_objects(&workspaces, is_guest);
+    let desktop_icons = build_desktop_icons(&workspaces, &app_data);
+    let desktop_icon_urls = load_desktop_icon_urls(&installed_apps);
 
     // Try to build bootinfo via the real Frappe boot module through the Python bridge.
     // Frappe 16's frontend expects many fields that are tedious to hardcode; delegating
@@ -940,7 +1038,7 @@ async fn build_boot_info(
             // Overlay Kiff-specific / runtime-controlled fields.
             boot.insert("assets_json".to_string(), json!(bundle_map));
             boot.insert("sitename".to_string(), json!("localhost"));
-            boot.insert("home_page".to_string(), json!("Workspaces"));
+            boot.insert("home_page".to_string(), json!("desktop"));
             boot.insert("lang".to_string(), json!("en"));
             boot.insert("desk_theme".to_string(), json!("Light"));
             boot.insert("developer_mode".to_string(), json!(true));
@@ -967,6 +1065,15 @@ async fn build_boot_info(
             boot.insert("module_list".to_string(), json!(module_list.clone()));
             boot.insert("module_app".to_string(), Value::Object(module_app.clone()));
             boot.insert("app_data".to_string(), json!(app_data.clone()));
+            // The Python bootinfo reads desktop icons from the (empty) Desktop
+            // Icon table; overlay the runtime-generated list so the sidebar
+            // dropdown and /desk grid can reach every app's workspaces.
+            boot.insert("desktop_icons".to_string(), json!(desktop_icons.clone()));
+            boot.insert(
+                "desktop_icon_urls".to_string(),
+                Value::Object(desktop_icon_urls.clone()),
+            );
+            boot.insert("desktop_icon_style".to_string(), json!("Subtle"));
             boot.insert(
                 "allowed_modules".to_string(),
                 json!(allowed_modules.clone()),
@@ -1336,7 +1443,7 @@ async fn build_boot_info(
     boot.insert("user_info".to_string(), Value::Object(user_info));
     boot.insert("sysdefaults".to_string(), Value::Object(sysdefaults));
     boot.insert("sitename".to_string(), json!("localhost"));
-    boot.insert("home_page".to_string(), json!("Workspaces"));
+    boot.insert("home_page".to_string(), json!("desktop"));
     boot.insert("lang".to_string(), json!("en"));
     boot.insert("desk_theme".to_string(), json!("Light"));
     boot.insert("modules".to_string(), Value::Object(modules_map));
@@ -1438,8 +1545,15 @@ async fn build_boot_info(
     boot.insert("letter_heads".to_string(), json!({}));
     boot.insert("module_app".to_string(), Value::Object(module_app));
     boot.insert("app_data".to_string(), json!(app_data));
-    boot.insert("app_name_style".to_string(), json!("Default"));
-    boot.insert("desktop_icons".to_string(), json!([]));
+    // app_name_style must stay absent (real Frappe boot does not set it): a
+    // "Default" value makes sidebar.choose_app_name() return early, leaving
+    // frappe.current_app unset and the Workspaces dropdown empty.
+    boot.insert("desktop_icons".to_string(), json!(desktop_icons));
+    boot.insert(
+        "desktop_icon_urls".to_string(),
+        Value::Object(desktop_icon_urls),
+    );
+    boot.insert("desktop_icon_style".to_string(), json!("Subtle"));
     boot.insert("calendars".to_string(), json!([]));
     boot.insert("treeviews".to_string(), json!([]));
     boot.insert("print_css".to_string(), json!(""));

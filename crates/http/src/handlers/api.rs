@@ -334,6 +334,10 @@ pub async fn insert_doc(
     for (k, v) in body.fields.clone() {
         doc.set_field(k, v);
     }
+    // Honor DocType `autoname = "field:<fieldname>"` instead of a random UUID.
+    if let Some(named) = autoname_field_value(&pool, &doctype, &doc.fields).await {
+        doc.name = named;
+    }
     // Password fields are stored as dummy placeholders in the data table,
     // with the real secret Fernet-encrypted in __auth.
     if let Err(e) = orm::password::process_password_fields_for_save(
@@ -1104,6 +1108,32 @@ pub async fn getdoc_native(
 
 fn is_new_doc_name(name: &str) -> bool {
     name.starts_with("new-")
+}
+
+/// Resolve DocType `autoname = "field:<fieldname>"` to a document name taken
+/// from the given fields (e.g. Sebrus Client is named by `client_name`).
+/// Returns `None` for other autoname rules or a missing/empty field value.
+async fn autoname_field_value(
+    pool: &orm::DatabasePool,
+    doctype: &str,
+    fields: &HashMap<String, Value>,
+) -> Option<String> {
+    let rule: String = pool
+        .execute_sql(
+            r#"SELECT autoname FROM "doctype" WHERE name = ?"#,
+            vec![Value::String(doctype.into())],
+        )
+        .await
+        .ok()?
+        .into_iter()
+        .next()
+        .and_then(|mut r| r.remove("autoname"))
+        .and_then(|v| v.as_str().map(String::from))?;
+    let field = rule.strip_prefix("field:")?;
+    fields
+        .get(field)
+        .and_then(|v| v.as_str().map(String::from))
+        .filter(|s| !s.trim().is_empty())
 }
 
 /// Build a blank document for a new/unsaved record, applying field defaults
@@ -2236,7 +2266,15 @@ async fn load_doctype_metadata(
 ) -> Result<Vec<serde_json::Value>, String> {
     for fixture in state.rust_apps.all_doctypes() {
         if fixture.name == doctype {
-            return load_doctype_from_content(doctype, &fixture.json, cached_timestamp, None, None);
+            // Rust app doctypes ship as in-memory fixtures, but a companion
+            // `<doctype>.js` / `.css` may still live next to the JSON on
+            // disk — load it so form-level behaviour (workflow buttons,
+            // custom controllers) reaches the desk.
+            let (js, css) = match find_doctype_in_apps_dir("rust_apps", doctype) {
+                Some(path) => read_doctype_assets(&path).await?,
+                None => (None, None),
+            };
+            return load_doctype_from_content(doctype, &fixture.json, cached_timestamp, js, css);
         }
     }
 
@@ -2743,6 +2781,14 @@ async fn desk_form_save(
         doc.set_field(k, v);
     }
 
+    // Honor DocType `autoname = "field:<fieldname>"` (e.g. Sebrus Client is
+    // named by client_name) instead of a random UUID.
+    if is_new {
+        if let Some(named) = autoname_field_value(&pool, &doctype, &doc.fields).await {
+            doc.name = named;
+        }
+    }
+
     let ptype = if is_new { "create" } else { "write" };
     match state
         .permissions
@@ -2784,7 +2830,7 @@ async fn desk_form_save(
     if let Err(e) = orm::password::process_password_fields_for_save(
         &pool,
         &doctype,
-        &real_name,
+        &doc.name,
         &site.config.encryption_key,
         &mut doc.fields,
     )

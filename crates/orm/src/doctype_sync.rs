@@ -122,6 +122,9 @@ async fn sync_metadata(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Re
                 }
                 fields_synced += 1;
             }
+            if let Err(e) = prune_stale_docfields(pool, doctype_name, fields).await {
+                warn!("failed to prune stale docfields for {}: {}", doctype_name, e);
+            }
         }
 
         if let Err(e) = insert_docperms(pool, doctype_name, &doc).await {
@@ -206,6 +209,9 @@ async fn sync_metadata(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Re
                         continue;
                     }
                     fields_synced += 1;
+                }
+                if let Err(e) = prune_stale_docfields(pool, doctype_name, fields).await {
+                    warn!("failed to prune stale docfields for {}: {}", doctype_name, e);
                 }
             }
 
@@ -412,6 +418,7 @@ async fn insert_docfield(
         format!("{}-{}", parent, fieldname)
     };
 
+
     let sql = r#"
         INSERT OR REPLACE INTO "docfield" (
             name, creation, modified, modified_by, owner, docstatus,
@@ -478,6 +485,48 @@ async fn insert_docfield(
     ];
 
     pool.execute_sql(sql, params).await?;
+    Ok(())
+}
+
+/// Delete docfield rows for `doctype_name` that are no longer present in the
+/// fixture, so fields removed from a DocType JSON disappear from forms and
+/// metadata on the next sync.
+async fn prune_stale_docfields(
+    pool: &DatabasePool,
+    doctype_name: &str,
+    fields: &[serde_json::Value],
+) -> Result<()> {
+    let keep: Vec<String> = fields
+        .iter()
+        .map(|f| json_str(f, "fieldname"))
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let rows = pool
+        .execute_sql(
+            r#"SELECT fieldname FROM "docfield" WHERE parent = ?"#,
+            vec![serde_json::Value::String(doctype_name.into())],
+        )
+        .await?;
+    for mut row in rows {
+        let Some(existing) = row
+            .remove("fieldname")
+            .and_then(|v| v.as_str().map(String::from))
+        else {
+            continue;
+        };
+        if !keep.iter().any(|k| k == &existing) {
+            pool.execute_sql(
+                r#"DELETE FROM "docfield" WHERE parent = ? AND fieldname = ?"#,
+                vec![
+                    serde_json::Value::String(doctype_name.into()),
+                    serde_json::Value::String(existing.clone()),
+                ],
+            )
+            .await?;
+            info!("pruned stale docfield {}.{}", doctype_name, existing);
+        }
+    }
     Ok(())
 }
 

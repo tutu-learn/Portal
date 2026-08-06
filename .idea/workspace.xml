@@ -62,18 +62,45 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add IntelliJ IDEA configuration files for Sebrus Apps module&#10;&#10;This commit includes the necessary .idea configuration files to support the Sebrus Apps module in IntelliJ IDEA. It sets up module structure, source folders, and Git VCS mappings for seamless development integration.">
-      <change beforePath="$PROJECT_DIR$/.idea/SebrusApps.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/SebrusApps.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor password field handling in ORM and runtime&#10;&#10;- Moved plaintext password migration logic to `migrate_plaintext_password_values`.&#10;- Replaced password field extraction with `process_password_fields_for_save` for streamlined encryption and storage in `__auth`.&#10;- Updated ORM methods to persist password placeholders in data tables while encrypting secrets in `__auth`.&#10;- Improved comments and consistency for Frappe compatibility.">
+      <change afterPath="$PROJECT_DIR$/dbg4.tmp.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/e2e/release-flow.spec.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/deploy.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_deploy_record.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_deployment.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_service.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/migrate.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/workflow.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/session/src/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/session/src/auth.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/vault.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/vault.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_app.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_app.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_app_service.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_client.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_client.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_deployment.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_deployment.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_project.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_project.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_secret.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_secret.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_service_version.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/doctypes/sebrus_apps/sebrus_service_version.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/methods.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/methods.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/page.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/vault.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/vault.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/workspaces/sebrus_apps/sebrus_apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/workspaces/sebrus_apps/sebrus_apps.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,12 +108,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19523" />
+    <option name="cachedIndexableFilesCount" value="19575" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/sebrus_apps" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -110,23 +137,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0008740545794668" />
-      <entry key="MS500" value="1.2832195814989946" />
-      <entry key="S2" value="3.0991581438655054" />
-      <entry key="S5" value="5.382514516404964" />
-      <entry key="S10" value="6.8522434860237675" />
-      <entry key="S30" value="8.189476680588225" />
-      <entry key="S60" value="8.581477448207952" />
-      <entry key="M2" value="8.812571483354622" />
-      <entry key="M5" value="10.25443351341621" />
-      <entry key="M10" value="14.704093193748623" />
-      <entry key="M15" value="18.675929070980708" />
-      <entry key="M30" value="25.837089774980715" />
-      <entry key="H1" value="31.742454126004898" />
-      <entry key="H2" value="36.10556880515334" />
-      <entry key="H4" value="39.237372231269084" />
-      <entry key="D1" value="77.94845501007136" />
-      <entry key="W1" value="176.10410476353698" />
+      <entry key="MS100" value="1.2665439510088339" />
+      <entry key="MS500" value="3.21047467025174" />
+      <entry key="S2" value="6.069364597941069" />
+      <entry key="S5" value="8.753309407599042" />
+      <entry key="S10" value="10.467857218601251" />
+      <entry key="S30" value="12.04008347469302" />
+      <entry key="S60" value="12.503653806313121" />
+      <entry key="M2" value="12.772745242977509" />
+      <entry key="M5" value="14.23637231813827" />
+      <entry key="M10" value="18.691796417024445" />
+      <entry key="M15" value="22.665788277771558" />
+      <entry key="M30" value="29.83026788939569" />
+      <entry key="H1" value="35.7383210119104" />
+      <entry key="H2" value="40.10323546918255" />
+      <entry key="H4" value="43.236109820845215" />
+      <entry key="D1" value="81.94804739989588" />
+      <entry key="W1" value="180.1039750997838" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -137,34 +164,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="1.5874846284461604E-165" />
-      <entry key="M10" value="4.554838960606591E-83" />
-      <entry key="M15" value="1.4941718082171817E-55" />
-      <entry key="M30" value="5.237579420731387E-28" />
-      <entry key="H1" value="3.199325491716954E-14" />
-      <entry key="H2" value="2.522800920538426E-7" />
-      <entry key="H4" value="7.301630998392313E-4" />
-      <entry key="D1" value="1.2682321271078187" />
-      <entry key="W1" value="6.101428397655183" />
+      <entry key="M5" value="1.5851572398113942E-165" />
+      <entry key="M10" value="4.5514988436250156E-83" />
+      <entry key="M15" value="1.493441256404831E-55" />
+      <entry key="M30" value="5.236298848130364E-28" />
+      <entry key="H1" value="3.1989343550207714E-14" />
+      <entry key="H2" value="2.522646702066296E-7" />
+      <entry key="H4" value="7.301407821133904E-4" />
+      <entry key="D1" value="1.2682256663555573" />
+      <entry key="W1" value="6.101423957289222" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9802645787042837" />
-      <entry key="MS500" value="1.2771761158147752" />
-      <entry key="S2" value="3.094487928947744" />
-      <entry key="S5" value="5.378492425578582" />
-      <entry key="S10" value="6.849429223479366" />
-      <entry key="S30" value="8.188277900440802" />
-      <entry key="S60" value="8.580838575307626" />
-      <entry key="M2" value="8.812240253495546" />
-      <entry key="M5" value="10.254271336307259" />
-      <entry key="M10" value="14.703967856991184" />
-      <entry key="M15" value="18.67581990862425" />
-      <entry key="M30" value="25.837012645439902" />
-      <entry key="H1" value="31.742406681798993" />
-      <entry key="H2" value="36.10554234186995" />
-      <entry key="H4" value="39.23808804334772" />
-      <entry key="D1" value="79.21666830618324" />
-      <entry key="W1" value="182.205520629902" />
+      <entry key="MS100" value="1.2445760905243892" />
+      <entry key="MS500" value="3.193119506737269" />
+      <entry key="S2" value="6.06017924769334" />
+      <entry key="S5" value="8.747265688034066" />
+      <entry key="S10" value="10.463950751511113" />
+      <entry key="S30" value="12.038490118653272" />
+      <entry key="S60" value="12.502812624739489" />
+      <entry key="M2" value="12.772311495579936" />
+      <entry key="M5" value="14.236168828692808" />
+      <entry key="M10" value="18.691650387447503" />
+      <entry key="M15" value="22.665665310149564" />
+      <entry key="M30" value="29.830183848317333" />
+      <entry key="H1" value="35.73827010803804" />
+      <entry key="H2" value="40.103207274716176" />
+      <entry key="H4" value="43.23682474462762" />
+      <entry key="D1" value="83.21625409094625" />
+      <entry key="W1" value="186.20538650516258" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -176,34 +203,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Build audit_ready.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Run kiff-runtime.executor&quot;: &quot;Run&quot;,
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Build audit_ready.executor": "Run",
+    "Cargo.Run kiff-runtime.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/SebrusApps",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "yarn",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -604,11 +631,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement." />
-    <MESSAGE value="Refactor OAuth provider resolution logic&#10;&#10;Simplified and streamlined the logic for mapping OAuth provider keys and Social Login Keys, improving maintainability and error handling." />
-    <MESSAGE value="Refactor OAuth key resolution and provider mapping logic&#10;&#10;Streamlined methods for resolving OAuth providers and Social Login Keys, removed redundant code, and enhanced error handling for improved maintainability and stability." />
-    <MESSAGE value="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration." />
-    <MESSAGE value="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts." />
     <MESSAGE value="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases." />
     <MESSAGE value="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging" />
     <MESSAGE value="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs." />
@@ -629,6 +651,11 @@
     <MESSAGE value="Add support for dismissing pending OS updates&#10;&#10;Introduced a new &quot;Dismiss&quot; action in the frontend to hide pending updates already installed outside the agent. Added backend API method `audit_ready.dismiss_pending_update` to apply dismissals persistently and filter them from pending updates. Updated README and relevant modules." />
     <MESSAGE value="Replace `strongroom` with `audit_ready` in runtime workspace dependencies" />
     <MESSAGE value="Fiixed massive db error" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fiixed massive db error" />
+    <MESSAGE value="Add IntelliJ IDEA configuration files for Sebrus Apps module&#10;&#10;This commit includes the necessary .idea configuration files to support the Sebrus Apps module in IntelliJ IDEA. It sets up module structure, source folders, and Git VCS mappings for seamless development integration." />
+    <MESSAGE value="Implement password persistence and encryption for Frappe compatibility&#10;&#10;- Introduced Fernet encryption for password fields, mirroring Frappe's `__auth` architecture.&#10;- Redirected password field storage from document tables to encrypted `__auth` entries.&#10;- Added migration logic to move plaintext password columns to `__auth`, ensuring data security.&#10;- Updated ORM with password extraction, masking, and storage methods.&#10;- Refactored workspace configurations and dependencies for `audit_ready` and `sebrus_apps`.&#10;- Incorporated encryption and migration logic into runtime and API handlers." />
+    <MESSAGE value="Update password masking to align with Frappe's field initialization logic&#10;&#10;- Refined password masking to ensure non-authenticated fields are set to `Value::Null` instead of being removed.&#10;- Updated comments and tests to reflect Frappe's behavior of initializing non-table fields to `None`." />
+    <MESSAGE value="Switch workspace dependencies and configuration to Sebrus Apps  &#10;&#10;- Updated workspace and runtime dependencies to replace `audit_ready` with `sebrus_apps`.  &#10;- Adjusted `apps.json` and IntelliJ IDEA project files to align with the Sebrus Apps module." />
+    <MESSAGE value="Refactor password field handling in ORM and runtime&#10;&#10;- Moved plaintext password migration logic to `migrate_plaintext_password_values`.&#10;- Replaced password field extraction with `process_password_fields_for_save` for streamlined encryption and storage in `__auth`.&#10;- Updated ORM methods to persist password placeholders in data tables while encrypting secrets in `__auth`.&#10;- Improved comments and consistency for Frappe compatibility." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor password field handling in ORM and runtime&#10;&#10;- Moved plaintext password migration logic to `migrate_plaintext_password_values`.&#10;- Replaced password field extraction with `process_password_fields_for_save` for streamlined encryption and storage in `__auth`.&#10;- Updated ORM methods to persist password placeholders in data tables while encrypting secrets in `__auth`.&#10;- Improved comments and consistency for Frappe compatibility." />
   </component>
 </project>

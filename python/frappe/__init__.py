@@ -1813,8 +1813,11 @@ def _patch_modules():
                 raise
             # Ensure fields the Frappe 16 frontend always iterates are present
             # and well-typed so the desk sidebar / workspace pages don't crash.
+            # Note: app_name_style must stay absent (real Frappe boot does not
+            # set it) — a "Default" value makes sidebar.choose_app_name()
+            # return early so frappe.current_app is never set and the
+            # sidebar's Workspaces dropdown stays empty.
             info.setdefault("app_data", [])
-            info.setdefault("app_name_style", "Default")
             info.setdefault("desktop_icons", [])
             info.setdefault("workspace_sidebar_item", {})
             info.setdefault("module_app", {})
