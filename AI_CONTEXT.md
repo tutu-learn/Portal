@@ -58,6 +58,37 @@ python/frappe/
 
 ---
 
+## Hard Rules for AI Agents
+
+- **Always use DocTypes.** Every table an app stores rows in MUST be backed
+  by a registered DocType — never add a raw SQL-only table. When you create
+  a new table:
+  1. Write the DocType JSON under `rust_apps/<app>/src/doctypes/<module>/`
+     with fields matching the table columns, and register a
+     `DoctypeFixture` in the app's `lib.rs`. The DocType name must map to
+     the table name via `lowercase + spaces→underscores` (e.g. "K8s
+     Inventory" → `k8s_inventory`).
+  2. Every row MUST carry a unique `name` (the DocType record identity —
+     Desk CRUD addresses rows by it). If the natural key is composite, put
+     the composite (or a UUID) in `name` and keep the natural key in real
+     fields. Code INSERTs must set `name` explicitly.
+  3. Do not rely on table constraints (PK/UNIQUE) for upsert dedup: the
+     DocType sync (`orm::doctype_sync`) may have created the table first
+     without them. Use SELECT→UPDATE/INSERT, or ensure equivalent unique
+     indexes in `ensure_tables`, and keep migrations idempotent via
+     `orm::doctype_sync::add_column_if_missing`.
+  4. The only acceptable exceptions are secret/internal state that must
+     never appear in Desk (e.g. `k8s_server_keys`, the Ed25519 signing
+     key) — and those must be documented as deliberate exceptions.
+- **Never persist secrets.** Secret-bearing content (manifests, helm specs,
+  registry credentials, request bodies embedding them) must live in memory
+  only — see `k8s::payloads` for the pattern (RAM store keyed by command id,
+  evicted on delivery, lost on pod restart by design). When you add a write
+  path, check whether the payload can contain credentials before putting it
+  in a table; if it can, keep it in RAM or store only a redacted form.
+
+---
+
 ## Current 500 Error — Root Cause Chain
 
 ```

@@ -799,8 +799,18 @@ async fn create_data_table(
             continue;
         }
 
-        // Column missing — try ALTER TABLE ADD COLUMN
-        let alter_sql = format!("ALTER TABLE \"{}\" ADD COLUMN {}", table, col_def);
+        // Column missing — try ALTER TABLE ADD COLUMN. The `name` column is
+        // added without its PRIMARY KEY constraint: neither SQLite nor
+        // Postgres can add a PK column to an existing table, and failing here
+        // would trigger a destructive recreate of tables that predate the
+        // DocType (e.g. the k8s control-plane tables). A plain TEXT column is
+        // enough for the ORM to read/write those rows.
+        let alter_def = if col_name == "name" {
+            "name TEXT"
+        } else {
+            col_def.as_str()
+        };
+        let alter_sql = format!("ALTER TABLE \"{}\" ADD COLUMN {}", table, alter_def);
         match pool.execute_sql(&alter_sql, vec![]).await {
             Ok(_) => info!("added column {} to {}", col_name, table),
             Err(e) => {
@@ -880,12 +890,19 @@ pub(crate) fn data_table_name(doctype: &str) -> String {
     name.strip_prefix("tab").unwrap_or(&name).to_string()
 }
 
-async fn add_column_if_missing(
+/// Add a column to an existing table when it is not present yet. Also used by
+/// Rust apps to evolve their own raw tables (e.g. adding the `name` column a
+/// table needs once it becomes DocType-backed).
+///
+/// Returns `true` when the column was added by this call, so callers can gate
+/// one-time backfills on the schema change. A failed ALTER is logged and
+/// reported as "not added".
+pub async fn add_column_if_missing(
     pool: &DatabasePool,
     table: &str,
     column: &str,
     column_def: &str,
-) -> Result<()> {
+) -> Result<bool> {
     let pragma = format!(r#"PRAGMA table_info("{}")"#, table);
     let rows = pool.execute_sql(&pragma, vec![]).await?;
     let exists = rows.iter().any(|r| {
@@ -895,14 +912,19 @@ async fn add_column_if_missing(
             .unwrap_or(false)
     });
     if exists {
-        return Ok(());
+        return Ok(false);
     }
     let alter_sql = format!(r#"ALTER TABLE "{}" ADD COLUMN {}"#, table, column_def);
     match pool.execute_sql(&alter_sql, vec![]).await {
-        Ok(_) => info!("added column {} to {}", column, table),
-        Err(e) => warn!("failed to add column {} to {}: {}", column, table, e),
+        Ok(_) => {
+            info!("added column {} to {}", column, table);
+            Ok(true)
+        }
+        Err(e) => {
+            warn!("failed to add column {} to {}: {}", column, table, e);
+            Ok(false)
+        }
     }
-    Ok(())
 }
 
 fn is_ui_or_child_field(fieldtype: &str) -> bool {
@@ -2036,4 +2058,70 @@ fn val(s: String) -> serde_json::Value {
 
 fn num(n: i64) -> serde_json::Value {
     serde_json::Value::Number(n.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A raw table created before its DocType existed (no `name` column)
+    /// must gain a plain TEXT column via ALTER — never a drop-and-recreate.
+    /// Neither SQLite nor Postgres can add a PRIMARY KEY column to an
+    /// existing table, and recreating would silently drop constraints,
+    /// indexes, and the table's identity.
+    #[tokio::test]
+    async fn existing_table_without_name_column_is_not_recreated() {
+        let path = format!(
+            "/tmp/orm_doctype_sync_noname_{}.db",
+            std::process::id()
+        );
+        let _ = std::fs::remove_file(&path);
+        let pool = DatabasePool::connect_sqlite(&path).await.unwrap();
+        pool.execute_sql(
+            r#"CREATE TABLE "k8s_command" (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT ''
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+        pool.execute_sql(
+            r#"INSERT INTO "k8s_command" (id, status) VALUES ('cmd-1', 'Queued')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        create_data_table(
+            &pool,
+            "K8s Command",
+            false,
+            &[
+                ("id".to_string(), "Data".to_string()),
+                ("status".to_string(), "Data".to_string()),
+            ],
+        )
+        .await
+        .unwrap();
+
+        // The row survived (no recreate) and `name` was added as plain TEXT.
+        let rows = pool
+            .execute_sql(r#"SELECT id, status, name FROM "k8s_command""#, vec![])
+            .await
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("id").and_then(|v| v.as_str()), Some("cmd-1"));
+        assert_eq!(rows[0].get("status").and_then(|v| v.as_str()), Some("Queued"));
+        // The primary key is still `id`: a conflicting insert must fail.
+        let dup = pool
+            .execute_sql(
+                r#"INSERT INTO "k8s_command" (id, status) VALUES ('cmd-1', 'X')"#,
+                vec![],
+            )
+            .await;
+        assert!(dup.is_err());
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
