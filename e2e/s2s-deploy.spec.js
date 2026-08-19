@@ -109,6 +109,7 @@ async function createFixture(page, suffix, mockUrl, kind = 'script') {
     doctype: 'Sebrus Deployment',
     name: `new-sebrus-deployment-${suffix}`,
     __islocal: 1,
+    client: client.name,
     app: app.name,
     project: project.name,
     tier: 'Shared',
@@ -168,6 +169,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
     mock.state.requests = [];
     mock.state.failWith = null;
     mock.state.liveStatus = 'Running';
+    mock.state.liveOutput = '[mock] pulling artifacts...\n[mock] deploy complete';
   });
 
   test('config status reports configured without leaking the token', async ({ page }) => {
@@ -380,6 +382,218 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(row.deploy_status).toBe('Deployed');
   });
 
+  test('deployment_logs refreshes live output without changing deploy_status', async ({ page }) => {
+    const suffix = uid();
+    const { deployment } = await createFixture(page, suffix, mock.url);
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+
+    // Live output lands on the ref; deploy_status is left alone (still
+    // Queued — viewing logs never marks a deployment done).
+    mock.state.liveStatus = 'InProgress';
+    const logs = await callMethod(page, 'sebrus_apps.deployment_logs', {
+      deployment: deployment.name,
+    });
+    expect(logs.ok, `deployment_logs failed: ${logs.error}`).toBe(true);
+    expect(logs.message.deploy_status).toBe('Queued');
+    expect(logs.message.all_done).toBe(false);
+    expect(logs.message.refs.length).toBe(1);
+    expect(logs.message.refs[0].service).toBe(`svc-${suffix}`);
+    expect(logs.message.refs[0].live_status).toBe('InProgress');
+    expect(logs.message.refs[0].live_output).toContain('[mock] deploy complete');
+    expect(logs.message.refs[0].live_progress).toBe(50);
+
+    const row = deploymentRow(deployment.name);
+    expect(row.deploy_status).toBe('Queued');
+    // s2s_refs is comma-laden JSON — the CSV-based queryRows() helper
+    // truncates it, so check persistence with a LIKE in the DB instead.
+    const persisted = query(
+      `SELECT COUNT(*) FROM "sebrus_deployment" WHERE name = '${deployment.name}' AND s2s_refs LIKE '%[mock] deploy complete%'`
+    );
+    expect(persisted).toBe('1');
+
+    // Audit Ready's terminal success status is Done (script/iis) — it counts
+    // as finished, still without flipping deploy_status.
+    mock.state.liveStatus = 'Done';
+    const done = await callMethod(page, 'sebrus_apps.deployment_logs', {
+      deployment: deployment.name,
+    });
+    expect(done.ok, `Done deployment_logs failed: ${done.error}`).toBe(true);
+    expect(done.message.refs[0].live_status).toBe('Done');
+    expect(done.message.all_done).toBe(true);
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
+
+    // No Audit Ready deploy yet → friendly note, not an error.
+    const fresh = await createFixture(page, uid(), mock.url);
+    const empty = await callMethod(page, 'sebrus_apps.deployment_logs', {
+      deployment: fresh.deployment.name,
+    });
+    expect(empty.ok, `empty deployment_logs failed: ${empty.error}`).toBe(true);
+    expect(empty.message.refs).toEqual([]);
+    expect(empty.message.note).toContain('No Audit Ready deploy');
+  });
+
+  test('post-queue failure inside Audit Ready flips deploy_status and unlocks Retry Deploy', async ({ page }) => {
+    const suffix = uid();
+    const { deployment } = await createFixture(page, suffix, mock.url);
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
+
+    // The rollout queued fine but then failed inside Audit Ready — the exact
+    // case that used to leave deploy_status stuck on Queued with no Retry.
+    mock.state.liveStatus = 'Failed';
+    const logs = await callMethod(page, 'sebrus_apps.deployment_logs', {
+      deployment: deployment.name,
+    });
+    expect(logs.ok, `deployment_logs failed: ${logs.error}`).toBe(true);
+    expect(logs.message.refs[0].live_status).toBe('Failed');
+    expect(logs.message.deploy_status).toBe('Failed');
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Failed');
+
+    // Retry Deploy reruns the deploy and re-queues.
+    mock.state.liveStatus = 'Running';
+    const retry = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Retry Deploy',
+    });
+    expect(retry.ok, `retry failed: ${retry.error}`).toBe(true);
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
+  });
+
+  test('Mark Deployed surfaces a post-queue failure as deploy_status Failed', async ({ page }) => {
+    const suffix = uid();
+    const { deployment } = await createFixture(page, suffix, mock.url);
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+
+    mock.state.liveStatus = 'Failed';
+    const mark = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Mark Deployed',
+    });
+    expect(mark.ok, 'Mark Deployed must refuse while a service failed').toBe(false);
+    expect(JSON.stringify(mark)).toContain('Failed');
+    expect(deploymentRow(deployment.name).workflow_state).toBe('Approved');
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Failed');
+  });
+
+  test('delete_service deletes the linked s2s deployment and cascades locally', async ({ page }) => {
+    const suffix = uid();
+    const { deployment, service } = await createFixture(page, suffix, mock.url);
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    const approve = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+    expect(approve.ok, `approve failed: ${approve.error}`).toBe(true);
+
+    // A service-level secret owned by this service.
+    const sec = await callMethod(page, 'sebrus_apps.create_secret', {
+      owner_type: 'Sebrus Service',
+      owner: service.name,
+      secret_key: 'SVC_TOKEN',
+      secret_value: 'svc-secret-value',
+    });
+    expect(sec.ok, `service secret failed: ${sec.error}`).toBe(true);
+
+    // The s2s deployment id Audit Ready returned for this service.
+    const s2sId = query(
+      `SELECT s2s_deployment_id FROM "sebrus_deploy_record" WHERE service = '${service.name}'`
+    );
+    expect(s2sId).toContain('dep-mock-');
+
+    const del = await callMethod(page, 'sebrus_apps.delete_service', { service: service.name });
+    expect(del.ok, `delete_service failed: ${del.error}`).toBe(true);
+    expect(del.message.remote_deleted).toBe(1);
+    expect(del.message.remote_errors).toEqual([]);
+
+    // The mock received the remote DELETE, authed + attributed.
+    const deletes = mock.state.requests.filter((r) => r.method === 'DELETE');
+    expect(deletes.length).toBe(1);
+    expect(deletes[0].path).toBe(`/audit_ready/s2s/deployments/${s2sId}`);
+    expect(deletes[0].token).toBe('Bearer mock-s2s-token');
+    expect(deletes[0].operator).toBe('Administrator');
+
+    // Local cascade: service, its deploy records, pinned versions and
+    // service-level secrets are gone.
+    expect(query(`SELECT COUNT(*) FROM "sebrus_service" WHERE name = '${service.name}'`)).toBe('0');
+    expect(
+      query(`SELECT COUNT(*) FROM "sebrus_deploy_record" WHERE service = '${service.name}'`)
+    ).toBe('0');
+    expect(
+      query(`SELECT COUNT(*) FROM "sebrus_service_version" WHERE service = '${service.name}'`)
+    ).toBe('0');
+    expect(
+      query(
+        `SELECT COUNT(*) FROM "sebrus_secret" WHERE owner_type = 'Sebrus Service' AND owner_name = '${service.name}'`
+      )
+    ).toBe('0');
+
+    // Deleting an unknown service is a NotFound, not a silent ok.
+    const missing = await callMethod(page, 'sebrus_apps.delete_service', { service: service.name });
+    expect(missing.ok).toBe(false);
+  });
+
+  test('portal shows live deploy logs and auto-opens them after Approve', async ({ page }) => {
+    const suffix = uid();
+    const { deployment } = await createFixture(page, suffix, mock.url);
+
+    // Portal workflow buttons confirm via window.confirm — accept them all.
+    page.on('dialog', (d) => d.accept());
+
+    await page.goto('/sebrus_apps/portal');
+    await page.locator('.nav-item', { hasText: 'Deployments' }).first().click();
+    await page.locator(`[data-goto-deployment="${deployment.name}"]`).first().click();
+    await expect(page.locator('.panel-title').first()).toContainText(`S2S App ${suffix}`, {
+      timeout: 15000,
+    });
+
+    // Submit → Approve through the portal; the logs modal opens on its own.
+    await page.locator('[data-wf-action="Submit for Approval"]').click();
+    await page.locator('[data-wf-action="Approve"]').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('[data-wf-action="Approve"]').click();
+    await page.locator('#logsModal').waitFor({ state: 'visible', timeout: 15000 });
+    await expect(page.locator('#logsModal .panel-title')).toContainText('Deploy logs');
+    await expect(page.locator('#logsBody')).toContainText(`svc-${suffix}`, { timeout: 15000 });
+    await expect(page.locator('#logsBody')).toContainText('[mock] deploy complete');
+
+    // The deployment view syncs live status on entry (maybeSyncEnvHealth);
+    // the mock reports Running, a healthy steady state → deploy_status has
+    // already flipped to Deployed by the time the logs modal polls.
+    expect(deploymentRow(deployment.name).deploy_status).toBe('Deployed');
+
+    // Close, reopen via the View logs button: same live content.
+    await page.locator('#logsClose').click();
+    await page.locator('#logsModal').waitFor({ state: 'hidden' });
+    await page.locator('[data-view-logs]').click();
+    await page.locator('#logsModal').waitFor({ state: 'visible' });
+    await expect(page.locator('#logsBody')).toContainText('[mock] deploy complete', {
+      timeout: 15000,
+    });
+  });
+
   test('approve without Audit Ready fields is rejected before any call', async ({ page }) => {
     const suffix = uid();
     await page.goto('/desk');
@@ -407,6 +621,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
       doctype: 'Sebrus Deployment',
       name: `new-sebrus-deployment-${suffix}`,
       __islocal: 1,
+      client: client.name,
       app: app.name,
       project: project.name,
       tier: 'Shared',
@@ -556,6 +771,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
       doctype: 'Sebrus Deployment',
       name: `new-sebrus-deployment-${suffix}`,
       __islocal: 1,
+      client: client.name,
       app: app.name,
       project: project.name,
       tier: 'Shared',
@@ -681,6 +897,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
       doctype: 'Sebrus Deployment',
       name: `new-sebrus-deployment-${suffix}`,
       __islocal: 1,
+      client: client.name,
       app: app.name,
       project: project.name,
       tier: 'Shared',
@@ -842,6 +1059,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
       doctype: 'Sebrus Deployment',
       name: `new-sebrus-deployment-${suffix}`,
       __islocal: 1,
+      client: client.name,
       app: app.name,
       project: project.name,
       tier: 'Shared',

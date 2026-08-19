@@ -6,12 +6,14 @@ const http = require('http');
  * answers with spec-shaped responses. Control behavior via `state`:
  *   - failWith: HTTP status POST /deployments should fail with (null = ok)
  *   - liveStatus: status reported by GET /deployments/:id live_status
+ *   - liveOutput: console-output tail reported in live_status.output
  */
 async function startMockAuditReady() {
   const state = {
     requests: [], // { method, path, token, operator, body }
     failWith: null,
     liveStatus: 'Running',
+    liveOutput: '[mock] pulling artifacts...\n[mock] deploy complete',
   };
   const server = http.createServer((req, res) => {
     let chunks = [];
@@ -41,9 +43,14 @@ async function startMockAuditReady() {
         res.end(
           JSON.stringify({
             id: req.url.split('/').pop(),
-            live_status: { status: state.liveStatus, progress: 50, result: '', error: '' },
+            live_status: { status: state.liveStatus, progress: 50, result: '', error: '', output: state.liveOutput },
           })
         );
+        return;
+      }
+      // The mock tracks no ids — like GET, DELETE of any id succeeds.
+      if (req.method === 'DELETE' && req.url.startsWith('/audit_ready/s2s/deployments/')) {
+        res.end(JSON.stringify({ ok: true }));
         return;
       }
       if (req.method === 'GET' && req.url === '/audit_ready/s2s/servers') {

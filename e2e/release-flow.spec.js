@@ -133,6 +133,7 @@ async function createDeployment(page, suffix, auditReady = false) {
     doctype: 'Sebrus Deployment',
     name: `new-sebrus-deployment-${suffix}`,
     __islocal: 1,
+    client: client.name,
     app: app.name,
     project: project.name,
     tier: 'Shared',
@@ -221,7 +222,7 @@ test.describe('Portal: new deployment form', () => {
     await page.locator('#ndTier').selectOption('Shared');
     await page.locator('#ndTargetType').selectOption('server');
     await page.locator('#ndKind').selectOption('script');
-    await page.locator('#ndTarget').fill('win-web-01');
+    await page.locator('#ndTargetManual').fill('win-web-01');
     await page.locator('#ndScript').fill('echo deploy');
     await page.locator(`.nd-ver[data-service="${service.name}"]`).fill('3.1.0');
     await page.locator('#depModalCreate').click();
@@ -296,7 +297,7 @@ test.describe('Portal: new deployment form', () => {
     await page.locator('#ndProject').selectOption({ value: project.name });
     await page.locator('#ndTargetType').selectOption('server');
     await page.locator('#ndKind').selectOption('iis');
-    await page.locator('#ndTarget').fill('win-web-01');
+    await page.locator('#ndTargetManual').fill('win-web-01');
     // ADO artifact link.
     await page.locator('#ndAdoOrg').fill('myorg');
     await page.locator('#ndAdoProject').fill('Billing');
@@ -396,7 +397,14 @@ test.describe('Deployment approval workflow', () => {
     expect(deployed.ok, `mark deployed failed: ${deployed.error}`).toBe(true);
     expect(dbWorkflowState(name)).toBe('Deployed');
 
-    // Terminal state: no further transitions.
+    // Deployed is not terminal: one deployment per scenario, so the next
+    // release is a repin + Retry Deploy on the same record, landing back in
+    // Approved (and re-queued with Audit Ready).
+    const retry = await callTransition(page, name, 'Retry Deploy');
+    expect(retry.ok, `retry from Deployed failed: ${retry.error}`).toBe(true);
+    expect(dbWorkflowState(name)).toBe('Approved');
+
+    // Out-of-state transitions are still refused.
     const after = await callTransition(page, name, 'Submit for Approval');
     expect(after.ok).toBe(false);
   });
@@ -449,6 +457,93 @@ test.describe('Deployment approval workflow', () => {
     );
     expect(res.ok, `direct workflow_state edit was not rejected: ${JSON.stringify(res.json)}`).toBe(false);
     expect(dbWorkflowState(name)).toBe('Draft');
+  });
+
+  test('one deployment per scenario (client × project × app)', async ({ page }) => {
+    const suffix = uid();
+    await page.goto('/desk');
+    await page.locator('body').waitFor({ state: 'visible' });
+
+    const client = await saveDoc(page, {
+      doctype: 'Sebrus Client',
+      name: `new-sebrus-client-${suffix}`,
+      __islocal: 1,
+      client_name: `Scenario Client ${suffix}`,
+    });
+    const client2 = await saveDoc(page, {
+      doctype: 'Sebrus Client',
+      name: `new-sebrus-client-b-${suffix}`,
+      __islocal: 1,
+      client_name: `Scenario Client B ${suffix}`,
+    });
+    const project = await saveDoc(page, {
+      doctype: 'Sebrus Project',
+      name: `new-sebrus-project-${suffix}`,
+      __islocal: 1,
+      project_name: `Scenario Project ${suffix}`,
+      client: client.name,
+    });
+    const app = await saveDoc(page, {
+      doctype: 'Sebrus App',
+      name: `new-sebrus-app-${suffix}`,
+      __islocal: 1,
+      app_name: `Scenario App ${suffix}`,
+      app_type: 'Client App',
+    });
+    const first = await saveDoc(page, {
+      doctype: 'Sebrus Deployment',
+      name: `new-sebrus-deployment-${suffix}`,
+      __islocal: 1,
+      client: client.name,
+      app: app.name,
+      project: project.name,
+      tier: 'Shared',
+      workflow_state: 'Draft',
+    });
+
+    // A second deployment for the same client × project × app is rejected.
+    const dupe = await page.evaluate(async (doc) => {
+      const body = new URLSearchParams();
+      body.append('doc', JSON.stringify(doc));
+      body.append('action', 'Save');
+      const r = await fetch('/api/method/frappe.desk.form.save.savedocs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'include',
+        body,
+      });
+      const json = await r.json();
+      return { ok: r.ok && !json.exc_type && !json.error, json };
+    }, {
+      doctype: 'Sebrus Deployment',
+      name: `new-sebrus-deployment-dupe-${suffix}`,
+      __islocal: 1,
+      client: client.name,
+      app: app.name,
+      project: project.name,
+      tier: 'Shared',
+      workflow_state: 'Draft',
+    });
+    expect(dupe.ok, `duplicate scenario was not rejected: ${JSON.stringify(dupe.json)}`).toBe(false);
+    expect(JSON.stringify(dupe.json)).toContain('already exists');
+    expect(JSON.stringify(dupe.json)).toContain(first.name);
+
+    // Same project + app under a different client is a different scenario —
+    // one project can be deployed for different clients.
+    const other = await saveDoc(page, {
+      doctype: 'Sebrus Deployment',
+      name: `new-sebrus-deployment-other-${suffix}`,
+      __islocal: 1,
+      client: client2.name,
+      app: app.name,
+      project: project.name,
+      tier: 'Shared',
+      workflow_state: 'Draft',
+    });
+    expect(other.name).toBeTruthy();
   });
 
   test('Sebrus Developer can submit but not approve', async ({ page, context, browser }) => {
@@ -569,6 +664,7 @@ test.describe('Release flow: client → project → app → deployment', () => {
       doctype: 'Sebrus Deployment',
       name: `new-sebrus-deployment-${suffix}`,
       __islocal: 1,
+      client: client.name,
       app: app.name,
       project: project.name,
       tier: 'Dedicated',
