@@ -634,6 +634,26 @@ mod tests {
     }
 
     #[test]
+    fn committed_service_and_timestamp_range() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        let mut fresh = LogRecord::new("INFO", "sebrus_apps.audit", "fresh audit");
+        fresh.timestamp = 5_000;
+        let mut stale = LogRecord::new("INFO", "sebrus_apps.audit", "stale audit");
+        stale.timestamp = 1_000;
+        engine.ingest(fresh).unwrap();
+        engine.ingest(stale).unwrap();
+        engine.commit().unwrap();
+
+        let hits = engine
+            .query("service:sebrus_apps.audit AND timestamp:[4000 TO *]", 10)
+            .unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].message, "fresh audit");
+    }
+
+    #[test]
     fn prune_older_than_removes_old_records() {
         let dir = temp_dir();
         let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
