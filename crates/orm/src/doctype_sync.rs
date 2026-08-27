@@ -1200,7 +1200,10 @@ fn generate_admin_password() -> String {
 }
 
 /// Hash a password with argon2id for storage in `__auth`.
-fn hash_admin_password(password: &str) -> Result<String> {
+///
+/// Used for the seeded Administrator and by apps creating users with a
+/// usable login password (e.g. Strongroom's first-boot setup).
+pub fn hash_user_password(password: &str) -> Result<String> {
     use argon2::password_hash::{rand_core::OsRng, SaltString};
     use argon2::{Argon2, PasswordHasher};
 
@@ -1306,7 +1309,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
                 pw
             }
         };
-        let admin_hash = hash_admin_password(&admin_password)?;
+        let admin_hash = hash_user_password(&admin_password)?;
         pool.execute_sql(
             &format!(
                 r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
