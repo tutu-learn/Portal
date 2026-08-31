@@ -47,7 +47,7 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/sebrus_apps">
+      <package file="$PROJECT_DIR$/rust_apps/sebrus_logger">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/session">
@@ -62,15 +62,20 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets.">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add dynamic app registration, runtime refactors, and test updates &#10;&#10;- Replaced hardcoded app dependencies with `apps.json` for dynamic app loading.  &#10;- Added `RuntimeExecutor` and `RuntimeSchedulerBackend` to dispatch jobs and handle scheduled tasks.&#10;- Updated `AppState` test helper to register sites, fixing HTTP test failures.  &#10;- Removed `strongroom` dependency; introduced `sebrus_logger`.  &#10;- Created `RUNTIME_SETUP.md` to document runtime configuration and module setup.">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/release-flow.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/release-flow.spec.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/deploy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/deploy.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime.toml" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,7 +83,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19562" />
+    <option name="cachedIndexableFilesCount" value="19517" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -107,23 +112,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.6231691872427332" />
-      <entry key="MS500" value="4.621481093597312" />
-      <entry key="S2" value="6.8699672358565165" />
-      <entry key="S5" value="7.517884727335574" />
-      <entry key="S10" value="7.753583163598319" />
-      <entry key="S30" value="7.916636393539293" />
-      <entry key="S60" value="7.958162953154468" />
-      <entry key="M2" value="7.9790425015674575" />
-      <entry key="M5" value="7.991607625533023" />
-      <entry key="M10" value="7.995802253496606" />
-      <entry key="M15" value="7.99720723911008" />
-      <entry key="M30" value="8.006005506296765" />
-      <entry key="H1" value="8.270245392705501" />
-      <entry key="H2" value="10.378248096429447" />
-      <entry key="H4" value="18.777072686222443" />
-      <entry key="D1" value="82.46156825120974" />
-      <entry key="W1" value="199.74141788915213" />
+      <entry key="MS100" value="2.4628819808981586" />
+      <entry key="MS500" value="5.526372387983436" />
+      <entry key="S2" value="7.834345669137119" />
+      <entry key="S5" value="8.502267968224151" />
+      <entry key="S10" value="8.745525791569067" />
+      <entry key="S30" value="8.913893171833" />
+      <entry key="S60" value="8.956784028079317" />
+      <entry key="M2" value="8.97835120016455" />
+      <entry key="M5" value="8.991330662317768" />
+      <entry key="M10" value="8.995663698002392" />
+      <entry key="M15" value="8.997114852282891" />
+      <entry key="M30" value="9.00595926192912" />
+      <entry key="H1" value="9.270221507334673" />
+      <entry key="H2" value="11.378233109662336" />
+      <entry key="H4" value="19.77705912864922" />
+      <entry key="D1" value="83.46155832794584" />
+      <entry key="W1" value="200.74141445536742" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -134,34 +139,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="2.2677538221928887E-208" />
-      <entry key="M10" value="1.7215364254667164E-104" />
-      <entry key="M15" value="7.810808632631335E-70" />
-      <entry key="M30" value="3.7868521675970483E-35" />
-      <entry key="H1" value="8.602650740623311E-18" />
-      <entry key="H2" value="4.136851327379808E-9" />
-      <entry key="H4" value="9.350037388421142E-5" />
-      <entry key="D1" value="0.9003906884024124" />
-      <entry key="W1" value="5.810038129283442" />
+      <entry key="M5" value="2.2676752291964066E-208" />
+      <entry key="M10" value="1.7215065937722003E-104" />
+      <entry key="M15" value="7.810718399152852E-70" />
+      <entry key="M30" value="3.786830293944362E-35" />
+      <entry key="H1" value="8.60262589522958E-18" />
+      <entry key="H2" value="4.136845353536551E-9" />
+      <entry key="H4" value="9.350030637431856E-5" />
+      <entry key="D1" value="0.9003905800511572" />
+      <entry key="W1" value="5.810038029402204" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5582860819479996" />
-      <entry key="MS500" value="4.549605576977446" />
-      <entry key="S2" value="6.8412710878934915" />
-      <entry key="S5" value="7.505194870823116" />
-      <entry key="S10" value="7.747018979559124" />
-      <entry key="S30" value="7.914397876995606" />
-      <entry key="S60" value="7.957037276486494" />
-      <entry key="M2" value="7.978478050146498" />
-      <entry key="M5" value="7.991381456731974" />
-      <entry key="M10" value="7.995689104299402" />
-      <entry key="M15" value="7.997131791884588" />
-      <entry key="M30" value="8.00596776249687" />
-      <entry key="H1" value="8.270226280814605" />
-      <entry key="H2" value="10.378237391075093" />
-      <entry key="H4" value="18.77715816001436" />
-      <entry key="D1" value="83.36194389108094" />
-      <entry key="W1" value="205.5514438105157" />
+      <entry key="MS100" value="2.3056565148464827" />
+      <entry key="MS500" value="5.435396345693319" />
+      <entry key="S2" value="7.800613199488372" />
+      <entry key="S5" value="8.487527191108583" />
+      <entry key="S10" value="8.73792924845311" />
+      <entry key="S30" value="8.911308917425014" />
+      <entry key="S60" value="8.955485274677494" />
+      <entry key="M2" value="8.977700158003321" />
+      <entry key="M5" value="8.991069844596527" />
+      <entry key="M10" value="8.995533222236524" />
+      <entry key="M15" value="8.997027853542715" />
+      <entry key="M30" value="9.00591574213742" />
+      <entry key="H1" value="9.270199507389894" />
+      <entry key="H2" value="11.378220960267857" />
+      <entry key="H4" value="19.77714388035137" />
+      <entry key="D1" value="84.36193373912954" />
+      <entry key="W1" value="206.55144025965882" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -173,34 +178,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Build audit_ready.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Run kiff-runtime.executor&quot;: &quot;Run&quot;,
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/SebrusApps&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Build audit_ready.executor": "Run",
+    "Cargo.Run kiff-runtime.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/logger",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "yarn",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
