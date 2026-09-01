@@ -1202,23 +1202,40 @@ def _patch_real_module(mod):
                     )
 
                     # Safety net: if the access token URL still points to /common/ but
-                    # the authorize URL is tenant-specific, rewrite the token URL.
-                    # Only when the Social Login Key has opted into org-only login —
-                    # otherwise /common/ is intentional and must be left alone so
-                    # personal Microsoft accounts keep working.
+                    # the Social Login Key has opted into org-only login, rewrite the
+                    # token URL to the tenant-specific endpoint. This has to happen
+                    # *after* the overlay above, since that overlay re-reads the raw
+                    # (still /common/) URLs straight from the Social Login Key doc and
+                    # clobbers whatever tenant-specific rewrite get_oauth2_providers()
+                    # already did. Source the tenant id from the Social Login Key's
+                    # Base URL / config rather than re-parsing authorize_url, because
+                    # authorize_url has just been overlaid back to its raw /common/
+                    # value too and would otherwise never resolve to a tenant here.
+                    restrict_to_tenant, office365_tenant_id = _office365_restrict_to_tenant(
+                        provider_key
+                    )
                     if (
-                        _office365_restrict_to_tenant(provider_key)[0]
+                        restrict_to_tenant
                         and "/common/" in access_token_url
                         and "login.microsoftonline.com" in access_token_url
                     ):
                         import re
 
-                        m = re.search(
-                            r"login\.microsoftonline\.com/([^/]+)/oauth2",
-                            authorize_url,
-                        )
-                        if m and m.group(1) and m.group(1) != "common":
-                            tenant_id = m.group(1)
+                        tenant_id = office365_tenant_id
+                        if not tenant_id:
+                            tenant_id = (
+                                frappe.conf.get("office_365_tenant_id")
+                                or frappe.conf.get("audit_ready_office_365_tenant_id")
+                                or os.environ.get("OFFICE_365_TENANT_ID")
+                            )
+                        if not tenant_id:
+                            m = re.search(
+                                r"login\.microsoftonline\.com/([^/]+)/oauth2",
+                                authorize_url,
+                            )
+                            if m and m.group(1) and m.group(1) != "common":
+                                tenant_id = m.group(1)
+                        if tenant_id:
                             access_token_url = access_token_url.replace(
                                 "/common/", "/%s/" % tenant_id
                             )
