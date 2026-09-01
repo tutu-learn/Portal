@@ -759,32 +759,6 @@ def _patch_real_module(mod):
                     _log.warning("_find_social_login_key failed for %r: %s", provider_type, e)
                 return None
 
-            def _office365_restrict_to_tenant(provider_type):
-                """Whether this provider's Social Login Key opts into tenant-only login.
-
-                Returns (restrict, tenant_id). `tenant_id` is parsed from the doc's
-                Base URL when restriction is enabled and a tenant is present there;
-                otherwise None (caller should fall back to other tenant sources).
-                """
-                import re as _re
-                import frappe
-
-                try:
-                    login_key = _find_social_login_key(provider_type)
-                    if not login_key:
-                        return False, None
-                    doc = frappe.get_doc("Social Login Key", login_key)
-                    if not doc.get("restrict_to_org_tenant"):
-                        return False, None
-                    m = _re.search(
-                        r"login\.microsoftonline\.com/([^/]+)",
-                        str(doc.get("base_url") or ""),
-                    )
-                    tenant = m.group(1) if m and m.group(1) != "common" else None
-                    return True, tenant
-                except Exception:
-                    return False, None
-
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
             _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
 
@@ -816,10 +790,7 @@ def _patch_real_module(mod):
             _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
 
             def _kiff_get_oauth2_providers():
-                import frappe
                 import logging
-                import os
-                import re
 
                 _log = logging.getLogger("kiff.oauth")
                 providers = _orig_get_oauth2_providers()
@@ -828,77 +799,20 @@ def _patch_real_module(mod):
                 else:
                     providers = dict(providers)
 
-                # Tenant-specific Microsoft endpoints block personal Microsoft
-                # accounts, so only resolve/enforce one when the Social Login Key
-                # has explicitly opted into org-only login via
-                # `restrict_to_org_tenant`. Otherwise leave endpoints on /common
-                # (or whatever is configured) so both account types work.
-                restrict, tenant_id = _office365_restrict_to_tenant("office_365")
-
-                if restrict:
-                    tenant_id = tenant_id or (
-                        frappe.conf.get("office_365_tenant_id")
-                        or frappe.conf.get("audit_ready_office_365_tenant_id")
-                        or os.environ.get("OFFICE_365_TENANT_ID")
-                    )
-
-                    def _ms_tenant_from_url(url):
-                        if not url:
-                            return None
-                        m = re.search(
-                            r"login\.microsoftonline\.com/([^/]+)/oauth2", str(url)
-                        )
-                        if m:
-                            t = m.group(1)
-                            if t and t != "common":
-                                return t
-                        return None
-
-                    # Derive tenant id from any Microsoft provider URLs already configured.
-                    if not tenant_id:
-                        for cfg in providers.values():
-                            if not isinstance(cfg, dict):
-                                continue
-                            flow_params = cfg.get("flow_params") or {}
-                            for url_key in ("authorize_url", "access_token_url", "base_url"):
-                                t = _ms_tenant_from_url(flow_params.get(url_key))
-                                if t:
-                                    tenant_id = t
-                                    break
-                            if tenant_id:
-                                break
-
-                    # Derive tenant id from configured Social Login Key URLs.
-                    if not tenant_id:
-                        try:
-                            keys = frappe.get_all(
-                                "Social Login Key",
-                                fields=["authorize_url", "access_token_url"],
-                            )
-                            for key in keys:
-                                for url in (key.authorize_url, key.access_token_url):
-                                    t = _ms_tenant_from_url(url)
-                                    if t:
-                                        tenant_id = t
-                                        break
-                                if tenant_id:
-                                    break
-                        except Exception as e:
-                            _log.debug("Social Login Key tenant lookup failed: %s", e)
-
-                if not tenant_id:
-                    tenant_id = "common"
-
-                ms_base = (
-                    "https://login.microsoftonline.com/%s/oauth2/v2.0" % tenant_id
-                )
-
+                # Use whatever Authorize URL / Access Token URL / Base URL is
+                # saved on the Social Login Key exactly as configured — no
+                # implicit /common/-to-tenant rewriting. To restrict Office 365
+                # login to a single org tenant, the admin types the
+                # tenant-specific URL (e.g. .../<tenant-id>/oauth2/...) directly
+                # into those fields; to allow any org, use /organizations/; to
+                # allow any account, use /common/.
                 has_microsoft = any(
                     "login.microsoftonline.com" in (((p or {}).get("flow_params") or {}).get("access_token_url") or "")
                     for p in providers.values()
                 )
 
                 if not has_microsoft:
+                    ms_base = "https://login.microsoftonline.com/common/oauth2/v2.0"
                     providers["office_365"] = {
                         "flow_params": {
                             "name": "office_365",
@@ -913,25 +827,6 @@ def _patch_real_module(mod):
                         "api_endpoint": "https://graph.microsoft.com/v1.0/me",
                         "api_endpoint_args": {},
                     }
-                else:
-                    # Rewrite any Microsoft /common endpoint to the tenant-specific
-                    # endpoint when a tenant id is configured.
-                    for key, cfg in providers.items():
-                        if not isinstance(cfg, dict):
-                            continue
-                        flow_params = cfg.get("flow_params") or {}
-                        if "login.microsoftonline.com" not in (
-                            flow_params.get("access_token_url") or ""
-                        ):
-                            continue
-                        if tenant_id != "common":
-                            for url_key in ("authorize_url", "access_token_url", "base_url"):
-                                url = flow_params.get(url_key) or ""
-                                if "/common/" in url:
-                                    flow_params[url_key] = url.replace(
-                                        "/common/", "/%s/" % tenant_id
-                                    )
-                            cfg["flow_params"] = flow_params
 
                 for key, cfg in providers.items():
                     if isinstance(cfg, dict):
@@ -1201,50 +1096,11 @@ def _patch_real_module(mod):
                         redirect_uri,
                     )
 
-                    # Safety net: if the access token URL still points to /common/ but
-                    # the Social Login Key has opted into org-only login, rewrite the
-                    # token URL to the tenant-specific endpoint. This has to happen
-                    # *after* the overlay above, since that overlay re-reads the raw
-                    # (still /common/) URLs straight from the Social Login Key doc and
-                    # clobbers whatever tenant-specific rewrite get_oauth2_providers()
-                    # already did. Source the tenant id from the Social Login Key's
-                    # Base URL / config rather than re-parsing authorize_url, because
-                    # authorize_url has just been overlaid back to its raw /common/
-                    # value too and would otherwise never resolve to a tenant here.
-                    restrict_to_tenant, office365_tenant_id = _office365_restrict_to_tenant(
-                        provider_key
-                    )
-                    if (
-                        restrict_to_tenant
-                        and "/common/" in access_token_url
-                        and "login.microsoftonline.com" in access_token_url
-                    ):
-                        import re
-
-                        tenant_id = office365_tenant_id
-                        if not tenant_id:
-                            tenant_id = (
-                                frappe.conf.get("office_365_tenant_id")
-                                or frappe.conf.get("audit_ready_office_365_tenant_id")
-                                or os.environ.get("OFFICE_365_TENANT_ID")
-                            )
-                        if not tenant_id:
-                            m = re.search(
-                                r"login\.microsoftonline\.com/([^/]+)/oauth2",
-                                authorize_url,
-                            )
-                            if m and m.group(1) and m.group(1) != "common":
-                                tenant_id = m.group(1)
-                        if tenant_id:
-                            access_token_url = access_token_url.replace(
-                                "/common/", "/%s/" % tenant_id
-                            )
-                            flow_params = dict(flow_params)
-                            flow_params["access_token_url"] = access_token_url
-                            _log.warning(
-                                "Rewrote access_token_url to tenant-specific: %r",
-                                access_token_url,
-                            )
+                    # No implicit tenant rewriting here — access_token_url and
+                    # authorize_url are used exactly as configured on the Social
+                    # Login Key (overlaid above), so restricting/opening up login
+                    # to other tenants is controlled purely by what's saved on
+                    # that record.
 
                     # Build the flow ourselves so we use the corrected flow_params
                     # instead of letting Frappe re-read get_oauth2_providers().
