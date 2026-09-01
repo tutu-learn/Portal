@@ -29,11 +29,15 @@ class _FallbackDocument(_DocProxy):
     def to_dict(self):
         return self.as_dict()
 
-    def save(self):
-        return self
+    def save(self, ignore_permissions=None):
+        if self.get("doctype") == "User" and not self.get("name") and self.get("email"):
+            self["name"] = self["email"]  # Frappe convention: User.name == email
+        if self.is_new():
+            return insert_doc(self)
+        return save_doc(self)
 
-    def insert(self):
-        return self
+    def insert(self, ignore_permissions=None):
+        return insert_doc(self)
 
     def delete(self):
         return self
