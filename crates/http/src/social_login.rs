@@ -67,7 +67,8 @@ pub async fn get_social_login_providers(pool: &orm::DatabasePool) -> Vec<SocialL
                 .unwrap_or_else(|| name.clone());
             let authorize_url = row.remove("authorize_url")?.as_str()?.to_string();
             let redirect_url = row.remove("redirect_url")?.as_str()?.to_string();
-            let auth_url_data = row.remove("auth_url_data").filter(|v| !v.is_null());
+            let auth_url_data =
+                parse_auth_url_data(row.remove("auth_url_data").filter(|v| !v.is_null()));
             let custom_base_url = row
                 .remove("custom_base_url")
                 .and_then(|v| {
@@ -108,6 +109,20 @@ pub fn legacy_oauth_state(site_url: &str, redirect_to: Option<&str>) -> String {
         "redirect_to": redirect_to.unwrap_or(""),
     });
     BASE64.encode(state.to_string().as_bytes())
+}
+
+/// Parse a Social Login Key's `auth_url_data` value into a JSON object.
+///
+/// `auth_url_data` is a Frappe `Code` field, so the DB always returns it as a
+/// JSON-encoded *string* (`Value::String`), never a native `Value::Object` —
+/// it must be parsed here so [`build_authorize_url`] can merge it into the
+/// outgoing params. Values that are already an object (e.g. from tests) pass
+/// through unchanged.
+fn parse_auth_url_data(value: Option<Value>) -> Option<Value> {
+    value.and_then(|v| match v {
+        Value::String(s) => serde_json::from_str::<Value>(&s).ok(),
+        other => Some(other),
+    })
 }
 
 /// Build the OAuth2 authorization URL for a provider. `state` is created by
@@ -263,6 +278,48 @@ mod tests {
         assert!(url.contains("response_type=code"));
         assert!(url.contains("scope=openid"));
         assert!(url.contains("state=test-state"));
+    }
+
+    #[test]
+    fn test_parse_auth_url_data_from_db_string() {
+        // This is the actual shape returned by the DB for a Frappe `Code`
+        // field: a JSON-encoded string, not a native object. Regression test
+        // for a bug where this was never parsed, silently dropping the whole
+        // config (including e.g. "prompt": "consent") on every login.
+        let raw = Value::String(
+            r#"{"response_type": "code", "scope": "openid profile email", "prompt": "consent"}"#
+                .to_string(),
+        );
+        let parsed = parse_auth_url_data(Some(raw)).expect("should parse JSON string");
+        assert_eq!(parsed["prompt"], "consent");
+        assert_eq!(parsed["scope"], "openid profile email");
+    }
+
+    #[test]
+    fn test_build_authorize_url_applies_auth_url_data_stored_as_string() {
+        let provider = SocialLoginProvider {
+            name: "office_365".to_string(),
+            provider_name: "Office 365".to_string(),
+            client_id: "test-client-id".to_string(),
+            authorize_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+                .to_string(),
+            redirect_url: "/api/method/frappe.integrations.oauth2_logins.login_via_office365"
+                .to_string(),
+            auth_url_data: parse_auth_url_data(Some(Value::String(
+                r#"{"response_type": "code", "scope": "openid profile email", "prompt": "consent"}"#
+                    .to_string(),
+            ))),
+            custom_base_url: false,
+            base_url: None,
+            icon: Some("/assets/frappe/icons/social/office_365.svg".to_string()),
+        };
+
+        let url = build_authorize_url(&provider, "http://localhost:8000", "test-state").unwrap();
+        assert!(
+            url.contains("prompt=consent"),
+            "auth_url_data stored as a string must still reach the authorize URL: {url}"
+        );
+        assert!(url.contains("scope=openid+profile+email") || url.contains("scope=openid%20profile%20email"));
     }
 
     #[test]
