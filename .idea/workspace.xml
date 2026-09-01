@@ -62,20 +62,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add dynamic app registration, runtime refactors, and test updates &#10;&#10;- Replaced hardcoded app dependencies with `apps.json` for dynamic app loading.  &#10;- Added `RuntimeExecutor` and `RuntimeSchedulerBackend` to dispatch jobs and handle scheduled tasks.&#10;- Updated `AppState` test helper to register sites, fixing HTTP test failures.  &#10;- Removed `strongroom` dependency; introduced `sebrus_logger`.  &#10;- Created `RUNTIME_SETUP.md` to document runtime configuration and module setup.">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Expand `Document` methods for user management and add support for `is_new` check">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/runtime.toml" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -112,23 +101,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="2.4628819808981586" />
-      <entry key="MS500" value="5.526372387983436" />
-      <entry key="S2" value="7.834345669137119" />
-      <entry key="S5" value="8.502267968224151" />
-      <entry key="S10" value="8.745525791569067" />
-      <entry key="S30" value="8.913893171833" />
-      <entry key="S60" value="8.956784028079317" />
-      <entry key="M2" value="8.97835120016455" />
-      <entry key="M5" value="8.991330662317768" />
-      <entry key="M10" value="8.995663698002392" />
-      <entry key="M15" value="8.997114852282891" />
-      <entry key="M30" value="9.00595926192912" />
-      <entry key="H1" value="9.270221507334673" />
-      <entry key="H2" value="11.378233109662336" />
-      <entry key="H4" value="19.77705912864922" />
-      <entry key="D1" value="83.46155832794584" />
-      <entry key="W1" value="200.74141445536742" />
+      <entry key="MS100" value="1.315054631462386" />
+      <entry key="MS500" value="3.3362303129041346" />
+      <entry key="S2" value="5.08055798369622" />
+      <entry key="S5" value="5.604813759761359" />
+      <entry key="S10" value="5.797496614227278" />
+      <entry key="S30" value="5.931373809065451" />
+      <entry key="S60" value="5.965544095587753" />
+      <entry key="M2" value="5.982736180123621" />
+      <entry key="M5" value="5.99308584253938" />
+      <entry key="M10" value="5.996543031812583" />
+      <entry key="M15" value="5.997922011895716" />
+      <entry key="M30" value="6.036514922277578" />
+      <entry key="H1" value="6.526720942566799" />
+      <entry key="H2" value="8.044587560956362" />
+      <entry key="H4" value="10.574277069671547" />
+      <entry key="D1" value="58.1324940707949" />
+      <entry key="W1" value="202.22681972404374" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -139,34 +128,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="2.2676752291964066E-208" />
-      <entry key="M10" value="1.7215065937722003E-104" />
-      <entry key="M15" value="7.810718399152852E-70" />
-      <entry key="M30" value="3.786830293944362E-35" />
-      <entry key="H1" value="8.60262589522958E-18" />
-      <entry key="H2" value="4.136845353536551E-9" />
-      <entry key="H4" value="9.350030637431856E-5" />
-      <entry key="D1" value="0.9003905800511572" />
-      <entry key="W1" value="5.810038029402204" />
+      <entry key="M5" value="3.303588523586559E-299" />
+      <entry key="M10" value="6.570693915708714E-150" />
+      <entry key="M15" value="4.1098503772882374E-100" />
+      <entry key="M30" value="2.7469032182460024E-50" />
+      <entry key="H1" value="2.3169400394740735E-25" />
+      <entry key="H2" value="6.789083731266659E-13" />
+      <entry key="H4" value="1.1977990750046326E-6" />
+      <entry key="D1" value="0.43553804693708165" />
+      <entry key="W1" value="5.237465078695839" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="2.3056565148464827" />
-      <entry key="MS500" value="5.435396345693319" />
-      <entry key="S2" value="7.800613199488372" />
-      <entry key="S5" value="8.487527191108583" />
-      <entry key="S10" value="8.73792924845311" />
-      <entry key="S30" value="8.911308917425014" />
-      <entry key="S60" value="8.955485274677494" />
-      <entry key="M2" value="8.977700158003321" />
-      <entry key="M5" value="8.991069844596527" />
-      <entry key="M10" value="8.995533222236524" />
-      <entry key="M15" value="8.997027853542715" />
-      <entry key="M30" value="9.00591574213742" />
-      <entry key="H1" value="9.270199507389894" />
-      <entry key="H2" value="11.378220960267857" />
-      <entry key="H4" value="19.77714388035137" />
-      <entry key="D1" value="84.36193373912954" />
-      <entry key="W1" value="206.55144025965882" />
+      <entry key="MS100" value="1.28934395957026" />
+      <entry key="MS500" value="3.3234988561933094" />
+      <entry key="S2" value="5.075814775464518" />
+      <entry key="S5" value="5.602733010664766" />
+      <entry key="S10" value="5.7964227130453265" />
+      <entry key="S30" value="5.931008095679596" />
+      <entry key="S60" value="5.9653602515046655" />
+      <entry key="M2" value="5.982644009778882" />
+      <entry key="M5" value="5.99304891462141" />
+      <entry key="M10" value="5.996524557867921" />
+      <entry key="M15" value="5.997909693070919" />
+      <entry key="M30" value="6.036508710216838" />
+      <entry key="H1" value="6.526717508512031" />
+      <entry key="H2" value="8.044585343915914" />
+      <entry key="H4" value="10.574276676057345" />
+      <entry key="D1" value="58.56802432853419" />
+      <entry key="W1" value="207.4642737039392" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -201,7 +190,7 @@
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
     "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
     "ts.external.directory.path": "/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
     "vue.rearranger.settings.migration": "true"
   }
@@ -606,10 +595,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update password masking to align with Frappe's field initialization logic&#10;&#10;- Refined password masking to ensure non-authenticated fields are set to `Value::Null` instead of being removed.&#10;- Updated comments and tests to reflect Frappe's behavior of initializing non-table fields to `None`." />
-    <MESSAGE value="Switch workspace dependencies and configuration to Sebrus Apps  &#10;&#10;- Updated workspace and runtime dependencies to replace `audit_ready` with `sebrus_apps`.  &#10;- Adjusted `apps.json` and IntelliJ IDEA project files to align with the Sebrus Apps module." />
-    <MESSAGE value="Refactor password field handling in ORM and runtime&#10;&#10;- Moved plaintext password migration logic to `migrate_plaintext_password_values`.&#10;- Replaced password field extraction with `process_password_fields_for_save` for streamlined encryption and storage in `__auth`.&#10;- Updated ORM methods to persist password placeholders in data tables while encrypting secrets in `__auth`.&#10;- Improved comments and consistency for Frappe compatibility." />
-    <MESSAGE value="Refactor Sebrus Apps for service backfill and workflow enhancements&#10;&#10;Removed legacy `sebrus_app_service` and updated references to `Sebrus Service`. Introduced a migration script to backfill services and added a workflow implementation for deployment state transitions. Enhanced frontend to include secrets/variables inheritance and streamlined client/project integrations." />
     <MESSAGE value="Add workflow and migration features for Sebrus Apps&#10;&#10;Introduce a state machine for deployment workflows and a data migration tool to backfill legacy service data. Enhance the UI with secrets/variables management and new app/integration navigation, while removing deprecated Sebrus App Service." />
     <MESSAGE value="Introduce server-side deploy payload validation for Sebrus Apps&#10;&#10;Added a new `deploy_payload` module to centralize and enforce schema validation for deploy payloads in the Rust server. Supported `kind` types include `script`, `iis`, `kubernetes`, and `app`. Ensures compliance with Audit Ready standards and prevents invalid payloads from being processed. Includes comprehensive test coverage and Kubernetes manifest rendering support." />
     <MESSAGE value="Preserve unsaved form inputs during DOM re-renders caused by 15s status polling in Vault UI." />
@@ -631,6 +616,14 @@
     <MESSAGE value="Add cascading service deletion with linked deployment and record cleanup&#10;&#10;Implements `sebrus_apps.delete_service` for removing services along with associated Audit Ready deployments, deploy records, and related secrets/variables. Adds `s2s_deployment_deleted` callback for resetting linked deployments. Updates frontend confirmation prompts and API integration." />
     <MESSAGE value="Add live sync of deployment health with Audit Ready&#10;&#10;Integrates `sync_deploy_status` API for real-time updates of deployment and environment health in Sebrus Apps. Updates server-side logic to mirror deploy outcomes in `update_env_health`. Modifies frontend to reflect live statuses in the deployment view. Removes deprecated `s2s_deployment_deleted` logic." />
     <MESSAGE value="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets." />
+    <MESSAGE value="Add custom login page support and switch to `sebrus_logger`&#10;&#10;Introduce a `[auth]` section in `runtime.toml` to enable optional custom login page redirection, configurable via `custom_login_path` or an environment variable. Replace `sebrus_apps` with `sebrus_logger` across the project for better modularity and alignment with new requirements. Add tests and logic to validate and implement the custom login configuration seamlessly." />
+    <MESSAGE value="Added excel exsport of logs" />
+    <MESSAGE value="Enhance document management with social login, role management, and save logic&#10;&#10;- Added `is_new`, `get_social_login_userid`, `set_social_login_userid`, and `add_roles` methods to improve document capabilities.&#10;- Updated `save` to handle new User conventions and support insertion logic.&#10;- Refined `insert` for improved document creation handling. " />
+    <MESSAGE value="Expand `Document` methods for user management and add support for `is_new` check" />
+    <option name="LAST_COMMIT_MESSAGE" value="Expand `Document` methods for user management and add support for `is_new` check" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
