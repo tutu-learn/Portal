@@ -1125,7 +1125,22 @@ def _patch_real_module(mod):
                             auth_url_data = {}
                         scope = auth_url_data.get("scope")
 
-                        _log.debug("OAuth token exchange (Rust): provider_key=%s", provider_key)
+                        _log.warning(
+                            "oauth2_token_exchange request: provider_key=%r "
+                            "access_token_url=%r redirect_uri=%r client_id=%r "
+                            "scope=%r code_len=%d code_prefix=%r code_suffix=%r "
+                            "code_has_plus=%s code_has_space=%s",
+                            provider_key,
+                            access_token_url,
+                            redirect_uri,
+                            keys.get("client_id"),
+                            scope,
+                            len(code),
+                            code[:12],
+                            code[-12:],
+                            "+" in code,
+                            " " in code,
+                        )
                         token_response = kiff_core.oauth2_token_exchange(
                             access_token_url,
                             code,
