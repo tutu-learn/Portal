@@ -2577,14 +2577,36 @@ pub async fn call_method_get(
     State(state): State<AppState>,
     Path(method): Path<String>,
     headers: axum::http::HeaderMap,
-    Query(params): Query<HashMap<String, String>>,
+    axum::extract::RawQuery(raw_query): axum::extract::RawQuery,
 ) -> impl IntoResponse {
-    let params: HashMap<String, Value> = params
+    let params: HashMap<String, Value> = raw_query
+        .as_deref()
+        .map(parse_query_preserving_plus)
+        .unwrap_or_default()
         .into_iter()
         .map(|(k, v)| (k, Value::String(v)))
         .collect();
 
     method_response(&state, &method, params, &headers).await
+}
+
+/// Parse a raw query string into key/value pairs, treating a literal `+` as
+/// itself rather than decoding it to a space.
+///
+/// `serde_urlencoded` (which axum's `Query` extractor uses) is built on
+/// `form_urlencoded::parse`, which decodes `+` as space per the
+/// `application/x-www-form-urlencoded` convention -- correct for POST form
+/// bodies, but not for URI query strings, where RFC 3986 treats `+` as an
+/// ordinary character. This matters for `/api/method/:method` GET calls
+/// (e.g. OAuth callbacks like `login_via_office365`): a provider that
+/// returns a `code`/`state` containing an unescaped `+` would silently have
+/// it corrupted into a space here, producing a token exchange that fails
+/// looking exactly like an expired/invalid code. Escaping `+` to `%2B`
+/// before decoding removes the ambiguity: any real `%2B` still round-trips
+/// to `+`, and a literal `+` is no longer misread as an encoded space.
+fn parse_query_preserving_plus(raw: &str) -> HashMap<String, String> {
+    let escaped = raw.replace('+', "%2B");
+    serde_urlencoded::from_str(&escaped).unwrap_or_default()
 }
 
 pub async fn call_method(
@@ -3125,6 +3147,26 @@ fn frappe_error_response(e: error::RuntimeError) -> (StatusCode, Json<serde_json
 mod tests {
     use super::*;
     use http_body_util::BodyExt;
+
+    #[test]
+    fn parse_query_preserving_plus_keeps_literal_plus_in_values() {
+        // Microsoft's personal-account authorization codes are long,
+        // custom-format strings that can contain an unescaped '+'. axum's
+        // default Query extractor (via serde_urlencoded/form_urlencoded)
+        // decodes '+' as a space -- correct for POST bodies, wrong for URI
+        // query strings -- silently corrupting the code before we ever send
+        // it to Microsoft.
+        let params = parse_query_preserving_plus("code=abc+def&state=xyz");
+        assert_eq!(params.get("code").map(String::as_str), Some("abc+def"));
+        assert_eq!(params.get("state").map(String::as_str), Some("xyz"));
+    }
+
+    #[test]
+    fn parse_query_preserving_plus_still_decodes_percent_encoding() {
+        let params = parse_query_preserving_plus("code=abc%2Bdef&note=a%20b");
+        assert_eq!(params.get("code").map(String::as_str), Some("abc+def"));
+        assert_eq!(params.get("note").map(String::as_str), Some("a b"));
+    }
 
     #[tokio::test]
     async fn method_response_redirect_sets_location_and_cookie() {

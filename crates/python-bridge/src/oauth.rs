@@ -35,6 +35,22 @@ pub fn oauth2_token_exchange(
     client_secret: String,
     scope: Option<String>,
 ) -> PyResult<PyObject> {
+    // Diagnostic only -- never logs the secret or the full code (which is a
+    // one-time credential), just enough to tell whether the code/redirect_uri
+    // reaching this point look like what the browser actually received.
+    tracing::warn!(
+        access_token_url = %access_token_url,
+        redirect_uri = %redirect_uri,
+        client_id = %client_id,
+        scope = ?scope,
+        code_len = code.len(),
+        code_prefix = %code.chars().take(12).collect::<String>(),
+        code_suffix = %code.chars().rev().take(12).collect::<String>().chars().rev().collect::<String>(),
+        code_has_plus = code.contains('+'),
+        code_has_space = code.contains(' '),
+        "oauth2_token_exchange request"
+    );
+
     let mut form: HashMap<&str, String> = HashMap::new();
     form.insert("code", code);
     form.insert("redirect_uri", redirect_uri);
