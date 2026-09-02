@@ -1027,7 +1027,6 @@ def _patch_real_module(mod):
 
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
                 import json as _json
-                import jwt
                 import logging
 
                 _log = logging.getLogger("kiff.oauth")
@@ -1102,54 +1101,69 @@ def _patch_real_module(mod):
                     # to other tenants is controlled purely by what's saved on
                     # that record.
 
-                    # Build the flow ourselves so we use the corrected flow_params
-                    # instead of letting Frappe re-read get_oauth2_providers().
-                    from rauth import OAuth2Service
-
-                    flow_params = dict(flow_params)
                     keys = _oauth_mod.get_oauth_keys(provider_key)
-                    keys.update(flow_params)
-                    flow = OAuth2Service(**keys)
 
-                    args = {
-                        "data": {
-                            "code": code,
-                            "redirect_uri": redirect_uri,
-                            "grant_type": "authorization_code",
-                        }
-                    }
+                    if id_token:
+                        # Office 365 is the only id_token provider (see
+                        # oauth2_logins.login_via_office365). Do the token
+                        # exchange directly in Rust instead of through rauth:
+                        # rauth's process_token_request only knows how to look
+                        # up a hardcoded "access_token" key in the response
+                        # and raises a bare KeyError with the whole raw body
+                        # crammed into the message when it's missing -- which
+                        # is exactly what happens on every OAuth error
+                        # response (Microsoft returns {"error": ...,
+                        # "error_description": ...} with no access_token at
+                        # all). The Rust exchange raises a RuntimeError that
+                        # actually says what Microsoft said.
+                        import kiff_core
 
-                    if "login.microsoftonline.com" in access_token_url:
                         auth_url_data = provider_cfg.get("auth_url_data") or {}
                         if isinstance(auth_url_data, str):
                             auth_url_data = _json.loads(auth_url_data) or {}
                         if not isinstance(auth_url_data, dict):
                             auth_url_data = {}
                         scope = auth_url_data.get("scope")
-                        if scope:
-                            args["data"]["scope"] = scope
 
-                    if decoder:
-                        args["decoder"] = decoder
-
-                    _log.debug("OAuth token exchange: provider_key=%s", provider_key)
-                    session = flow.get_auth_session(**args)
-
-                    if id_token:
-                        parsed_access = _json.loads(
-                            getattr(session, "access_token_response", None)
-                            and session.access_token_response.text
-                            or "{}"
+                        _log.debug("OAuth token exchange (Rust): provider_key=%s", provider_key)
+                        token_response = kiff_core.oauth2_token_exchange(
+                            access_token_url,
+                            code,
+                            redirect_uri,
+                            keys.get("client_id"),
+                            keys.get("client_secret"),
+                            scope,
                         )
-                        token = parsed_access.get("id_token")
+                        token = token_response.get("id_token")
                         if not token:
-                            raise RuntimeError("id_token missing in OAuth response")
-                        info = jwt.decode(
-                            token,
-                            getattr(flow, "client_secret", None) or "",
-                            options={"verify_signature": False},
-                        )
+                            raise RuntimeError(
+                                "id_token missing in OAuth response: %r" % (token_response,)
+                            )
+                        info = kiff_core.oauth2_decode_jwt_payload(token)
                     else:
+                        # Build the flow ourselves so we use the corrected
+                        # flow_params instead of letting Frappe re-read
+                        # get_oauth2_providers().
+                        from rauth import OAuth2Service
+
+                        flow_params = dict(flow_params)
+                        keys = dict(keys)
+                        keys.update(flow_params)
+                        flow = OAuth2Service(**keys)
+
+                        args = {
+                            "data": {
+                                "code": code,
+                                "redirect_uri": redirect_uri,
+                                "grant_type": "authorization_code",
+                            }
+                        }
+                        if decoder:
+                            args["decoder"] = decoder
+
+                        _log.debug("OAuth token exchange: provider_key=%s", provider_key)
+                        session = flow.get_auth_session(**args)
+
                         api_endpoint = provider_cfg.get("api_endpoint")
                         if not api_endpoint:
                             raise RuntimeError(

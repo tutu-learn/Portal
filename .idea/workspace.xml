@@ -62,8 +62,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Expand `Document` methods for user management and add support for `is_new` check">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Restrict office365 login to tenant-specific domains when configured">
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -77,6 +79,12 @@
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
+    <option name="PUSH_TAGS">
+      <GitPushTagMode>
+        <option name="argument" value="--tags" />
+        <option name="title" value="All" />
+      </GitPushTagMode>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
@@ -101,23 +109,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.315054631462386" />
-      <entry key="MS500" value="3.3362303129041346" />
-      <entry key="S2" value="5.08055798369622" />
-      <entry key="S5" value="5.604813759761359" />
-      <entry key="S10" value="5.797496614227278" />
-      <entry key="S30" value="5.931373809065451" />
-      <entry key="S60" value="5.965544095587753" />
-      <entry key="M2" value="5.982736180123621" />
-      <entry key="M5" value="5.99308584253938" />
-      <entry key="M10" value="5.996543031812583" />
-      <entry key="M15" value="5.997922011895716" />
-      <entry key="M30" value="6.036514922277578" />
-      <entry key="H1" value="6.526720942566799" />
-      <entry key="H2" value="8.044587560956362" />
-      <entry key="H4" value="10.574277069671547" />
-      <entry key="D1" value="58.1324940707949" />
-      <entry key="W1" value="202.22681972404374" />
+      <entry key="MS100" value="1.2631257942740937" />
+      <entry key="MS500" value="3.007846926905302" />
+      <entry key="S2" value="4.891492570856123" />
+      <entry key="S5" value="5.514880778182461" />
+      <entry key="S10" value="5.749834707872468" />
+      <entry key="S30" value="5.914855704068374" />
+      <entry key="S60" value="5.95720412321977" />
+      <entry key="M2" value="5.978545805634935" />
+      <entry key="M5" value="5.991404779149998" />
+      <entry key="M10" value="5.9957001289089895" />
+      <entry key="M15" value="5.997132916644169" />
+      <entry key="M30" value="5.998566206951338" />
+      <entry key="H1" value="5.9992906010289095" />
+      <entry key="H2" value="6.008299733290409" />
+      <entry key="H4" value="6.346727954003265" />
+      <entry key="D1" value="38.891145632546724" />
+      <entry key="W1" value="192.42515770702826" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -128,34 +136,34 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="3.303588523586559E-299" />
-      <entry key="M10" value="6.570693915708714E-150" />
-      <entry key="M15" value="4.1098503772882374E-100" />
-      <entry key="M30" value="2.7469032182460024E-50" />
-      <entry key="H1" value="2.3169400394740735E-25" />
-      <entry key="H2" value="6.789083731266659E-13" />
-      <entry key="H4" value="1.1977990750046326E-6" />
-      <entry key="D1" value="0.43553804693708165" />
-      <entry key="W1" value="5.237465078695839" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="1.5875027150971262E-185" />
+      <entry key="M15" value="7.39993953706727E-124" />
+      <entry key="M30" value="3.685907550948613E-62" />
+      <entry key="H1" value="2.683893847329101E-31" />
+      <entry key="H2" value="7.306955037128813E-16" />
+      <entry key="H4" value="3.929584285394607E-8" />
+      <entry key="D1" value="0.24642600616674415" />
+      <entry key="W1" value="4.828218517043076" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.28934395957026" />
-      <entry key="MS500" value="3.3234988561933094" />
-      <entry key="S2" value="5.075814775464518" />
-      <entry key="S5" value="5.602733010664766" />
-      <entry key="S10" value="5.7964227130453265" />
-      <entry key="S30" value="5.931008095679596" />
-      <entry key="S60" value="5.9653602515046655" />
-      <entry key="M2" value="5.982644009778882" />
-      <entry key="M5" value="5.99304891462141" />
-      <entry key="M10" value="5.996524557867921" />
-      <entry key="M15" value="5.997909693070919" />
-      <entry key="M30" value="6.036508710216838" />
-      <entry key="H1" value="6.526717508512031" />
-      <entry key="H2" value="8.044585343915914" />
-      <entry key="H4" value="10.574276676057345" />
-      <entry key="D1" value="58.56802432853419" />
-      <entry key="W1" value="207.4642737039392" />
+      <entry key="MS100" value="1.19528945629254" />
+      <entry key="MS500" value="2.984628399720266" />
+      <entry key="S2" value="4.883235098816801" />
+      <entry key="S5" value="5.51125268389347" />
+      <entry key="S10" value="5.747959296919067" />
+      <entry key="S30" value="5.9142161890512845" />
+      <entry key="S60" value="5.9568825200405735" />
+      <entry key="M2" value="5.978384538916158" />
+      <entry key="M5" value="5.991340160352988" />
+      <entry key="M10" value="5.995667800785547" />
+      <entry key="M15" value="5.997111360397809" />
+      <entry key="M30" value="5.998555426745384" />
+      <entry key="H1" value="5.99928521040112" />
+      <entry key="H2" value="6.008297035462121" />
+      <entry key="H4" value="6.346726593336455" />
+      <entry key="D1" value="39.13756700698064" />
+      <entry key="W1" value="197.25336596042212" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -595,7 +603,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Add workflow and migration features for Sebrus Apps&#10;&#10;Introduce a state machine for deployment workflows and a data migration tool to backfill legacy service data. Enhance the UI with secrets/variables management and new app/integration navigation, while removing deprecated Sebrus App Service." />
     <MESSAGE value="Introduce server-side deploy payload validation for Sebrus Apps&#10;&#10;Added a new `deploy_payload` module to centralize and enforce schema validation for deploy payloads in the Rust server. Supported `kind` types include `script`, `iis`, `kubernetes`, and `app`. Ensures compliance with Audit Ready standards and prevents invalid payloads from being processed. Includes comprehensive test coverage and Kubernetes manifest rendering support." />
     <MESSAGE value="Preserve unsaved form inputs during DOM re-renders caused by 15s status polling in Vault UI." />
     <MESSAGE value="Refactor Kubernetes form: consolidate toggle logic, add resource and probe blocks, and update environment variable shorthand mechanics." />
@@ -620,7 +627,8 @@
     <MESSAGE value="Added excel exsport of logs" />
     <MESSAGE value="Enhance document management with social login, role management, and save logic&#10;&#10;- Added `is_new`, `get_social_login_userid`, `set_social_login_userid`, and `add_roles` methods to improve document capabilities.&#10;- Updated `save` to handle new User conventions and support insertion logic.&#10;- Refined `insert` for improved document creation handling. " />
     <MESSAGE value="Expand `Document` methods for user management and add support for `is_new` check" />
-    <option name="LAST_COMMIT_MESSAGE" value="Expand `Document` methods for user management and add support for `is_new` check" />
+    <MESSAGE value="Restrict office365 login to tenant-specific domains when configured" />
+    <option name="LAST_COMMIT_MESSAGE" value="Restrict office365 login to tenant-specific domains when configured" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

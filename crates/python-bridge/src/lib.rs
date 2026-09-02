@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 
 pub mod db;
 pub mod document;
+pub mod oauth;
 pub mod queue;
 pub mod realtime;
 pub mod session;
@@ -794,6 +795,9 @@ fn kiff_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(realtime::publish_realtime, m)?)?;
 
     m.add_function(wrap_pyfunction!(log_query, m)?)?;
+
+    m.add_function(wrap_pyfunction!(oauth::oauth2_token_exchange, m)?)?;
+    m.add_function(wrap_pyfunction!(oauth::oauth2_decode_jwt_payload, m)?)?;
 
     Ok(())
 }
