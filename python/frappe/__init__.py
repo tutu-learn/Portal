@@ -1118,11 +1118,42 @@ def _patch_real_module(mod):
                         # actually says what Microsoft said.
                         import kiff_core
 
-                        auth_url_data = provider_cfg.get("auth_url_data") or {}
-                        if isinstance(auth_url_data, str):
-                            auth_url_data = _json.loads(auth_url_data) or {}
+                        # Source auth_url_data (and therefore `scope`) from the
+                        # real Social Login Key doc directly, the same source
+                        # Rust's build_authorize_url() reads from -- not from
+                        # oauth2_providers()[provider_key], which can be a
+                        # synthetic fallback entry (hardcoded Graph scope,
+                        # never actually requested/consented to at authorize
+                        # time) when provider resolution picks the wrong
+                        # entry. Requesting a scope here that wasn't part of
+                        # the original consent is exactly what produces
+                        # AADSTS70000 "one or more scopes requested are
+                        # unauthorized or expired" -- Azure AD org tenants
+                        # often tolerate the mismatch, but the MSA/consumers
+                        # backend used by personal Microsoft accounts does not.
+                        auth_url_data = None
+                        try:
+                            import frappe
+
+                            login_key = _find_social_login_key(provider_key)
+                            if login_key:
+                                slk_doc = frappe.get_doc("Social Login Key", login_key)
+                                raw_auth_url_data = slk_doc.get("auth_url_data")
+                                if raw_auth_url_data:
+                                    auth_url_data = (
+                                        _json.loads(raw_auth_url_data)
+                                        if isinstance(raw_auth_url_data, str)
+                                        else raw_auth_url_data
+                                    )
+                        except Exception as e:
+                            _log.debug("Social Login Key auth_url_data lookup failed: %s", e)
+
                         if not isinstance(auth_url_data, dict):
-                            auth_url_data = {}
+                            auth_url_data = provider_cfg.get("auth_url_data") or {}
+                            if isinstance(auth_url_data, str):
+                                auth_url_data = _json.loads(auth_url_data) or {}
+                            if not isinstance(auth_url_data, dict):
+                                auth_url_data = {}
                         scope = auth_url_data.get("scope")
 
                         _log.warning(
