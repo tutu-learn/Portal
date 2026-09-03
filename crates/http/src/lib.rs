@@ -1,6 +1,7 @@
 pub mod extract;
 pub mod handlers;
 pub mod middleware;
+pub mod oauth_login;
 pub mod router;
 pub mod site;
 pub mod social_login;

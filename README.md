@@ -123,8 +123,17 @@ Enabled apps are declared in `rust_apps/apps.json`:
 }
 ```
 
+## OAuth / Social Login
+
+Social login callbacks are being migrated off the embedded Python OAuth flow and into native Rust, one provider at a time:
+
+- **Microsoft / Office365** (`frappe.integrations.oauth2_logins.login_via_office365`) runs natively in Rust end-to-end: state validation, authorization-code token exchange, id_token (JWT) decoding, and session/cookie creation (`crates/http/src/oauth_login.rs`, `crates/python-bridge/src/oauth.rs`). Python is invoked for exactly one step — `frappe.utils.oauth.update_oauth_user`, which creates/updates the `User` document through Frappe's real controller (hooks, permissions, default role, welcome-mail suppression).
+- Other providers (Google, GitHub, Facebook, Salesforce, custom) still run the full Python OAuth flow.
+
 ## Recent Fixes
 
+- **Microsoft/Office365 login moved to native Rust** — the OAuth callback no longer round-trips through the embedded Python OAuth stack except for the final `User.save()`, eliminating a class of Python/Rust interop bugs (e.g. a Rust-authored `_MetaProxy` shim getting out of sync with the real Frappe `Meta.get_masked_fields()` signature).
+- **`_MetaProxy.get_masked_fields`** (`python/frappe/_types.py`) now accepts the `parenttype` kwarg that `Document._restore_masked_fields_from_db` passes, fixing a `TypeError` that broke every login (`user.save()`) flow.
 - **Top-level Frappe method whitelist** — methods such as `frappe.ping` are now correctly allowed by the request dispatcher. Previously the whitelist only matched dotted module prefixes (e.g. `frappe.desk.*`), so top-level `frappe` functions were rejected.
 
 ## License

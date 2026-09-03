@@ -420,7 +420,7 @@ class _MetaProxy(_dict):
     def high_permlevel_fields(self):
         return self.get_high_permlevel_fields()
 
-    def get_masked_fields(self):
+    def get_masked_fields(self, parenttype=None):
         return []
 
     def get_naming_series_options(self):

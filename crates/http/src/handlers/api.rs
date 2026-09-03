@@ -2973,6 +2973,13 @@ async fn method_response(
         return desk_form_save(state, params, headers).await.into_response();
     }
 
+    // Microsoft/Office365 OAuth login runs natively in Rust (state
+    // validation, token exchange, JWT decode, session creation) instead of
+    // falling through to the embedded Python OAuth flow.
+    if method == "frappe.integrations.oauth2_logins.login_via_office365" {
+        return crate::oauth_login::handle_office365_callback(state, headers, &params).await;
+    }
+
     match call_rust_or_python_method(state, method, params, headers).await {
         Ok(result) => result.into_response(),
         Err(e) => frappe_error_response(e).into_response(),

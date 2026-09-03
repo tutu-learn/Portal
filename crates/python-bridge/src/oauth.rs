@@ -24,17 +24,18 @@ use crate::{json_to_py, rt};
 /// Raises a `RuntimeError` (readable by the Python caller) describing the
 /// provider's own error when the exchange fails, instead of surfacing a
 /// generic HTTP/JSON error.
-#[pyfunction]
-#[pyo3(signature = (access_token_url, code, redirect_uri, client_id, client_secret, scope=None))]
-pub fn oauth2_token_exchange(
-    py: Python<'_>,
-    access_token_url: String,
-    code: String,
-    redirect_uri: String,
-    client_id: String,
-    client_secret: String,
-    scope: Option<String>,
-) -> PyResult<PyObject> {
+/// Plain-Rust OAuth2 authorization-code token exchange, usable directly from
+/// the HTTP layer (e.g. a native OAuth callback handler) without going
+/// through the PyO3/Python boundary. [`oauth2_token_exchange`] wraps this for
+/// Python callers.
+pub async fn token_exchange(
+    access_token_url: &str,
+    code: &str,
+    redirect_uri: &str,
+    client_id: &str,
+    client_secret: &str,
+    scope: Option<&str>,
+) -> Result<serde_json::Value, String> {
     // Diagnostic only -- never logs the secret or the full code (which is a
     // one-time credential), just enough to tell whether the code/redirect_uri
     // reaching this point look like what the browser actually received.
@@ -51,38 +52,73 @@ pub fn oauth2_token_exchange(
         "oauth2_token_exchange request"
     );
 
-    let mut form: HashMap<&str, String> = HashMap::new();
+    let mut form: HashMap<&str, &str> = HashMap::new();
     form.insert("code", code);
     form.insert("redirect_uri", redirect_uri);
-    form.insert("grant_type", "authorization_code".to_string());
+    form.insert("grant_type", "authorization_code");
     form.insert("client_id", client_id);
     form.insert("client_secret", client_secret);
     if let Some(scope) = scope {
         form.insert("scope", scope);
     }
 
-    let body: serde_json::Value = py.allow_threads(|| {
-        rt().block_on(async {
-            let client = reqwest::Client::new();
-            let resp = client
-                .post(&access_token_url)
-                .header("Accept", "application/json")
-                .form(&form)
-                .send()
-                .await
-                .map_err(|e| format!("OAuth token request to {access_token_url} failed: {e}"))?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(access_token_url)
+        .header("Accept", "application/json")
+        .form(&form)
+        .send()
+        .await
+        .map_err(|e| format!("OAuth token request to {access_token_url} failed: {e}"))?;
 
-            let status = resp.status();
-            let text = resp
-                .text()
-                .await
-                .map_err(|e| format!("failed to read OAuth token response body: {e}"))?;
+    let status = resp.status();
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("failed to read OAuth token response body: {e}"))?;
 
-            parse_token_response(status, &text)
-                .map_err(|e| format!("{e} (requested from {access_token_url})"))
+    parse_token_response(status, &text).map_err(|e| format!("{e} (requested from {access_token_url})"))
+}
+
+/// Decode a JWT's payload (the middle base64url segment) into JSON, without
+/// verifying the signature. [`oauth2_decode_jwt_payload`] wraps this for
+/// Python callers.
+pub fn decode_jwt_payload(token: &str) -> Result<serde_json::Value, String> {
+    let payload_segment = token
+        .split('.')
+        .nth(1)
+        .ok_or_else(|| "id_token is not a JWT (missing payload segment)".to_string())?;
+
+    let decoded = URL_SAFE_NO_PAD
+        .decode(payload_segment)
+        .map_err(|e| format!("failed to base64-decode id_token payload: {e}"))?;
+
+    serde_json::from_slice(&decoded).map_err(|e| format!("id_token payload is not valid JSON: {e}"))
+}
+
+#[pyfunction]
+#[pyo3(signature = (access_token_url, code, redirect_uri, client_id, client_secret, scope=None))]
+pub fn oauth2_token_exchange(
+    py: Python<'_>,
+    access_token_url: String,
+    code: String,
+    redirect_uri: String,
+    client_id: String,
+    client_secret: String,
+    scope: Option<String>,
+) -> PyResult<PyObject> {
+    let body = py
+        .allow_threads(|| {
+            rt().block_on(token_exchange(
+                &access_token_url,
+                &code,
+                &redirect_uri,
+                &client_id,
+                &client_secret,
+                scope.as_deref(),
+            ))
         })
-    })
-    .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyRuntimeError::new_err)?;
 
     json_to_py(py, &body)
 }
@@ -122,18 +158,7 @@ fn parse_token_response(
 /// used to read Microsoft's `id_token` claims.
 #[pyfunction]
 pub fn oauth2_decode_jwt_payload(py: Python<'_>, token: String) -> PyResult<PyObject> {
-    let payload_segment = token
-        .split('.')
-        .nth(1)
-        .ok_or_else(|| PyRuntimeError::new_err("id_token is not a JWT (missing payload segment)"))?;
-
-    let decoded = URL_SAFE_NO_PAD
-        .decode(payload_segment)
-        .map_err(|e| PyRuntimeError::new_err(format!("failed to base64-decode id_token payload: {e}")))?;
-
-    let claims: serde_json::Value = serde_json::from_slice(&decoded)
-        .map_err(|e| PyRuntimeError::new_err(format!("id_token payload is not valid JSON: {e}")))?;
-
+    let claims = decode_jwt_payload(&token).map_err(PyRuntimeError::new_err)?;
     json_to_py(py, &claims)
 }
 

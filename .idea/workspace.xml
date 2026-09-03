@@ -62,9 +62,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor auth_url_data sourcing for accurate scope resolution&#10;&#10;Ensure auth_url_data is sourced directly from the Social Login Key doc instead of synthetic fallback entries. This prevents unauthorized scope mismatches, notably addressing AADSTS70000 errors with Microsoft accounts. Includes fallback handling and detailed logging for failures.">
-      <change beforePath="$PROJECT_DIR$/python/frappe/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/OFFICE365_OAUTH_CHANGES.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/OFFICE365_OAUTH_CHANGES.md" afterDir="false" />
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Refactor OAuth scope resolution for Social Login Keys&#10;&#10;Ensure `auth_url_data` is sourced directly from the Social Login Key document to prevent unauthorized scope mismatches. This change addresses AADSTS70000 errors for Microsoft accounts and improves authorization reliability. Added fallback handling and logging for failure scenarios.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/frappe/_types.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/frappe/_types.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -72,7 +72,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19517" />
+    <option name="cachedIndexableFilesCount" value="19510" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -107,23 +107,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.000000763959768" />
-      <entry key="MS500" value="1.0597880098807422" />
-      <entry key="S2" value="1.4944854581904656" />
-      <entry key="S5" value="1.7545037623950606" />
-      <entry key="S10" value="1.8686217602587796" />
-      <entry key="S30" value="1.9541358960109254" />
-      <entry key="S60" value="1.9767988001686558" />
-      <entry key="M2" value="1.9883313210501101" />
-      <entry key="M5" value="1.9953160869918443" />
-      <entry key="M10" value="1.9976552947299855" />
-      <entry key="M15" value="1.9984364755626962" />
-      <entry key="M30" value="2.000316821077118" />
-      <entry key="H1" value="2.0913509863794424" />
-      <entry key="H2" value="2.890990135602289" />
-      <entry key="H4" value="4.917968762039479" />
-      <entry key="D1" value="36.18706167442024" />
-      <entry key="W1" value="191.78019420180578" />
+      <entry key="MS100" value="1.2696478499289254" />
+      <entry key="MS500" value="3.6565222804291913" />
+      <entry key="S2" value="6.2039583160840905" />
+      <entry key="S5" value="7.169836284514522" />
+      <entry key="S10" value="7.562221652369784" />
+      <entry key="S30" value="7.8485659861812325" />
+      <entry key="S60" value="7.92356292289805" />
+      <entry key="M2" value="7.961598971432468" />
+      <entry key="M5" value="7.984595469979478" />
+      <entry key="M10" value="7.992290355006804" />
+      <entry key="M15" value="7.994858818407064" />
+      <entry key="M30" value="7.998527110535401" />
+      <entry key="H1" value="8.090440889512355" />
+      <entry key="H2" value="8.890468407605258" />
+      <entry key="H4" value="10.91762340023169" />
+      <entry key="D1" value="42.18678687141691" />
+      <entry key="W1" value="197.78000051763672" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -135,33 +135,33 @@
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
       <entry key="M5" value="0.0" />
-      <entry key="M10" value="2.1706532667756562E-198" />
-      <entry key="M15" value="1.9640181227453225E-132" />
-      <entry key="M30" value="1.8989043875568514E-66" />
-      <entry key="H1" value="1.9263919938619198E-33" />
-      <entry key="H2" value="6.190505302137419E-17" />
-      <entry key="H4" value="1.1437772151391353E-8" />
-      <entry key="D1" value="0.20060989189385325" />
-      <entry key="W1" value="4.688402507098715" />
+      <entry key="M10" value="2.1684827390704797E-198" />
+      <entry key="M15" value="1.962708634773323E-132" />
+      <entry key="M30" value="1.8982712449595125E-66" />
+      <entry key="H1" value="1.9260708132581158E-33" />
+      <entry key="H2" value="6.189989219969724E-17" />
+      <entry key="H4" value="1.1437295376638127E-8" />
+      <entry key="D1" value="0.2006084981580846" />
+      <entry key="W1" value="4.688397853850231" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.326592931607052E-4" />
-      <entry key="MS500" value="0.1842211849940542" />
-      <entry key="S2" value="0.9984250189261108" />
-      <entry key="S5" value="1.4999008590915242" />
-      <entry key="S10" value="1.7290994331373746" />
-      <entry key="S30" value="1.9045750193549384" />
-      <entry key="S60" value="1.9516133835796898" />
-      <entry key="M2" value="1.9756355314745415" />
-      <entry key="M5" value="1.9902127926548543" />
-      <entry key="M10" value="1.995099464395686" />
-      <entry key="M15" value="1.9967316575866956" />
-      <entry key="M30" value="1.9994639445018985" />
-      <entry key="H1" value="2.0909243593188167" />
-      <entry key="H2" value="2.890776465997094" />
-      <entry key="H4" value="4.917861516652791" />
-      <entry key="D1" value="36.387649943660776" />
-      <entry key="W1" value="196.46858419046794" />
+      <entry key="MS100" value="1.2314166115546306" />
+      <entry key="MS500" value="3.35580686992164" />
+      <entry key="S2" value="5.81831277102857" />
+      <entry key="S5" value="6.935617330792501" />
+      <entry key="S10" value="7.426407331533015" />
+      <entry key="S30" value="7.798464170375436" />
+      <entry key="S60" value="7.897860552714213" />
+      <entry key="M2" value="7.948581114648051" />
+      <entry key="M5" value="7.979347828661973" />
+      <entry key="M10" value="7.989659742697852" />
+      <entry key="M15" value="7.9931035644935005" />
+      <entry key="M30" value="7.9976487249409765" />
+      <entry key="H1" value="8.090001435114868" />
+      <entry key="H2" value="8.89024830613649" />
+      <entry key="H4" value="10.917512934366423" />
+      <entry key="D1" value="42.387373209565006" />
+      <entry key="W1" value="202.4683857762758" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -601,8 +601,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Add &quot;Remove Service&quot; button and handling logic to Sebrus Apps frontend &#10;&#10;Includes functionality for deleting service documents and confirmation prompts. Adjusted hints and removed unnecessary explanatory text in deploy modals." />
-    <MESSAGE value="Add workflow buttons and initialization logic to Sebrus Apps frontend&#10;&#10;Implements state-specific actions (e.g., Approve, Reject, Resubmit) with server-side validation. Handles transitions via the `sebrus_apps.deployment_transition" />
     <MESSAGE value="Add workflow buttons and initialization logic to Sebrus Apps frontend&#10;&#10;Implements state-specific actions (e.g., Approve, Reject, Resubmit) with server-side validation. Handles transitions via the `sebrus_apps.deployment_transition` API and updates UI elements dynamically based on workflow state." />
     <MESSAGE value="Add version picker to deployment modal and list_service_versions API support&#10;&#10;Implements a dropdown-backed version picker for services in the deploy modal, replacing the free-text field for Kubernetes services. Adds the `list_service_versions` API to fetch tag data from the container registry, including server-side validation and fallback for non-container services." />
     <MESSAGE value="Add live log fields to deployment synchronization  &#10;&#10;Extends `sync_deploy_status` to include Audit Ready's live log details (e.g., progress, result/error, console-output tail) for enhanced visibility of per-service deploy logs in Sebrus." />
@@ -626,7 +624,9 @@
     <MESSAGE value="Preserve literal `+` in query parameters for OAuth to prevent token corruption. Add `parse_query_preserving_plus` helper and tests. Log OAuth2 token exchange diagnostics." />
     <MESSAGE value="added history" />
     <MESSAGE value="Log detailed OAuth2 token exchange diagnostics and update workspace configuration" />
-    <option name="LAST_COMMIT_MESSAGE" value="Log detailed OAuth2 token exchange diagnostics and update workspace configuration" />
+    <MESSAGE value="Refactor auth_url_data sourcing for accurate scope resolution&#10;&#10;Ensure auth_url_data is sourced directly from the Social Login Key doc instead of synthetic fallback entries. This prevents unauthorized scope mismatches, notably addressing AADSTS70000 errors with Microsoft accounts. Includes fallback handling and detailed logging for failures." />
+    <MESSAGE value="Refactor OAuth scope resolution for Social Login Keys&#10;&#10;Ensure `auth_url_data` is sourced directly from the Social Login Key document to prevent unauthorized scope mismatches. This change addresses AADSTS70000 errors for Microsoft accounts and improves authorization reliability. Added fallback handling and logging for failure scenarios." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor OAuth scope resolution for Social Login Keys&#10;&#10;Ensure `auth_url_data` is sourced directly from the Social Login Key document to prevent unauthorized scope mismatches. This change addresses AADSTS70000 errors for Microsoft accounts and improves authorization reliability. Added fallback handling and logging for failure scenarios." />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
