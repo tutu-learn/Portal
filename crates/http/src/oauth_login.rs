@@ -272,63 +272,164 @@ fn decode_structured_state(raw: &str) -> Option<StructuredState> {
     Some(StructuredState::Valid(OAuthState { redirect_to }))
 }
 
+/// The Social Login Key document's `name` is *not* reliably `"office_365"`.
+/// Real Frappe names these records via a custom `SocialLoginKey.autoname()`
+/// Python override (`self.name = frappe.scrub(self.provider_name)`), but this
+/// project's native Rust `insert_doc` path (tried before falling back to
+/// Python for desk-form saves) does not know about that per-DocType Python
+/// override — it only honors a plain `autoname = "field:<x>"` DocType JSON
+/// rule — so a Social Login Key record created/recreated through that path
+/// ends up named with a random UUID instead. `python/frappe/__init__.py`'s
+/// `_find_social_login_key`/`_oauth_provider_slugs` already solved exactly
+/// this for the Python OAuth flow (this project has hit and fixed it before,
+/// per that file's history) by matching on the *type* the row is configured
+/// as, not its name; this mirrors that same resolution logic in Rust:
+///   1. `frappe.scrub(social_login_provider)` (lowercase, spaces/dashes to
+///      `_`) is one of the aliases for the requested provider slug.
+///   2. Fallback: any enabled row whose authorize/access-token URL points at
+///      `login.microsoftonline.com`, for rows where the Select field wasn't
+///      set to the exact "Office 365"/"Microsoft" label.
+fn oauth_provider_aliases(slug: &str) -> &'static [&'static str] {
+    match slug {
+        "office_365" | "microsoft" => &["office_365", "microsoft"],
+        _ => &[],
+    }
+}
+
+/// `frappe.scrub`: lowercase, spaces and dashes to underscores.
+fn scrub(text: &str) -> String {
+    text.replace(' ', "_").replace('-', "_").to_lowercase()
+}
+
+struct SocialLoginKeyRow {
+    name: String,
+    client_id: Option<String>,
+    social_login_provider: Option<String>,
+    authorize_url: String,
+    access_token_url: String,
+    redirect_url: String,
+    custom_base_url: bool,
+    base_url: Option<String>,
+}
+
+async fn find_social_login_key(
+    pool: &orm::DatabasePool,
+    provider_slug: &str,
+) -> error::Result<Option<SocialLoginKeyRow>> {
+    let sql = r#"SELECT name, client_id, social_login_provider, authorize_url,
+                        access_token_url, redirect_url, custom_base_url, base_url
+                 FROM "social_login_key"
+                 WHERE enable_social_login = 1"#;
+    let rows = pool.execute_sql(sql, vec![]).await?;
+
+    let parsed: Vec<SocialLoginKeyRow> = rows
+        .into_iter()
+        .map(|mut r| SocialLoginKeyRow {
+            name: r
+                .remove("name")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            client_id: r
+                .remove("client_id")
+                .and_then(|v| v.as_str().map(String::from))
+                .filter(|s| !s.is_empty()),
+            social_login_provider: r
+                .remove("social_login_provider")
+                .and_then(|v| v.as_str().map(String::from)),
+            authorize_url: r
+                .remove("authorize_url")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            access_token_url: r
+                .remove("access_token_url")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            redirect_url: r
+                .remove("redirect_url")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            custom_base_url: r
+                .remove("custom_base_url")
+                .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .unwrap_or(0)
+                == 1,
+            base_url: r.remove("base_url").and_then(|v| v.as_str().map(String::from)),
+        })
+        .collect();
+
+    let aliases = oauth_provider_aliases(provider_slug);
+
+    if let Some(row) = parsed
+        .iter()
+        .find(|r| r.social_login_provider.as_deref().is_some_and(|p| aliases.contains(&scrub(p).as_str())))
+    {
+        return Ok(Some(clone_row(row)));
+    }
+
+    // Fallback: any enabled key pointed at Microsoft's OAuth endpoints,
+    // for a row whose Select field wasn't set to the exact label.
+    if !aliases.is_empty() {
+        if let Some(row) = parsed.iter().find(|r| {
+            r.authorize_url.contains("login.microsoftonline.com")
+                || r.access_token_url.contains("login.microsoftonline.com")
+        }) {
+            return Ok(Some(clone_row(row)));
+        }
+    }
+
+    Ok(None)
+}
+
+fn clone_row(r: &SocialLoginKeyRow) -> SocialLoginKeyRow {
+    SocialLoginKeyRow {
+        name: r.name.clone(),
+        client_id: r.client_id.clone(),
+        social_login_provider: r.social_login_provider.clone(),
+        authorize_url: r.authorize_url.clone(),
+        access_token_url: r.access_token_url.clone(),
+        redirect_url: r.redirect_url.clone(),
+        custom_base_url: r.custom_base_url,
+        base_url: r.base_url.clone(),
+    }
+}
+
 async fn load_provider_config(
     pool: &orm::DatabasePool,
     site_url: &str,
     encryption_key: &str,
 ) -> error::Result<Option<ProviderConfig>> {
-    let sql = r#"SELECT client_id, access_token_url, redirect_url, custom_base_url, base_url
-                 FROM "social_login_key"
-                 WHERE name = ? AND enable_social_login = 1"#;
-    let mut rows = pool
-        .execute_sql(sql, vec![Value::String(PROVIDER.into())])
-        .await?;
-    let Some(mut row) = rows.pop() else {
+    let Some(mut row) = find_social_login_key(pool, PROVIDER).await? else {
         return Ok(None);
     };
 
-    let client_id = row
-        .remove("client_id")
-        .and_then(|v| v.as_str().map(String::from))
-        .filter(|s| !s.is_empty());
-    let Some(client_id) = client_id else {
+    // The `__auth` table (holding the decrypted client_secret) is keyed by
+    // the document's actual name, which may not be `PROVIDER` — see
+    // `find_social_login_key`'s doc comment.
+    let doc_name = std::mem::take(&mut row.name);
+
+    let Some(client_id) = row.client_id else {
         return Ok(None);
     };
 
-    let raw_access_token_url = row
-        .remove("access_token_url")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_default();
-    let redirect_url = row
-        .remove("redirect_url")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_default();
-    let custom_base_url = row
-        .remove("custom_base_url")
-        .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
-        .unwrap_or(0)
-        == 1;
-    let base_url = row.remove("base_url").and_then(|v| v.as_str().map(String::from));
-
-    let access_token_url = if custom_base_url {
-        match &base_url {
-            Some(base) => crate::social_login::build_oauth_url(base, &raw_access_token_url),
-            None => raw_access_token_url,
+    let access_token_url = if row.custom_base_url {
+        match &row.base_url {
+            Some(base) => crate::social_login::build_oauth_url(base, &row.access_token_url),
+            None => row.access_token_url,
         }
     } else {
-        raw_access_token_url
+        row.access_token_url
     };
 
-    let redirect_uri = if redirect_url.starts_with("http://") || redirect_url.starts_with("https://") {
-        redirect_url
+    let redirect_uri = if row.redirect_url.starts_with("http://") || row.redirect_url.starts_with("https://") {
+        row.redirect_url
     } else {
-        format!("{}{}", site_url.trim_end_matches('/'), redirect_url)
+        format!("{}{}", site_url.trim_end_matches('/'), row.redirect_url)
     };
 
     let client_secret = orm::password::get_decrypted_password(
         pool,
         "Social Login Key",
-        PROVIDER,
+        &doc_name,
         "client_secret",
         encryption_key,
     )
@@ -364,6 +465,23 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scrub_matches_frappe_scrub() {
+        // frappe.scrub("Office 365") == "office_365"
+        assert_eq!(scrub("Office 365"), "office_365");
+        assert_eq!(scrub("Micro-Soft"), "micro_soft");
+        assert_eq!(scrub("GitHub"), "github");
+    }
+
+    #[test]
+    fn oauth_provider_aliases_treats_office_365_and_microsoft_as_equivalent() {
+        // A Social Login Key row can be labeled "Microsoft" instead of the
+        // exact "Office 365" select option and must still resolve.
+        assert!(oauth_provider_aliases("office_365").contains(&"microsoft"));
+        assert!(oauth_provider_aliases("microsoft").contains(&"office_365"));
+        assert!(oauth_provider_aliases("google").is_empty());
+    }
 
     #[test]
     fn decode_state_accepts_legacy_base64_json_with_token() {
