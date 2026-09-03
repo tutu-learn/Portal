@@ -220,21 +220,56 @@ struct OAuthState {
     redirect_to: Option<String>,
 }
 
-/// Decode the base64-JSON `state` param produced by
-/// [`crate::social_login::legacy_oauth_state`], mirroring the check
-/// `frappe.utils.oauth.login_oauth_user` performs (`state and state["token"]`).
+/// Decode the `state` param. Two shapes are accepted:
+///
+/// - the structured base64-JSON blob produced by
+///   [`crate::social_login::legacy_oauth_state`] (`{"site", "token",
+///   "redirect_to"}`), mirroring the check `frappe.utils.oauth.login_oauth_user`
+///   performs (`state and state["token"]`) — this is the shape used by every
+///   login page this project renders (`serve_login`, sebrus_logger's login
+///   page), and it carries `redirect_to`.
+/// - a bare opaque token (anything non-empty that isn't valid base64-JSON
+///   with a `token` field). Frappe's own check never did more than confirm a
+///   non-empty token was present (no server-side lookup in this codebase), so
+///   treating a plain state string as already-validated is no weaker than
+///   the check it replaces. This tolerates authorize URLs built by another
+///   code path (e.g. an older cached login page, or a hand-built link) that
+///   sent the raw token as `state` instead of the wrapped JSON blob; only
+///   `redirect_to` is unavailable in that case.
 fn decode_state(raw: &str) -> Option<OAuthState> {
-    let decoded = BASE64.decode(raw).ok()?;
-    let parsed: Value = serde_json::from_slice(&decoded).ok()?;
-    let token = parsed.get("token").and_then(|v| v.as_str());
-    if token.map(|t| t.is_empty()).unwrap_or(true) {
+    if raw.is_empty() {
         return None;
     }
-    let redirect_to = parsed
+    // Only fall back to treating `raw` as an opaque already-validated token
+    // when it does not even decode as the structured JSON blob — a state
+    // that *does* decode that way but is missing/empty `token` is explicitly
+    // malformed, not just a different (opaque) format, and must still be
+    // rejected.
+    match decode_structured_state(raw) {
+        Some(StructuredState::Valid(state)) => Some(state),
+        Some(StructuredState::MissingToken) => None,
+        None => Some(OAuthState { redirect_to: None }),
+    }
+}
+
+enum StructuredState {
+    Valid(OAuthState),
+    MissingToken,
+}
+
+fn decode_structured_state(raw: &str) -> Option<StructuredState> {
+    let decoded = BASE64.decode(raw).ok()?;
+    let parsed: Value = serde_json::from_slice(&decoded).ok()?;
+    let obj = parsed.as_object()?;
+    let token = obj.get("token").and_then(|v| v.as_str());
+    if token.map(|t| t.is_empty()).unwrap_or(true) {
+        return Some(StructuredState::MissingToken);
+    }
+    let redirect_to = obj
         .get("redirect_to")
         .and_then(|v| v.as_str())
         .map(String::from);
-    Some(OAuthState { redirect_to })
+    Some(StructuredState::Valid(OAuthState { redirect_to }))
 }
 
 async fn load_provider_config(
@@ -344,13 +379,30 @@ mod tests {
     }
 
     #[test]
-    fn decode_state_rejects_garbage() {
-        assert!(decode_state("not-base64-json!!!").is_none());
-    }
-
-    #[test]
     fn decode_state_rejects_empty_token() {
         let raw = BASE64.encode(json!({"token": ""}).to_string());
         assert!(decode_state(&raw).is_none());
+    }
+
+    #[test]
+    fn decode_state_rejects_empty_string() {
+        assert!(decode_state("").is_none());
+    }
+
+    /// A provider that redirects back with a bare opaque token as `state`
+    /// (not the structured base64-JSON blob this project's own login pages
+    /// send) must still be accepted with no `redirect_to`, not rejected --
+    /// e.g. a 32-char hex token, exactly the shape Microsoft echoed back in
+    /// a real callback that a stricter check once rejected with a 417.
+    #[test]
+    fn decode_state_accepts_bare_opaque_token() {
+        let state = decode_state("0cc7184fb6ab100b57d732a7e9c1a466").expect("opaque token should be accepted");
+        assert_eq!(state.redirect_to, None);
+    }
+
+    #[test]
+    fn decode_state_accepts_non_base64_opaque_token() {
+        let state = decode_state("not-base64-json!!!").expect("opaque token should be accepted");
+        assert_eq!(state.redirect_to, None);
     }
 }
