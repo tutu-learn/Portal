@@ -62,12 +62,14 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints.">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Support app-specific post-login redirect and desk filtering&#10;&#10;Added `custom_home_path` for app-defined post-login redirection, configurable via runtime settings or environment variables. Enhanced desk module visibility, restricting non-admin users to workspaces from registered Rust apps while preserving full access for admins. Updated validation and logic in Rust to align with these changes, ensuring consistent behavior across supported environments.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/oauth_login.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/oauth_login.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/runtime.toml" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/handlers.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/methods.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/methods.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/src/pages/sebrus_logger_dashboard/page.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +77,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19510" />
+    <option name="cachedIndexableFilesCount" value="19513" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -110,23 +112,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.2696478499289254" />
-      <entry key="MS500" value="3.6565222804291913" />
-      <entry key="S2" value="6.2039583160840905" />
-      <entry key="S5" value="7.169836284514522" />
-      <entry key="S10" value="7.562221652369784" />
-      <entry key="S30" value="7.8485659861812325" />
-      <entry key="S60" value="7.92356292289805" />
-      <entry key="M2" value="7.961598971432468" />
-      <entry key="M5" value="7.984595469979478" />
-      <entry key="M10" value="7.992290355006804" />
-      <entry key="M15" value="7.994858818407064" />
-      <entry key="M30" value="7.998527110535401" />
-      <entry key="H1" value="8.090440889512355" />
-      <entry key="H2" value="8.890468407605258" />
-      <entry key="H4" value="10.91762340023169" />
-      <entry key="D1" value="42.18678687141691" />
-      <entry key="W1" value="197.78000051763672" />
+      <entry key="MS100" value="1.3057183821881524" />
+      <entry key="MS500" value="4.126874018059358" />
+      <entry key="S2" value="9.384350746281234" />
+      <entry key="S5" value="11.804916088938482" />
+      <entry key="S10" value="12.830796029570292" />
+      <entry key="S30" value="13.592763869088245" />
+      <entry key="S60" value="13.794085808396739" />
+      <entry key="M2" value="13.896460332829378" />
+      <entry key="M5" value="13.958443205059586" />
+      <entry key="M10" value="13.979198021239553" />
+      <entry key="M15" value="13.986126990491512" />
+      <entry key="M30" value="13.994158962642178" />
+      <entry key="H1" value="14.088238619805423" />
+      <entry key="H2" value="14.88928889793771" />
+      <entry key="H4" value="16.916934397915288" />
+      <entry key="D1" value="48.186416913919054" />
+      <entry key="W1" value="203.77976631326487" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -138,33 +140,33 @@
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
       <entry key="M5" value="0.0" />
-      <entry key="M10" value="2.1684827390704797E-198" />
-      <entry key="M15" value="1.962708634773323E-132" />
-      <entry key="M30" value="1.8982712449595125E-66" />
-      <entry key="H1" value="1.9260708132581158E-33" />
-      <entry key="H2" value="6.189989219969724E-17" />
-      <entry key="H4" value="1.1437295376638127E-8" />
-      <entry key="D1" value="0.2006084981580846" />
-      <entry key="W1" value="4.688397853850231" />
+      <entry key="M10" value="2.165936518425046E-198" />
+      <entry key="M15" value="1.96117193273688E-132" />
+      <entry key="M30" value="1.897527974042741E-66" />
+      <entry key="H1" value="1.9256936984000808E-33" />
+      <entry key="H2" value="6.189383206119179E-17" />
+      <entry key="H4" value="1.1436735494478636E-8" />
+      <entry key="D1" value="0.2006068614160863" />
+      <entry key="W1" value="4.688392389244454" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2314166115546306" />
-      <entry key="MS500" value="3.35580686992164" />
-      <entry key="S2" value="5.81831277102857" />
-      <entry key="S5" value="6.935617330792501" />
-      <entry key="S10" value="7.426407331533015" />
-      <entry key="S30" value="7.798464170375436" />
-      <entry key="S60" value="7.897860552714213" />
-      <entry key="M2" value="7.948581114648051" />
-      <entry key="M5" value="7.979347828661973" />
-      <entry key="M10" value="7.989659742697852" />
-      <entry key="M15" value="7.9931035644935005" />
-      <entry key="M30" value="7.9976487249409765" />
-      <entry key="H1" value="8.090001435114868" />
-      <entry key="H2" value="8.89024830613649" />
-      <entry key="H4" value="10.917512934366423" />
-      <entry key="D1" value="42.387373209565006" />
-      <entry key="W1" value="202.4683857762758" />
+      <entry key="MS100" value="1.2577477415597333" />
+      <entry key="MS500" value="4.01674141584829" />
+      <entry key="S2" value="9.094093810143258" />
+      <entry key="S5" value="11.592454768258687" />
+      <entry key="S10" value="12.699444364327027" />
+      <entry key="S30" value="13.542170548250763" />
+      <entry key="S60" value="13.767848258364142" />
+      <entry key="M2" value="13.883099050894234" />
+      <entry key="M5" value="13.953039533304988" />
+      <entry key="M10" value="13.976486244694788" />
+      <entry key="M15" value="13.984316924397618" />
+      <entry key="M30" value="13.99325281888411" />
+      <entry key="H1" value="14.087785198184616" />
+      <entry key="H2" value="14.88906179082971" />
+      <entry key="H4" value="16.916820423725106" />
+      <entry key="D1" value="48.38700102986461" />
+      <entry key="W1" value="208.46814602364935" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -604,7 +606,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Add `deployment_logs` API for live deploy log retrieval&#10;&#10;Refactors `sync_deploy_status` into modular components for loading, refreshing, and saving deployment refs. Adds `deployment_logs` API for fetching live deploy logs without altering `deploy_status`. Updates frontend to display logs in a modal with periodic polling. Includes enhancements to DEPLOY_FLOW.md." />
     <MESSAGE value="Expand deployment status handling to include &quot;Done&quot; and &quot;Succeeded&quot; states  &#10;&#10;Extends `refresh_refs` and `sync_deploy_status` to recognize additional Audit Ready success states (&quot;Done&quot;, &quot;Succeeded&quot;). Improves error handling for live status fetch with detailed warnings. Updates frontend to account for the new states in log status coloring." />
     <MESSAGE value="Expand deployment status handling to cover additional terminal states&#10;&#10;Extends deployment status checks to include `Done` and `Succeeded` as valid terminal success states. Enhances error handling for Audit Ready fetch failures, improving visibility of issues with live log retrieval. Updates frontend log status coloring and server-side logic for unattended DEK repair." />
     <MESSAGE value="Simplify error message rendering in `refLogBody` function." />
@@ -629,7 +630,8 @@
     <MESSAGE value="Introduce native Rust implementation for Office365 OAuth login&#10;&#10;Migrated Microsoft/Office365 OAuth login from Python to Rust for improved reliability and reduced interop issues. The Rust implementation handles state validation, token exchange, JWT decoding, and session creation while preserving Python for `update_oauth_user` for user document finalization. Additional improvements include support for encrypted password retrieval and fixes for `_MetaProxy.get_masked_fields` compatibility issues." />
     <MESSAGE value="Support plain opaque tokens in OAuth `state` decoding&#10;&#10;Updated `decode_state` to accept both structured base64-JSON and plain opaque tokens as valid `state` values. This ensures compatibility with diverse OAuth authorize URLs, including older or hand-crafted ones, while maintaining robust validation for invalid cases like empty tokens or malformed JSON." />
     <MESSAGE value="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints." />
-    <option name="LAST_COMMIT_MESSAGE" value="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints." />
+    <MESSAGE value="Support app-specific post-login redirect and desk filtering&#10;&#10;Added `custom_home_path` for app-defined post-login redirection, configurable via runtime settings or environment variables. Enhanced desk module visibility, restricting non-admin users to workspaces from registered Rust apps while preserving full access for admins. Updated validation and logic in Rust to align with these changes, ensuring consistent behavior across supported environments." />
+    <option name="LAST_COMMIT_MESSAGE" value="Support app-specific post-login redirect and desk filtering&#10;&#10;Added `custom_home_path` for app-defined post-login redirection, configurable via runtime settings or environment variables. Enhanced desk module visibility, restricting non-admin users to workspaces from registered Rust apps while preserving full access for admins. Updated validation and logic in Rust to align with these changes, ensuring consistent behavior across supported environments." />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
