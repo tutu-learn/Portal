@@ -96,6 +96,12 @@ pub struct AuthSection {
     /// path instead (e.g. an app-provided login page). Must start with '/'.
     #[serde(default)]
     pub custom_login_path: Option<String>,
+    /// When set, a successful login that did not specify a `redirect_to`
+    /// (e.g. a social login authorize URL built without one) lands here
+    /// instead of the framework desk (`/app`) — e.g. an app-provided
+    /// dashboard/portal. Must start with '/'.
+    #[serde(default)]
+    pub custom_home_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -150,6 +156,11 @@ impl RuntimeConfig {
         if let Ok(path) = std::env::var("CUSTOM_LOGIN_PATH") {
             if !path.is_empty() {
                 config.auth.custom_login_path = Some(path);
+            }
+        }
+        if let Ok(path) = std::env::var("CUSTOM_HOME_PATH") {
+            if !path.is_empty() {
+                config.auth.custom_home_path = Some(path);
             }
         }
 

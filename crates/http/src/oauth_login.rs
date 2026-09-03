@@ -207,6 +207,7 @@ pub async fn handle_office365_callback(
     let redirect_to = oauth_state
         .redirect_to
         .filter(|s| !s.is_empty())
+        .or_else(|| valid_home_path(state.config.auth.custom_home_path.as_deref()))
         .unwrap_or_else(|| "/app".to_string());
 
     let mut resp = Redirect::to(&redirect_to).into_response();
@@ -218,6 +219,18 @@ pub async fn handle_office365_callback(
 
 struct OAuthState {
     redirect_to: Option<String>,
+}
+
+/// Validate `[auth] custom_home_path` / `CUSTOM_HOME_PATH` (an app-provided
+/// post-login landing page, e.g. `/sebrus_logger/dashboard`), mirroring the
+/// sanity checks `crate::handlers::desk::custom_login_target` applies to the
+/// equivalent `custom_login_path` setting.
+fn valid_home_path(path: Option<&str>) -> Option<String> {
+    let path = path?.trim();
+    if path.is_empty() || !path.starts_with('/') || path.starts_with("//") {
+        return None;
+    }
+    Some(path.to_string())
 }
 
 /// Decode the `state` param. Two shapes are accepted:
@@ -465,6 +478,22 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn valid_home_path_accepts_app_provided_portal() {
+        assert_eq!(
+            valid_home_path(Some("/sebrus_logger/dashboard")),
+            Some("/sebrus_logger/dashboard".to_string())
+        );
+    }
+
+    #[test]
+    fn valid_home_path_rejects_unset_and_malformed() {
+        assert_eq!(valid_home_path(None), None);
+        assert_eq!(valid_home_path(Some("")), None);
+        assert_eq!(valid_home_path(Some("not-a-path")), None);
+        assert_eq!(valid_home_path(Some("//evil.example.com")), None);
+    }
 
     #[test]
     fn scrub_matches_frappe_scrub() {

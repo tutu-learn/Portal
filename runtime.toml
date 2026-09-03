@@ -24,8 +24,13 @@ short_workers   = 2
 default_workers = 2
 long_workers    = 1
 
-# [auth]
+[auth]
 # When set, the framework login screen is bypassed: GET /login and the guest
 # redirect from /desk send users to this path instead (must start with '/').
 # Can also be set via the CUSTOM_LOGIN_PATH environment variable.
 # custom_login_path = "/sebrus_logger/login"
+
+# When set, a successful login (including social login) that did not carry
+# its own redirect_to lands here instead of the framework desk (/app).
+# Can also be set via the CUSTOM_HOME_PATH environment variable.
+custom_home_path = "/sebrus_logger/dashboard"

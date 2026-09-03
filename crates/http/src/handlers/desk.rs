@@ -329,6 +329,7 @@ async fn get_blocked_modules(
 async fn query_boot_data(
     pool: &orm::DatabasePool,
     blocked_modules: &HashSet<String>,
+    visible_apps: Option<&HashSet<String>>,
 ) -> error::Result<(
     Vec<Value>,
     Map<String, Value>,
@@ -422,6 +423,11 @@ async fn query_boot_data(
             .and_then(|v| v.as_str())
             .unwrap_or("frappe")
             .to_string();
+        if let Some(visible) = visible_apps {
+            if !visible.contains(&app) {
+                continue;
+            }
+        }
         let ws_type = row
             .get("type")
             .and_then(|v| v.as_str())
@@ -509,7 +515,7 @@ async fn query_boot_data(
     // Query modules
     let mod_rows = pool
         .execute_sql(
-            r#"SELECT name, module_name FROM "module_def" ORDER BY module_name"#,
+            r#"SELECT name, module_name, app_name FROM "module_def" ORDER BY module_name"#,
             vec![],
         )
         .await?;
@@ -528,6 +534,16 @@ async fn query_boot_data(
         }
         if blocked_modules.contains(&name) {
             continue;
+        }
+        if let Some(visible) = visible_apps {
+            let module_app = row
+                .get("app_name")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .unwrap_or("frappe");
+            if !visible.contains(module_app) {
+                continue;
+            }
         }
         let module_name = row
             .get("module_name")
@@ -977,10 +993,41 @@ async fn build_boot_info(
         HashSet::new()
     };
 
+    // Non-admin users only see workspaces belonging to Sebrus Logger and any
+    // other registered Rust app (`app` == a name in the Rust app registry) --
+    // the standard Frappe workspaces (Users, Settings, Building the Basics,
+    // etc., which default to `app: "frappe"`) are hidden for them.
+    // Administrator / System Manager keep the full, unfiltered desk.
+    let is_admin = !is_guest
+        && (user_name == "Administrator" || {
+            if let Some(ref pool) = pool {
+                state
+                    .permissions
+                    .get_roles(pool, user_name)
+                    .await
+                    .map(|roles| roles.iter().any(|r| r == "System Manager"))
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        });
+    let visible_apps: Option<HashSet<String>> = if is_admin {
+        None
+    } else {
+        Some(
+            state
+                .rust_apps
+                .apps()
+                .iter()
+                .map(|a| a.name().to_string())
+                .collect(),
+        )
+    };
+
     // Query workspaces and modules from DB
     let (workspaces, modules_map, module_list, module_wise_workspaces, _default_ws) =
         if let Some(ref pool) = pool {
-            match query_boot_data(pool, &blocked_modules).await {
+            match query_boot_data(pool, &blocked_modules, visible_apps.as_ref()).await {
                 Ok(data) => data,
                 Err(_) => (vec![], Map::new(), vec![], Map::new(), None),
             }

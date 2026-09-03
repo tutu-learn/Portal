@@ -62,8 +62,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Support plain opaque tokens in OAuth `state` decoding&#10;&#10;Updated `decode_state` to accept both structured base64-JSON and plain opaque tokens as valid `state` values. This ensures compatibility with diverse OAuth authorize URLs, including older or hand-crafted ones, while maintaining robust validation for invalid cases like empty tokens or malformed JSON.">
+    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/oauth_login.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/oauth_login.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime.toml" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_logger/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_logger/Dockerfile" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -600,7 +604,6 @@
     <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Add deployment logs modal and backend support&#10;&#10;Introduces `sebrus_apps.deployment_logs` API to fetch live deploy logs from Audit Ready without altering deploy status. Updates the frontend with a &quot;View logs&quot; button, a polling-based logs modal, and console output rendering for fine-grained per-service visibility. Refactors `sync_deploy_status` code for modularity and aligns documentation with updated flow." />
     <MESSAGE value="Add `deployment_logs` API for live deploy log retrieval&#10;&#10;Refactors `sync_deploy_status` into modular components for loading, refreshing, and saving deployment refs. Adds `deployment_logs` API for fetching live deploy logs without altering `deploy_status`. Updates frontend to display logs in a modal with periodic polling. Includes enhancements to DEPLOY_FLOW.md." />
     <MESSAGE value="Expand deployment status handling to include &quot;Done&quot; and &quot;Succeeded&quot; states  &#10;&#10;Extends `refresh_refs` and `sync_deploy_status` to recognize additional Audit Ready success states (&quot;Done&quot;, &quot;Succeeded&quot;). Improves error handling for live status fetch with detailed warnings. Updates frontend to account for the new states in log status coloring." />
     <MESSAGE value="Expand deployment status handling to cover additional terminal states&#10;&#10;Extends deployment status checks to include `Done` and `Succeeded` as valid terminal success states. Enhances error handling for Audit Ready fetch failures, improving visibility of issues with live log retrieval. Updates frontend log status coloring and server-side logic for unattended DEK repair." />
@@ -625,7 +628,8 @@
     <MESSAGE value="Introduce native Rust implementation for Office365 OAuth login&#10;&#10;Migrated Microsoft/Office365 OAuth login from Python to Rust for improved reliability and reduced" />
     <MESSAGE value="Introduce native Rust implementation for Office365 OAuth login&#10;&#10;Migrated Microsoft/Office365 OAuth login from Python to Rust for improved reliability and reduced interop issues. The Rust implementation handles state validation, token exchange, JWT decoding, and session creation while preserving Python for `update_oauth_user` for user document finalization. Additional improvements include support for encrypted password retrieval and fixes for `_MetaProxy.get_masked_fields` compatibility issues." />
     <MESSAGE value="Support plain opaque tokens in OAuth `state` decoding&#10;&#10;Updated `decode_state` to accept both structured base64-JSON and plain opaque tokens as valid `state` values. This ensures compatibility with diverse OAuth authorize URLs, including older or hand-crafted ones, while maintaining robust validation for invalid cases like empty tokens or malformed JSON." />
-    <option name="LAST_COMMIT_MESSAGE" value="Support plain opaque tokens in OAuth `state` decoding&#10;&#10;Updated `decode_state` to accept both structured base64-JSON and plain opaque tokens as valid `state` values. This ensures compatibility with diverse OAuth authorize URLs, including older or hand-crafted ones, while maintaining robust validation for invalid cases like empty tokens or malformed JSON." />
+    <MESSAGE value="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints." />
+    <option name="LAST_COMMIT_MESSAGE" value="Resolve Social Login Key by provider type instead of name&#10;&#10;Updated Rust's Social Login Key lookup logic to match by provider type (`social_login_provider` scrubbed/aliased) rather than relying on document names, which might be UUIDs. This ensures consistent handling across Python and Rust paths, including proper fallback for Microsoft OAuth endpoints." />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
