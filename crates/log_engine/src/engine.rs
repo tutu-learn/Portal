@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::ops::Bound;
@@ -5,7 +6,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::{Duration, SystemTime};
 
-use tantivy::collector::{Count, TopDocs};
+use serde::{Deserialize, Serialize};
+use tantivy::collector::{Count, DocSetCollector, TopDocs};
 use tantivy::directory::MmapDirectory;
 use tantivy::merge_policy::LogMergePolicy;
 use tantivy::query::{QueryParser, RangeQuery, TermQuery};
@@ -17,6 +19,18 @@ use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument, Term};
 use crate::error::LogResult;
 use crate::record::LogRecord;
 use crate::trigger::{Alert, Trigger};
+
+/// Aggregate count of log records for a single (service, level) pair over a
+/// time window, along with the first and last record timestamps seen in that
+/// window.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServiceLevelCount {
+    pub service: String,
+    pub level: String,
+    pub count: u64,
+    pub first_ms: i64,
+    pub last_ms: i64,
+}
 
 /// The core synchronous log engine.
 ///
@@ -357,6 +371,69 @@ impl LogEngine {
             .filter(|rec| staged_matches_query(rec, q))
             .count();
         Ok(committed + staged)
+    }
+
+    /// Count log records grouped by (service, level) within
+    /// `[start_ms, end_ms)`, including both committed records and any
+    /// in-memory staged records. Results are sorted by (service, level).
+    ///
+    /// This visits every document in the window and loads the stored JSON of
+    /// each; it is intended for a once-daily background rollup run via
+    /// `spawn_blocking`, not for hot request paths.
+    pub fn counts_by_service_level(
+        &self,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> LogResult<Vec<ServiceLevelCount>> {
+        // (count, min_ts, max_ts) per (service, level).
+        let mut buckets: HashMap<(String, String), (u64, i64, i64)> = HashMap::new();
+        let mut fold = |service: &str, level: &str, ts: i64| {
+            let entry = buckets
+                .entry((service.to_string(), level.to_string()))
+                .or_insert((0, ts, ts));
+            entry.0 += 1;
+            entry.1 = entry.1.min(ts);
+            entry.2 = entry.2.max(ts);
+        };
+
+        let searcher = self.reader.searcher();
+        let query = RangeQuery::new_i64_bounds(
+            "timestamp".to_string(),
+            Bound::Included(start_ms),
+            Bound::Excluded(end_ms),
+        );
+        // DocSetCollector visits every matching doc, so large windows are
+        // counted in full rather than capped at some TopDocs limit.
+        for addr in searcher.search(&query, &DocSetCollector)? {
+            let doc: TantivyDocument = searcher.doc(addr)?;
+            if let Some(raw) = doc.get_first(self.f_raw).and_then(|v| v.as_str()) {
+                if let Ok(rec) = serde_json::from_str::<LogRecord>(raw) {
+                    fold(&rec.service, &rec.level, rec.timestamp);
+                }
+            }
+        }
+
+        // Fold in staged (uncommitted) records inside the window.
+        for rec in &self.staged {
+            if rec.timestamp >= start_ms && rec.timestamp < end_ms {
+                fold(&rec.service, &rec.level, rec.timestamp);
+            }
+        }
+
+        let mut out: Vec<ServiceLevelCount> = buckets
+            .into_iter()
+            .map(
+                |((service, level), (count, first_ms, last_ms))| ServiceLevelCount {
+                    service,
+                    level,
+                    count,
+                    first_ms,
+                    last_ms,
+                },
+            )
+            .collect();
+        out.sort_by(|a, b| (&a.service, &a.level).cmp(&(&b.service, &b.level)));
+        Ok(out)
     }
 
     /// Path to the write-ahead log.
@@ -736,5 +813,98 @@ mod tests {
         assert_eq!(engine.count("*").unwrap(), 3);
         assert_eq!(engine.count("level:ERROR").unwrap(), 2);
         assert_eq!(engine.count("service:auth").unwrap(), 0);
+    }
+
+    fn record_at(level: &str, service: &str, ts: i64) -> LogRecord {
+        let mut rec = LogRecord::new(level, service, "rollup test");
+        rec.timestamp = ts;
+        rec
+    }
+
+    #[test]
+    fn counts_by_service_level_aggregates_committed_and_staged() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        const DAY_MS: i64 = 86_400_000;
+        let day1 = 1_700_000_000_000i64; // window start
+        let day2 = day1 + DAY_MS; // window end (exclusive)
+
+        // Day 1, committed: web/INFO x2, web/ERROR x1, auth/INFO x1.
+        engine.ingest(record_at("INFO", "web", day1 + 1_000)).unwrap();
+        engine.ingest(record_at("INFO", "web", day1 + 2_000)).unwrap();
+        engine.ingest(record_at("ERROR", "web", day1 + 3_000)).unwrap();
+        engine
+            .ingest(record_at("INFO", "auth", day1 + 4_000))
+            .unwrap();
+        // Day 2, committed: outside the window.
+        engine
+            .ingest(record_at("INFO", "web", day2 + 1_000))
+            .unwrap();
+        engine.commit().unwrap();
+
+        // Day 1, staged (uncommitted): web/INFO x1, auth/ERROR x1.
+        engine.ingest(record_at("INFO", "web", day1 + 5_000)).unwrap();
+        engine
+            .ingest(record_at("ERROR", "auth", day1 + 6_000))
+            .unwrap();
+        // Staged exactly at the window end: excluded (end is exclusive).
+        engine.ingest(record_at("WARN", "auth", day2)).unwrap();
+
+        let counts = engine.counts_by_service_level(day1, day2).unwrap();
+        let flat: Vec<(&str, &str, u64, i64, i64)> = counts
+            .iter()
+            .map(|c| {
+                (
+                    c.service.as_str(),
+                    c.level.as_str(),
+                    c.count,
+                    c.first_ms,
+                    c.last_ms,
+                )
+            })
+            .collect();
+        // Sorted by (service, level); committed and staged records merged.
+        assert_eq!(
+            flat,
+            vec![
+                ("auth", "ERROR", 1, day1 + 6_000, day1 + 6_000),
+                ("auth", "INFO", 1, day1 + 4_000, day1 + 4_000),
+                ("web", "ERROR", 1, day1 + 3_000, day1 + 3_000),
+                ("web", "INFO", 3, day1 + 1_000, day1 + 5_000),
+            ]
+        );
+    }
+
+    #[test]
+    fn counts_by_service_level_excludes_other_windows() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+
+        const DAY_MS: i64 = 86_400_000;
+        let day1 = 1_700_000_000_000i64;
+        let day2 = day1 + DAY_MS;
+
+        engine.ingest(record_at("INFO", "web", day1 + 1_000)).unwrap();
+        engine.commit().unwrap();
+
+        // Querying day 2 sees nothing from day 1.
+        assert!(engine
+            .counts_by_service_level(day2, day2 + DAY_MS)
+            .unwrap()
+            .is_empty());
+
+        // Querying a sub-window of day 1 that holds no records is also empty.
+        assert!(engine
+            .counts_by_service_level(day1 + 2_000, day2)
+            .unwrap()
+            .is_empty());
+
+        // The day-1 record lands in its own window.
+        let counts = engine.counts_by_service_level(day1, day2).unwrap();
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts[0].count, 1);
+        assert_eq!(counts[0].first_ms, day1 + 1_000);
+        assert_eq!(counts[0].last_ms, day1 + 1_000);
     }
 }

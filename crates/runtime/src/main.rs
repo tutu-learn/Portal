@@ -282,13 +282,16 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
         .unwrap_or(120u64);
     let commit_interval = Duration::from_secs(commit_interval_secs);
 
-    // Retention: delete logs older than this. Default 14 days, checked once
-    // per day. On small servers this prevents the mmap'd Tantivy index from
-    // growing forever and eventually exhausting RAM.
+    // Retention backstop: delete logs older than this, checked once per day.
+    // audit_ready's `audit_ready.log_daily_rollup` job is the primary path —
+    // it rolls each day up into the audit_ready_log_daily table and only then
+    // prunes raw logs older than 2 days. This loop only guards the case where
+    // that app/job is disabled, keeping the mmap'd Tantivy index from growing
+    // unbounded and eventually exhausting RAM on small servers.
     let retention_days = std::env::var("KIFF_LOG_RETENTION_DAYS")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(14u64);
+        .unwrap_or(3u64);
     let retention_interval = Duration::from_secs(
         std::env::var("KIFF_LOG_RETENTION_INTERVAL_SECS")
             .ok()

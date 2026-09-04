@@ -17,7 +17,7 @@ members = [
     "crates/kiff_logger",
     "crates/protocol",
     "rust_apps/core",
-    "rust_apps/sebrus_logger",
+    "rust_apps/audit_ready",
 ]
 
 [workspace.dependencies]
@@ -59,9 +59,6 @@ argon2       = { version = "0.5" }
 totp-rs      = { version = "5" }
 jsonwebtoken = { version = "9" }
 
-# http client
-reqwest      = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-
 # utilities
 uuid         = { version = "1",    features = ["v4", "serde"] }
 chrono       = { version = "0.4",  features = ["serde"] }
@@ -73,6 +70,7 @@ tower-http   = { version = "0.5",  features = ["trace", "cors", "fs"] }
 base64       = { version = "0.21" }
 rand         = { version = "0.8" }
 fernet       = { version = "0.2" }
+reqwest      = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # internal crates
 error        = { path = "crates/error" }
@@ -110,7 +108,6 @@ dashmap        = { workspace = true }
 
 [dev-dependencies]
 
-sebrus_logger = { path = "rust_apps/sebrus_logger" }
 http-body-util = "0.1"
 rust_apps_core = { path = "rust_apps/core" }
 kiff_logger = { path = "crates/kiff_logger" }

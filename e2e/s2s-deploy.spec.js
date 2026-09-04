@@ -594,6 +594,66 @@ test.describe('Audit Ready s2s deploy integration', () => {
     });
   });
 
+  test('delete_service deletes the linked s2s deployment and cascades locally', async ({ page }) => {
+    const suffix = uid();
+    const { deployment, service } = await createFixture(page, suffix, mock.url);
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    const approve = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+    expect(approve.ok, `approve failed: ${approve.error}`).toBe(true);
+
+    // A service-level secret owned by this service.
+    const sec = await callMethod(page, 'sebrus_apps.create_secret', {
+      owner_type: 'Sebrus Service',
+      owner: service.name,
+      secret_key: 'SVC_TOKEN',
+      secret_value: 'svc-secret-value',
+    });
+    expect(sec.ok, `service secret failed: ${sec.error}`).toBe(true);
+
+    // The s2s deployment id Audit Ready returned for this service.
+    const s2sId = query(
+      `SELECT s2s_deployment_id FROM "sebrus_deploy_record" WHERE service = '${service.name}'`
+    );
+    expect(s2sId).toContain('dep-mock-');
+
+    const del = await callMethod(page, 'sebrus_apps.delete_service', { service: service.name });
+    expect(del.ok, `delete_service failed: ${del.error}`).toBe(true);
+    expect(del.message.remote_deleted).toBe(1);
+    expect(del.message.remote_errors).toEqual([]);
+
+    // The mock received the remote DELETE, authed + attributed.
+    const deletes = mock.state.requests.filter((r) => r.method === 'DELETE');
+    expect(deletes.length).toBe(1);
+    expect(deletes[0].path).toBe(`/audit_ready/s2s/deployments/${s2sId}`);
+    expect(deletes[0].token).toBe('Bearer mock-s2s-token');
+    expect(deletes[0].operator).toBe('Administrator');
+
+    // Local cascade: service, its deploy records, pinned versions and
+    // service-level secrets are gone.
+    expect(query(`SELECT COUNT(*) FROM "sebrus_service" WHERE name = '${service.name}'`)).toBe('0');
+    expect(
+      query(`SELECT COUNT(*) FROM "sebrus_deploy_record" WHERE service = '${service.name}'`)
+    ).toBe('0');
+    expect(
+      query(`SELECT COUNT(*) FROM "sebrus_service_version" WHERE service = '${service.name}'`)
+    ).toBe('0');
+    expect(
+      query(
+        `SELECT COUNT(*) FROM "sebrus_secret" WHERE owner_type = 'Sebrus Service' AND owner_name = '${service.name}'`
+      )
+    ).toBe('0');
+
+    // Deleting an unknown service is a NotFound, not a silent ok.
+    const missing = await callMethod(page, 'sebrus_apps.delete_service', { service: service.name });
+    expect(missing.ok).toBe(false);
+  });
+
   test('approve without Audit Ready fields is rejected before any call', async ({ page }) => {
     const suffix = uid();
     await page.goto('/desk');

@@ -12,7 +12,7 @@ mod record;
 mod service;
 mod trigger;
 
-pub use engine::LogEngine;
+pub use engine::{LogEngine, ServiceLevelCount};
 pub use error::{LogError, LogResult};
 pub use record::LogRecord;
 pub use service::LogService;
