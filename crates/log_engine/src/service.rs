@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::spawn_blocking;
 
-use crate::engine::LogEngine;
+use crate::engine::{LogEngine, ServiceLevelCount};
 use crate::error::LogResult;
 use crate::record::LogRecord;
 use crate::trigger::Alert;
@@ -107,6 +107,21 @@ impl LogService {
         })
         .await
         .expect("log query task panicked")
+    }
+
+    /// Count records grouped by (service, level) within `[start_ms, end_ms)`.
+    pub async fn counts_by_service_level(
+        &self,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> LogResult<Vec<ServiceLevelCount>> {
+        let engine = self.engine.clone();
+        spawn_blocking(move || {
+            let eng = engine.blocking_lock();
+            eng.counts_by_service_level(start_ms, end_ms)
+        })
+        .await
+        .expect("log counts task panicked")
     }
 
     /// Register a trigger.

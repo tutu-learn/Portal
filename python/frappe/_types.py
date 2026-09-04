@@ -197,6 +197,36 @@ class _DocProxy(_dict):
         for v in values:
             self.append(key, v)
 
+    def is_new(self):
+        name = self.get("name")
+        if not name:
+            return True
+        try:
+            import frappe
+            return not frappe.db.exists(self.doctype, name)
+        except BaseException:
+            # Includes pyo3 PanicException when the Rust runtime isn't up.
+            return False
+
+    def get_social_login_userid(self, provider):
+        for row in self.get("social_logins") or []:
+            if isinstance(row, dict) and row.get("provider") == provider:
+                return row.get("userid")
+        return None
+
+    def set_social_login_userid(self, provider, userid, username=None):
+        row = {"provider": provider, "userid": userid}
+        if username:
+            row["username"] = username
+        self.append("social_logins", row)
+
+    def add_roles(self, *roles):
+        existing = {r.get("role") for r in self.get("roles") or [] if isinstance(r, dict)}
+        for role in roles:
+            if role and role not in existing:
+                self.append("roles", {"role": role})
+                existing.add(role)
+
     def get_all_children(self, parenttype=None, include_computed=False):
         meta = self.meta
         out = []
@@ -390,7 +420,7 @@ class _MetaProxy(_dict):
     def high_permlevel_fields(self):
         return self.get_high_permlevel_fields()
 
-    def get_masked_fields(self):
+    def get_masked_fields(self, parenttype=None):
         return []
 
     def get_naming_series_options(self):

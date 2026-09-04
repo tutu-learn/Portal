@@ -89,6 +89,21 @@ pub struct RuntimeSection {
     pub sites_path: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AuthSection {
+    /// When set, the framework login screen (`GET /login` and the guest
+    /// redirect from `/desk`) is bypassed and users are redirected to this
+    /// path instead (e.g. an app-provided login page). Must start with '/'.
+    #[serde(default)]
+    pub custom_login_path: Option<String>,
+    /// When set, a successful login that did not specify a `redirect_to`
+    /// (e.g. a social login authorize URL built without one) lands here
+    /// instead of the framework desk (`/app`) — e.g. an app-provided
+    /// dashboard/portal. Must start with '/'.
+    #[serde(default)]
+    pub custom_home_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeConfig {
     pub runtime: RuntimeSection,
@@ -98,6 +113,8 @@ pub struct RuntimeConfig {
     pub server: ServerConfig,
     #[serde(default)]
     pub queue: QueueConfig,
+    #[serde(default)]
+    pub auth: AuthSection,
 }
 
 impl Default for RuntimeConfig {
@@ -123,6 +140,7 @@ impl Default for RuntimeConfig {
                 default_workers: 2,
                 long_workers: 1,
             },
+            auth: AuthSection::default(),
         }
     }
 }
@@ -130,8 +148,22 @@ impl Default for RuntimeConfig {
 impl RuntimeConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let config: RuntimeConfig = toml::from_str(&content)
+        let mut config: RuntimeConfig = toml::from_str(&content)
             .map_err(|e| RuntimeError::Config(format!("failed to parse runtime.toml: {}", e)))?;
+
+        // Allow operators to point all login traffic at an app-provided login
+        // page from the environment (same pattern as FRAPPE_ENCRYPTION_KEY).
+        if let Ok(path) = std::env::var("CUSTOM_LOGIN_PATH") {
+            if !path.is_empty() {
+                config.auth.custom_login_path = Some(path);
+            }
+        }
+        if let Ok(path) = std::env::var("CUSTOM_HOME_PATH") {
+            if !path.is_empty() {
+                config.auth.custom_home_path = Some(path);
+            }
+        }
+
         Ok(config)
     }
 }
@@ -286,6 +318,38 @@ impl SiteManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auth_section_parses_custom_login_path() {
+        let toml = r#"
+            [runtime]
+            frappe_path = "./apps/frappe"
+            erpnext_path = ""
+            shim_path = "./python"
+            sites_path = "./sites"
+
+            [auth]
+            custom_login_path = "/sebrus_logger/login"
+        "#;
+        let config: RuntimeConfig = toml::from_str(toml).unwrap();
+        assert_eq!(
+            config.auth.custom_login_path.as_deref(),
+            Some("/sebrus_logger/login")
+        );
+    }
+
+    #[test]
+    fn auth_section_defaults_to_none() {
+        let toml = r#"
+            [runtime]
+            frappe_path = "./apps/frappe"
+            erpnext_path = ""
+            shim_path = "./python"
+            sites_path = "./sites"
+        "#;
+        let config: RuntimeConfig = toml::from_str(toml).unwrap();
+        assert!(config.auth.custom_login_path.is_none());
+    }
 
     #[test]
     fn generated_fernet_key_is_valid() {

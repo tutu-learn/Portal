@@ -50,6 +50,54 @@ fn fernet_encrypt(encryption_key: &str, plaintext: &str) -> Result<String> {
     Ok(fernet.encrypt(plaintext.as_bytes()))
 }
 
+fn fernet_decrypt(encryption_key: &str, ciphertext: &str) -> Result<String> {
+    let fernet = fernet::Fernet::new(encryption_key).ok_or_else(|| {
+        RuntimeError::Validation("site encryption_key is not a valid Fernet key".into())
+    })?;
+    let bytes = fernet
+        .decrypt(ciphertext)
+        .map_err(|e| RuntimeError::Validation(format!("failed to decrypt secret: {e}")))?;
+    String::from_utf8(bytes)
+        .map_err(|e| RuntimeError::Validation(format!("decrypted secret is not valid UTF-8: {e}")))
+}
+
+/// Read back a Password field's decrypted value from `__auth`, mirroring
+/// Frappe's `frappe.utils.password.get_decrypted_password`. Returns `None`
+/// when no secret is stored for `(doctype, name, fieldname)`.
+pub async fn get_decrypted_password(
+    pool: &DatabasePool,
+    doctype: &str,
+    name: &str,
+    fieldname: &str,
+    encryption_key: &str,
+) -> Result<Option<String>> {
+    let sql = format!(
+        r#"SELECT password FROM "__auth" WHERE doctype = {} AND name = {} AND fieldname = {}"#,
+        pool.placeholder(1),
+        pool.placeholder(2),
+        pool.placeholder(3)
+    );
+    let rows = pool
+        .execute_sql(
+            &sql,
+            vec![
+                Value::String(doctype.into()),
+                Value::String(name.into()),
+                Value::String(fieldname.into()),
+            ],
+        )
+        .await?;
+    let Some(encrypted) = rows
+        .into_iter()
+        .next()
+        .and_then(|mut r| r.remove("password"))
+        .and_then(|v| v.as_str().map(String::from))
+    else {
+        return Ok(None);
+    };
+    Ok(Some(fernet_decrypt(encryption_key, &encrypted)?))
+}
+
 async fn upsert_auth(
     pool: &DatabasePool,
     doctype: &str,

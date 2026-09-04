@@ -790,10 +790,7 @@ def _patch_real_module(mod):
             _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
 
             def _kiff_get_oauth2_providers():
-                import frappe
                 import logging
-                import os
-                import re
 
                 _log = logging.getLogger("kiff.oauth")
                 providers = _orig_get_oauth2_providers()
@@ -802,73 +799,20 @@ def _patch_real_module(mod):
                 else:
                     providers = dict(providers)
 
-                # Tenant-specific Microsoft endpoints are required for single-tenant
-                # app registrations created after 10/15/2018.  Read the tenant id
-                # from site_config, an environment variable, or the Social Login Key
-                # authorize_url / access_token_url.
-                tenant_id = (
-                    frappe.conf.get("office_365_tenant_id")
-                    or frappe.conf.get("audit_ready_office_365_tenant_id")
-                    or os.environ.get("OFFICE_365_TENANT_ID")
-                )
-
-                def _ms_tenant_from_url(url):
-                    if not url:
-                        return None
-                    m = re.search(
-                        r"login\.microsoftonline\.com/([^/]+)/oauth2", str(url)
-                    )
-                    if m:
-                        t = m.group(1)
-                        if t and t != "common":
-                            return t
-                    return None
-
-                # Derive tenant id from any Microsoft provider URLs already configured.
-                if not tenant_id:
-                    for cfg in providers.values():
-                        if not isinstance(cfg, dict):
-                            continue
-                        flow_params = cfg.get("flow_params") or {}
-                        for url_key in ("authorize_url", "access_token_url", "base_url"):
-                            t = _ms_tenant_from_url(flow_params.get(url_key))
-                            if t:
-                                tenant_id = t
-                                break
-                        if tenant_id:
-                            break
-
-                # Derive tenant id from configured Social Login Key URLs.
-                if not tenant_id:
-                    try:
-                        keys = frappe.get_all(
-                            "Social Login Key",
-                            fields=["authorize_url", "access_token_url"],
-                        )
-                        for key in keys:
-                            for url in (key.authorize_url, key.access_token_url):
-                                t = _ms_tenant_from_url(url)
-                                if t:
-                                    tenant_id = t
-                                    break
-                            if tenant_id:
-                                break
-                    except Exception as e:
-                        _log.debug("Social Login Key tenant lookup failed: %s", e)
-
-                if not tenant_id:
-                    tenant_id = "common"
-
-                ms_base = (
-                    "https://login.microsoftonline.com/%s/oauth2/v2.0" % tenant_id
-                )
-
+                # Use whatever Authorize URL / Access Token URL / Base URL is
+                # saved on the Social Login Key exactly as configured — no
+                # implicit /common/-to-tenant rewriting. To restrict Office 365
+                # login to a single org tenant, the admin types the
+                # tenant-specific URL (e.g. .../<tenant-id>/oauth2/...) directly
+                # into those fields; to allow any org, use /organizations/; to
+                # allow any account, use /common/.
                 has_microsoft = any(
                     "login.microsoftonline.com" in (((p or {}).get("flow_params") or {}).get("access_token_url") or "")
                     for p in providers.values()
                 )
 
                 if not has_microsoft:
+                    ms_base = "https://login.microsoftonline.com/common/oauth2/v2.0"
                     providers["office_365"] = {
                         "flow_params": {
                             "name": "office_365",
@@ -883,25 +827,6 @@ def _patch_real_module(mod):
                         "api_endpoint": "https://graph.microsoft.com/v1.0/me",
                         "api_endpoint_args": {},
                     }
-                else:
-                    # Rewrite any Microsoft /common endpoint to the tenant-specific
-                    # endpoint when a tenant id is configured.
-                    for key, cfg in providers.items():
-                        if not isinstance(cfg, dict):
-                            continue
-                        flow_params = cfg.get("flow_params") or {}
-                        if "login.microsoftonline.com" not in (
-                            flow_params.get("access_token_url") or ""
-                        ):
-                            continue
-                        if tenant_id != "common":
-                            for url_key in ("authorize_url", "access_token_url", "base_url"):
-                                url = flow_params.get(url_key) or ""
-                                if "/common/" in url:
-                                    flow_params[url_key] = url.replace(
-                                        "/common/", "/%s/" % tenant_id
-                                    )
-                            cfg["flow_params"] = flow_params
 
                 for key, cfg in providers.items():
                     if isinstance(cfg, dict):
@@ -1102,7 +1027,6 @@ def _patch_real_module(mod):
 
             def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
                 import json as _json
-                import jwt
                 import logging
 
                 _log = logging.getLogger("kiff.oauth")
@@ -1171,78 +1095,121 @@ def _patch_real_module(mod):
                         redirect_uri,
                     )
 
-                    # Safety net: if the access token URL still points to /common/ but
-                    # the authorize URL is tenant-specific, rewrite the token URL.
-                    if (
-                        "/common/" in access_token_url
-                        and "login.microsoftonline.com" in access_token_url
-                    ):
-                        import re
+                    # No implicit tenant rewriting here — access_token_url and
+                    # authorize_url are used exactly as configured on the Social
+                    # Login Key (overlaid above), so restricting/opening up login
+                    # to other tenants is controlled purely by what's saved on
+                    # that record.
 
-                        m = re.search(
-                            r"login\.microsoftonline\.com/([^/]+)/oauth2",
-                            authorize_url,
-                        )
-                        if m and m.group(1) and m.group(1) != "common":
-                            tenant_id = m.group(1)
-                            access_token_url = access_token_url.replace(
-                                "/common/", "/%s/" % tenant_id
-                            )
-                            flow_params = dict(flow_params)
-                            flow_params["access_token_url"] = access_token_url
-                            _log.warning(
-                                "Rewrote access_token_url to tenant-specific: %r",
-                                access_token_url,
-                            )
-
-                    # Build the flow ourselves so we use the corrected flow_params
-                    # instead of letting Frappe re-read get_oauth2_providers().
-                    from rauth import OAuth2Service
-
-                    flow_params = dict(flow_params)
                     keys = _oauth_mod.get_oauth_keys(provider_key)
-                    keys.update(flow_params)
-                    flow = OAuth2Service(**keys)
-
-                    args = {
-                        "data": {
-                            "code": code,
-                            "redirect_uri": redirect_uri,
-                            "grant_type": "authorization_code",
-                        }
-                    }
-
-                    if "login.microsoftonline.com" in access_token_url:
-                        auth_url_data = provider_cfg.get("auth_url_data") or {}
-                        if isinstance(auth_url_data, str):
-                            auth_url_data = _json.loads(auth_url_data) or {}
-                        if not isinstance(auth_url_data, dict):
-                            auth_url_data = {}
-                        scope = auth_url_data.get("scope")
-                        if scope:
-                            args["data"]["scope"] = scope
-
-                    if decoder:
-                        args["decoder"] = decoder
-
-                    _log.debug("OAuth token exchange: provider_key=%s", provider_key)
-                    session = flow.get_auth_session(**args)
 
                     if id_token:
-                        parsed_access = _json.loads(
-                            getattr(session, "access_token_response", None)
-                            and session.access_token_response.text
-                            or "{}"
+                        # Office 365 is the only id_token provider (see
+                        # oauth2_logins.login_via_office365). Do the token
+                        # exchange directly in Rust instead of through rauth:
+                        # rauth's process_token_request only knows how to look
+                        # up a hardcoded "access_token" key in the response
+                        # and raises a bare KeyError with the whole raw body
+                        # crammed into the message when it's missing -- which
+                        # is exactly what happens on every OAuth error
+                        # response (Microsoft returns {"error": ...,
+                        # "error_description": ...} with no access_token at
+                        # all). The Rust exchange raises a RuntimeError that
+                        # actually says what Microsoft said.
+                        import kiff_core
+
+                        # Source auth_url_data (and therefore `scope`) from the
+                        # real Social Login Key doc directly, the same source
+                        # Rust's build_authorize_url() reads from -- not from
+                        # oauth2_providers()[provider_key], which can be a
+                        # synthetic fallback entry (hardcoded Graph scope,
+                        # never actually requested/consented to at authorize
+                        # time) when provider resolution picks the wrong
+                        # entry. Requesting a scope here that wasn't part of
+                        # the original consent is exactly what produces
+                        # AADSTS70000 "one or more scopes requested are
+                        # unauthorized or expired" -- Azure AD org tenants
+                        # often tolerate the mismatch, but the MSA/consumers
+                        # backend used by personal Microsoft accounts does not.
+                        auth_url_data = None
+                        try:
+                            import frappe
+
+                            login_key = _find_social_login_key(provider_key)
+                            if login_key:
+                                slk_doc = frappe.get_doc("Social Login Key", login_key)
+                                raw_auth_url_data = slk_doc.get("auth_url_data")
+                                if raw_auth_url_data:
+                                    auth_url_data = (
+                                        _json.loads(raw_auth_url_data)
+                                        if isinstance(raw_auth_url_data, str)
+                                        else raw_auth_url_data
+                                    )
+                        except Exception as e:
+                            _log.debug("Social Login Key auth_url_data lookup failed: %s", e)
+
+                        if not isinstance(auth_url_data, dict):
+                            auth_url_data = provider_cfg.get("auth_url_data") or {}
+                            if isinstance(auth_url_data, str):
+                                auth_url_data = _json.loads(auth_url_data) or {}
+                            if not isinstance(auth_url_data, dict):
+                                auth_url_data = {}
+                        scope = auth_url_data.get("scope")
+
+                        _log.warning(
+                            "oauth2_token_exchange request: provider_key=%r "
+                            "access_token_url=%r redirect_uri=%r client_id=%r "
+                            "scope=%r code_len=%d code_prefix=%r code_suffix=%r "
+                            "code_has_plus=%s code_has_space=%s",
+                            provider_key,
+                            access_token_url,
+                            redirect_uri,
+                            keys.get("client_id"),
+                            scope,
+                            len(code),
+                            code[:12],
+                            code[-12:],
+                            "+" in code,
+                            " " in code,
                         )
-                        token = parsed_access.get("id_token")
+                        token_response = kiff_core.oauth2_token_exchange(
+                            access_token_url,
+                            code,
+                            redirect_uri,
+                            keys.get("client_id"),
+                            keys.get("client_secret"),
+                            scope,
+                        )
+                        token = token_response.get("id_token")
                         if not token:
-                            raise RuntimeError("id_token missing in OAuth response")
-                        info = jwt.decode(
-                            token,
-                            getattr(flow, "client_secret", None) or "",
-                            options={"verify_signature": False},
-                        )
+                            raise RuntimeError(
+                                "id_token missing in OAuth response: %r" % (token_response,)
+                            )
+                        info = kiff_core.oauth2_decode_jwt_payload(token)
                     else:
+                        # Build the flow ourselves so we use the corrected
+                        # flow_params instead of letting Frappe re-read
+                        # get_oauth2_providers().
+                        from rauth import OAuth2Service
+
+                        flow_params = dict(flow_params)
+                        keys = dict(keys)
+                        keys.update(flow_params)
+                        flow = OAuth2Service(**keys)
+
+                        args = {
+                            "data": {
+                                "code": code,
+                                "redirect_uri": redirect_uri,
+                                "grant_type": "authorization_code",
+                            }
+                        }
+                        if decoder:
+                            args["decoder"] = decoder
+
+                        _log.debug("OAuth token exchange: provider_key=%s", provider_key)
+                        session = flow.get_auth_session(**args)
+
                         api_endpoint = provider_cfg.get("api_endpoint")
                         if not api_endpoint:
                             raise RuntimeError(

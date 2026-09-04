@@ -123,8 +123,27 @@ Enabled apps are declared in `rust_apps/apps.json`:
 }
 ```
 
+## OAuth / Social Login
+
+Social login callbacks are being migrated off the embedded Python OAuth flow and into native Rust, one provider at a time:
+
+- **Microsoft / Office365** (`frappe.integrations.oauth2_logins.login_via_office365`) runs natively in Rust end-to-end: state validation, authorization-code token exchange, id_token (JWT) decoding, and session/cookie creation (`crates/http/src/oauth_login.rs`, `crates/python-bridge/src/oauth.rs`). Python is invoked for exactly one step — `frappe.utils.oauth.update_oauth_user`, which creates/updates the `User` document through Frappe's real controller (hooks, permissions, default role, welcome-mail suppression).
+- Other providers (Google, GitHub, Facebook, Salesforce, custom) still run the full Python OAuth flow.
+
+### Social Login Key lookup, not by name
+
+A Social Login Key's document `name` is **not** reliably the provider slug (e.g. `office_365`). Real Frappe names these records via a custom `SocialLoginKey.autoname()` Python override (`self.name = frappe.scrub(self.provider_name)`), but the native Rust `insert_doc` path (tried before falling back to Python on a desk-form save) doesn't know about per-DocType Python autoname overrides — it only honors a plain `autoname = "field:<x>"` DocType JSON rule — so a key created or recreated through that path ends up named with a random UUID instead.
+
+Both the Python OAuth shim (`python/frappe/__init__.py`'s `_find_social_login_key`/`_oauth_provider_slugs`) and the native Rust callback (`crates/http/src/oauth_login.rs`'s `find_social_login_key`/`oauth_provider_aliases`) resolve the key the same way — by *type*, not by name:
+
+1. Scrub the `social_login_provider` field (`frappe.scrub`: lowercase, spaces/dashes → `_`) and match it against an alias set (`office_365` and `microsoft` are treated as the same provider).
+2. Fallback: any enabled key whose authorize/access-token URL points at `login.microsoftonline.com`, for a row where the Select field wasn't set to the exact label.
+
 ## Recent Fixes
 
+- **Social Login Key resolved by provider type, not by document name** — the native Rust Office365 callback now matches Social Login Key rows the same way the Python OAuth shim already did (scrub-and-alias match on `social_login_provider`, with a Microsoft-URL fallback), instead of assuming the row is named `office_365`. See "Social Login Key lookup, not by name" above.
+- **Microsoft/Office365 login moved to native Rust** — the OAuth callback no longer round-trips through the embedded Python OAuth stack except for the final `User.save()`, eliminating a class of Python/Rust interop bugs (e.g. a Rust-authored `_MetaProxy` shim getting out of sync with the real Frappe `Meta.get_masked_fields()` signature).
+- **`_MetaProxy.get_masked_fields`** (`python/frappe/_types.py`) now accepts the `parenttype` kwarg that `Document._restore_masked_fields_from_db` passes, fixing a `TypeError` that broke every login (`user.save()`) flow.
 - **Top-level Frappe method whitelist** — methods such as `frappe.ping` are now correctly allowed by the request dispatcher. Previously the whitelist only matched dotted module prefixes (e.g. `frappe.desk.*`), so top-level `frappe` functions were rejected.
 
 ## License

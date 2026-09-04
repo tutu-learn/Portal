@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 
 pub mod db;
 pub mod document;
+pub mod oauth;
 pub mod queue;
 pub mod realtime;
 pub mod session;
@@ -404,7 +405,6 @@ pub fn call_method_with_user(
     if parts.len() < 2 {
         return Err(error::RuntimeError::Python("invalid method path".into()));
     }
-
     let func_name = parts.last().unwrap();
     let module_path = parts[..parts.len() - 1].join(".");
 
@@ -437,6 +437,37 @@ pub fn call_method_with_user(
         }
     }
 
+    call_method_unchecked(method_path, &module_path, func_name, kwargs, user)
+}
+
+/// Call a Python function by dotted path, bypassing the `@frappe.whitelist()`
+/// enforcement that [`call_method_with_user`] applies to methods reached from
+/// an untrusted HTTP request. Only for internal call sites where the method
+/// path is a fixed Rust-authored constant, never user-controlled input — e.g.
+/// a native OAuth login handler calling `frappe.utils.oauth.update_oauth_user`
+/// directly, which is an internal helper Frappe never whitelists for
+/// `/api/method` dispatch.
+pub fn call_trusted_method(
+    method_path: &str,
+    kwargs: &serde_json::Value,
+    user: Option<&str>,
+) -> error::Result<serde_json::Value> {
+    let parts: Vec<&str> = method_path.split('.').collect();
+    if parts.len() < 2 {
+        return Err(error::RuntimeError::Python("invalid method path".into()));
+    }
+    let func_name = parts.last().unwrap();
+    let module_path = parts[..parts.len() - 1].join(".");
+    call_method_unchecked(method_path, &module_path, func_name, kwargs, user)
+}
+
+fn call_method_unchecked(
+    method_path: &str,
+    module_path: &str,
+    func_name: &str,
+    kwargs: &serde_json::Value,
+    user: Option<&str>,
+) -> error::Result<serde_json::Value> {
     Python::with_gil(|py| {
         // Request-level params injected by the frappe JS client that are
         // never part of a Python function's signature — strip them so we
@@ -476,11 +507,11 @@ pub fn call_method_with_user(
         }
 
         let module = py
-            .import(module_path.as_str())
+            .import(module_path)
             .map_err(|e| error::RuntimeError::Python(format!("import {}: {}", module_path, e)))?;
 
         let func = module
-            .getattr(*func_name)
+            .getattr(func_name)
             .map_err(|e| error::RuntimeError::Python(format!("getattr {}: {}", func_name, e)))?;
 
         // Filter kwargs to only parameters the function actually accepts,
@@ -794,6 +825,9 @@ fn kiff_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(realtime::publish_realtime, m)?)?;
 
     m.add_function(wrap_pyfunction!(log_query, m)?)?;
+
+    m.add_function(wrap_pyfunction!(oauth::oauth2_token_exchange, m)?)?;
+    m.add_function(wrap_pyfunction!(oauth::oauth2_decode_jwt_payload, m)?)?;
 
     Ok(())
 }
