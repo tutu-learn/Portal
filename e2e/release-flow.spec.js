@@ -367,17 +367,28 @@ test.describe('Deployment approval workflow', () => {
     await mock.close();
   });
 
-  test('full transition walk Draft → Pending Approval → Approved → Deployed', async ({ page }) => {
+  test('full transition walk Draft → Pending Approval → Approved (Deploy re-runs)', async ({ page }) => {
     const suffix = uid();
     const name = await createDeployment(page, suffix, true);
     expect(dbWorkflowState(name)).toBe('Draft');
 
-    // Approve deploys through Audit Ready — point the app at the mock.
+    // Approve deploys through Audit Ready — point the app at the mock. The
+    // walk targets uat so the approval step is mandatory (dev skips it).
     const cfg = await callMethod(page, 'sebrus_apps.set_audit_ready_config', {
       url: mock.url,
       token: 'mock-s2s-token',
     });
     expect(cfg.ok, `set config failed: ${cfg.error}`).toBe(true);
+    const toUat = await page.evaluate(async (name) => {
+      const r = await fetch('/api/resource/Sebrus Deployment/' + encodeURIComponent(name), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ target_env: 'uat' }),
+      });
+      return r.ok;
+    }, name);
+    expect(toUat).toBe(true);
 
     // Illegal transition: cannot Approve from Draft.
     const bad = await callTransition(page, name, 'Approve');
@@ -393,20 +404,60 @@ test.describe('Deployment approval workflow', () => {
     expect(approved.ok, `approve failed: ${approved.error}`).toBe(true);
     expect(dbWorkflowState(name)).toBe('Approved');
 
-    const deployed = await callTransition(page, name, 'Mark Deployed');
-    expect(deployed.ok, `mark deployed failed: ${deployed.error}`).toBe(true);
-    expect(dbWorkflowState(name)).toBe('Deployed');
+    // Mark Deployed was removed — the action no longer exists.
+    const gone = await callTransition(page, name, 'Mark Deployed');
+    expect(gone.ok).toBe(false);
+    expect(dbWorkflowState(name)).toBe('Approved');
 
     // Deployed is not terminal: one deployment per scenario, so the next
-    // release is a repin + Retry Deploy on the same record, landing back in
-    // Approved (and re-queued with Audit Ready).
-    const retry = await callTransition(page, name, 'Retry Deploy');
-    expect(retry.ok, `retry from Deployed failed: ${retry.error}`).toBe(true);
+    // release is a repin + Deploy on the same record, which re-runs the
+    // rollout (re-queued with Audit Ready) and stays Approved.
+    const redeploy = await callTransition(page, name, 'Deploy');
+    expect(redeploy.ok, `deploy from Approved failed: ${redeploy.error}`).toBe(true);
     expect(dbWorkflowState(name)).toBe('Approved');
 
     // Out-of-state transitions are still refused.
     const after = await callTransition(page, name, 'Submit for Approval');
     expect(after.ok).toBe(false);
+  });
+
+  test('approval is per environment: dev deploys directly, uat requires approval', async ({ page }) => {
+    const cfg = await callMethod(page, 'sebrus_apps.set_audit_ready_config', {
+      url: mock.url,
+      token: 'mock-s2s-token',
+    });
+    expect(cfg.ok, `set config failed: ${cfg.error}`).toBe(true);
+
+    // dev (the fixture's target_env): Deploy straight from Draft — no
+    // approval step.
+    const devName = await createDeployment(page, uid(), true);
+    const direct = await callTransition(page, devName, 'Deploy');
+    expect(direct.ok, `dev Deploy from Draft failed: ${direct.error}`).toBe(true);
+    expect(dbWorkflowState(devName)).toBe('Approved');
+
+    // uat: a direct Deploy from Draft is refused — approval is mandatory.
+    const uatName = await createDeployment(page, uid(), true);
+    const patched = await page.evaluate(async (name) => {
+      const r = await fetch('/api/resource/Sebrus Deployment/' + encodeURIComponent(name), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ target_env: 'uat' }),
+      });
+      return r.ok;
+    }, uatName);
+    expect(patched).toBe(true);
+    const blocked = await callTransition(page, uatName, 'Deploy');
+    expect(blocked.ok, 'uat Deploy from Draft must be refused').toBe(false);
+    expect(JSON.stringify(blocked)).toContain('require approval');
+    expect(dbWorkflowState(uatName)).toBe('Draft');
+
+    // …while the approval flow still works for uat.
+    const submitted = await callTransition(page, uatName, 'Submit for Approval');
+    expect(submitted.ok, `submit failed: ${submitted.error}`).toBe(true);
+    const approved = await callTransition(page, uatName, 'Approve');
+    expect(approved.ok, `approve failed: ${approved.error}`).toBe(true);
+    expect(dbWorkflowState(uatName)).toBe('Approved');
   });
 
   test('reject then resubmit returns to Draft', async ({ page }) => {

@@ -62,15 +62,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets.">
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/e2e/release-flow.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/release-flow.spec.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/deploy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/deploy.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,12 +73,12 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19562" />
+    <option name="cachedIndexableFilesCount" value="19539" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/sebrus_apps" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -99,7 +94,7 @@
   }
 }</component>
   <component name="MacroExpansionManager">
-    <option name="directoryName" value="IP9ele17" />
+    <option name="directoryName" value="3pBfu8Y3" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -107,23 +102,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.6231691872427332" />
-      <entry key="MS500" value="4.621481093597312" />
-      <entry key="S2" value="6.8699672358565165" />
-      <entry key="S5" value="7.517884727335574" />
-      <entry key="S10" value="7.753583163598319" />
-      <entry key="S30" value="7.916636393539293" />
-      <entry key="S60" value="7.958162953154468" />
-      <entry key="M2" value="7.9790425015674575" />
-      <entry key="M5" value="7.991607625533023" />
-      <entry key="M10" value="7.995802253496606" />
-      <entry key="M15" value="7.99720723911008" />
-      <entry key="M30" value="8.006005506296765" />
-      <entry key="H1" value="8.270245392705501" />
-      <entry key="H2" value="10.378248096429447" />
-      <entry key="H4" value="18.777072686222443" />
-      <entry key="D1" value="82.46156825120974" />
-      <entry key="W1" value="199.74141788915213" />
+      <entry key="MS100" value="1.4057693291044355" />
+      <entry key="MS500" value="4.170359544034271" />
+      <entry key="S2" value="6.662613644780002" />
+      <entry key="S5" value="7.423441757604969" />
+      <entry key="S10" value="7.704242735954868" />
+      <entry key="S30" value="7.89969832255386" />
+      <entry key="S60" value="7.949631191545857" />
+      <entry key="M2" value="7.9747608386454365" />
+      <entry key="M5" value="7.989891159707965" />
+      <entry key="M10" value="7.994943386425544" />
+      <entry key="M15" value="7.996634567399676" />
+      <entry key="M30" value="8.005319987060137" />
+      <entry key="H1" value="8.236011234004646" />
+      <entry key="H2" value="9.457222786339583" />
+      <entry key="H4" value="13.758829254247306" />
+      <entry key="D1" value="68.89541617395149" />
+      <entry key="W1" value="111.9630515672638" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -134,498 +129,95 @@
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
       <entry key="M2" value="0.0" />
-      <entry key="M5" value="2.2677538221928887E-208" />
-      <entry key="M10" value="1.7215364254667164E-104" />
-      <entry key="M15" value="7.810808632631335E-70" />
-      <entry key="M30" value="3.7868521675970483E-35" />
-      <entry key="H1" value="8.602650740623311E-18" />
-      <entry key="H2" value="4.136851327379808E-9" />
-      <entry key="H4" value="9.350037388421142E-5" />
-      <entry key="D1" value="0.9003906884024124" />
-      <entry key="W1" value="5.810038129283442" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5582860819479996" />
-      <entry key="MS500" value="4.549605576977446" />
-      <entry key="S2" value="6.8412710878934915" />
-      <entry key="S5" value="7.505194870823116" />
-      <entry key="S10" value="7.747018979559124" />
-      <entry key="S30" value="7.914397876995606" />
-      <entry key="S60" value="7.957037276486494" />
-      <entry key="M2" value="7.978478050146498" />
-      <entry key="M5" value="7.991381456731974" />
-      <entry key="M10" value="7.995689104299402" />
-      <entry key="M15" value="7.997131791884588" />
-      <entry key="M30" value="8.00596776249687" />
-      <entry key="H1" value="8.270226280814605" />
-      <entry key="H2" value="10.378237391075093" />
-      <entry key="H4" value="18.77715816001436" />
-      <entry key="D1" value="83.36194389108094" />
-      <entry key="W1" value="205.5514438105157" />
+      <entry key="MS100" value="1.358929038639333" />
+      <entry key="MS500" value="4.143996378898" />
+      <entry key="S2" value="6.652006700121446" />
+      <entry key="S5" value="7.418696447553244" />
+      <entry key="S10" value="7.701776739011361" />
+      <entry key="S30" value="7.898854605208687" />
+      <entry key="S60" value="7.94920655475675" />
+      <entry key="M2" value="7.974547820882171" />
+      <entry key="M5" value="7.989805784130848" />
+      <entry key="M10" value="7.9949006705062216" />
+      <entry key="M15" value="7.996606083845511" />
+      <entry key="M30" value="8.005305731035724" />
+      <entry key="H1" value="8.236003922641622" />
+      <entry key="H2" value="9.45721863762223" />
+      <entry key="H4" value="13.758826113600923" />
+      <entry key="D1" value="68.89541215034409" />
+      <entry key="W1" value="111.96305054303444" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 4,
+  &quot;associatedIndex&quot;: 8,
   &quot;fromUser&quot;: false
 }</component>
-  <component name="ProjectId" id="3GDlWNud9lzF5IvpxhrI9tHQY1r" />
+  <component name="ProjectId" id="3IC2k1ReikK5POh7nrVtkx4QTBR" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
-    &quot;Cargo.Build audit_ready.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Run kiff-runtime.executor&quot;: &quot;Run&quot;,
     &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/SebrusApps&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;
   }
 }</component>
-  <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/apps" />
-    </key>
-  </component>
-  <component name="RunManager" selected="Cargo.Run kiff-runtime">
-    <configuration name="Build audit_ready" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="build --package audit_ready --lib" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Run kiff-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="buildProfileId" value="dev" />
-      <option name="command" value="run --package runtime --bin kiff-runtime" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Run kiff" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package kiff --bin kiff" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test open_frappe" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="buildProfileId" value="test" />
-      <option name="command" value="test --workspace" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Cargo.Build audit_ready" />
-      </list>
-    </recent_temporary>
-  </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="adce1347-e496-48e4-ae87-75047f3e824d" name="Changes" comment="" />
-      <created>1783514050462</created>
+      <changelist id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Added edit button on vault" />
+      <created>1787254368855</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1783514050462</updated>
-      <workItem from="1783514051586" duration="7833000" />
-      <workItem from="1783525353057" duration="26213000" />
-      <workItem from="1783585354201" duration="38163000" />
-      <workItem from="1783670437523" duration="6505000" />
-      <workItem from="1783678568811" duration="154000" />
-      <workItem from="1783679184532" duration="29477000" />
-      <workItem from="1783773069519" duration="106516000" />
-      <workItem from="1784188874819" duration="4893000" />
+      <updated>1787254368855</updated>
     </task>
-    <task id="LOCAL-00001" summary="Remove IntelliJ IDEA project configuration files&#10;&#10;- Deleted redundant `.idea` directory files including data sources, configurations, and other metadata.&#10;- Removed project-specific settings to clean up the repository.">
-      <option name="closed" value="true" />
-      <created>1783516287347</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1783516287347</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Sync apps.json with Cargo.toml manifests&#10;&#10;- Align `Cargo.toml` dependencies and workspace members with `apps.json` configuration.&#10;- Replace `sebrus_logger` with `strongroom` in runtime and workspace configurations.&#10;- Update build script to automate syncing between `apps.json` and Cargo manifests.">
-      <option name="closed" value="true" />
-      <created>1783532335345</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1783532335345</updated>
-    </task>
-    <task id="LOCAL-00003" summary="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions.">
-      <option name="closed" value="true" />
-      <created>1783583306744</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1783583306744</updated>
-    </task>
-    <task id="LOCAL-00004" summary="Add email connectivity module and extend permission merging logic&#10;&#10;- Introduced a new `crates/email` module for handling SMTP/IMAP connectivity, configuration, and testing. Includes `test_email_settings`, `send_email`, and `fetch_inbox` methods for email operations.&#10;- Extended the PermissionEngine to merge `docperm`, `__kiff_docperm`, and `custom_docperm` permissions with precedence, ensuring runtime permissions respect user configuration and seeded defaults.&#10;- Created tables for `docperm` and `custom_docperm` to align with extended merging behavior.&#10;- Updated `.idea` project files to reflect new module additions.">
-      <option name="closed" value="true" />
-      <created>1783583338908</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1783583338908</updated>
-    </task>
-    <task id="LOCAL-00005" summary="Add `audit_ready` app for server token management&#10;&#10;Introduced the `audit_ready` app for managing infrastructure server tokens, including UI, HTTP handlers, and backend processes. Updated `sync_rust_apps.py` to support case-insensitive app directory resolution and adjusted project files accordingly.">
-      <option name="closed" value="true" />
-      <created>1783701589796</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1783701589796</updated>
-    </task>
-    <task id="LOCAL-00006" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
-      <option name="closed" value="true" />
-      <created>1783709174937</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1783709174937</updated>
-    </task>
-    <task id="LOCAL-00007" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
-      <option name="closed" value="true" />
-      <created>1783710512504</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1783710512504</updated>
-    </task>
-    <task id="LOCAL-00008" summary="Add initial Playwright E2E test setup for AuditReady Compliance&#10;&#10;Created a `package.json` file to define the Playwright end-to-end testing framework with essential scripts and dependencies. This prepares the foundation for running and managing E2E tests for the AuditReady Compliance runtime.">
-      <option name="closed" value="true" />
-      <created>1783710894064</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1783710894064</updated>
-    </task>
-    <task id="LOCAL-00009" summary="Add Playwright E2E tests for Infrastructure Server and Kubernetes Cluster creation&#10;&#10;Introduced end-to-end tests to validate the creation and persistence of Infrastructure Servers and Kubernetes Clusters via the UI, ensuring backend data integrity and expected UI behavior.">
-      <option name="closed" value="true" />
-      <created>1783711031187</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1783711031187</updated>
-    </task>
-    <task id="LOCAL-00010" summary="Delete outdated server token codebase&#10;&#10;Removed legacy code related to server token handling, including APIs, handlers, UI components, and infrastructure logic. This paves the way for a more streamlined and updated token management approach going forward.">
-      <option name="closed" value="true" />
-      <created>1783806367627</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1783806367627</updated>
-    </task>
-    <task id="LOCAL-00011" summary="fixed bugs">
-      <option name="closed" value="true" />
-      <created>1783861706505</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1783861706505</updated>
-    </task>
-    <task id="LOCAL-00012" summary="fixed bugs">
-      <option name="closed" value="true" />
-      <created>1783863442876</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1783863442876</updated>
-    </task>
-    <task id="LOCAL-00013" summary="fixee">
-      <option name="closed" value="true" />
-      <created>1783864940643</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1783864940643</updated>
-    </task>
-    <task id="LOCAL-00014" summary="Enhance OAuth handling with improved error logging and input validation">
-      <option name="closed" value="true" />
-      <created>1783868056759</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1783868056759</updated>
-    </task>
-    <task id="LOCAL-00015" summary="Handle missing `redirect_uri` for custom OAuth providers&#10;&#10;Inject fallback logic to dynamically construct `redirect_uri` when it is not included in the provider configuration, ensuring compatibility with custom/injected OAuth providers.">
-      <option name="closed" value="true" />
-      <created>1783870573315</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1783870573315</updated>
-    </task>
-    <task id="LOCAL-00016" summary="Improve OAuth `redirect_uri` handling for custom providers&#10;&#10;Added fallback logic to build an absolute `redirect_uri` when missing or relative, ensuring compatibility with custom/injected providers and satisfying requirements like Microsoft's absolute URI enforcement.">
-      <option name="closed" value="true" />
-      <created>1783872272112</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1783872272112</updated>
-    </task>
-    <task id="LOCAL-00017" summary="Refactor OAuth provider resolution and key mapping&#10;&#10;Simplified and optimized the logic for resolving OAuth provider types, Social Login Keys, and configuration keys. Improved error handling, logging, and provider compatibility checks. Removed redundant fallback code for provider configuration.">
-      <option name="closed" value="true" />
-      <created>1783873644289</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1783873644289</updated>
-    </task>
-    <task id="LOCAL-00018" summary="Improve logging and error handling for initialization paths&#10;&#10;Enhanced initialization logic for the crash-durable log engine in Rust and added comprehensive fallback mechanisms for building redirect_uri in Python. Improved debug logging in both cases to aid troubleshooting and clarify error contexts.">
-      <option name="closed" value="true" />
-      <created>1783878638724</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1783878638724</updated>
-    </task>
-    <task id="LOCAL-00019" summary="Refactor OAuth `redirect_uri` logic for better request context handling&#10;&#10;Simplified the construction of `redirect_uri` by prioritizing request headers and context over fallback mechanisms. Ensured compatibility with Microsoft Entra ID by enforcing absolute URI requirements. Streamlined error handling for edge cases.">
-      <option name="closed" value="true" />
-      <created>1783880249820</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1783880249820</updated>
-    </task>
-    <task id="LOCAL-00020" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
-      <option name="closed" value="true" />
-      <created>1783881458014</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1783881458014</updated>
-    </task>
-    <task id="LOCAL-00021" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
-      <option name="closed" value="true" />
-      <created>1783883019878</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1783883019878</updated>
-    </task>
-    <task id="LOCAL-00022" summary="Enhance OAuth `redirect_uri` handling with improved fallback logic and detailed debug logging">
-      <option name="closed" value="true" />
-      <created>1783886013566</created>
-      <option name="number" value="00022" />
-      <option name="presentableId" value="LOCAL-00022" />
-      <option name="project" value="LOCAL" />
-      <updated>1783886013566</updated>
-    </task>
-    <task id="LOCAL-00023" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
-      <option name="closed" value="true" />
-      <created>1783888820229</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1783888820230</updated>
-    </task>
-    <task id="LOCAL-00024" summary="Refactor OAuth provider mapping and enhance Microsoft tenant configuration&#10;&#10;Streamlined the logic for resolving OAuth provider keys and Social Login Keys. Added support to dynamically configure tenant-specific Microsoft OAuth endpoints using tenant IDs from environment or config. Improved compatibility by rewriting `/common/` endpoints to tenant-specific URLs.">
-      <option name="closed" value="true" />
-      <created>1783890315530</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1783890315530</updated>
-    </task>
-    <task id="LOCAL-00025" summary="Add enhanced logging and tenant-specific handling for OAuth providers&#10;&#10;Improved debug and warning logs for OAuth provider flows. Added logic to rewrite `/common/` Microsoft OAuth endpoints to tenant-specific URLs. Enhanced flow configuration to ensure compatibility and accuracy of authorization and token exchange mechanisms.">
-      <option name="closed" value="true" />
-      <created>1783928283062</created>
-      <option name="number" value="00025" />
-      <option name="presentableId" value="LOCAL-00025" />
-      <option name="project" value="LOCAL" />
-      <updated>1783928283062</updated>
-    </task>
-    <task id="LOCAL-00026" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
-      <option name="closed" value="true" />
-      <created>1783932398301</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1783932398301</updated>
-    </task>
-    <task id="LOCAL-00027" summary="Add detailed debug logging for OAuth provider resolution and Social Login Key matching steps">
-      <option name="closed" value="true" />
-      <created>1783937006043</created>
-      <option name="number" value="00027" />
-      <option name="presentableId" value="LOCAL-00027" />
-      <option name="project" value="LOCAL" />
-      <updated>1783937006043</updated>
-    </task>
-    <task id="LOCAL-00028" summary="Add `restrict_to_domain` field to Doctype and enhance workspace child-table handling">
-      <option name="closed" value="true" />
-      <created>1783946699298</created>
-      <option name="number" value="00028" />
-      <option name="presentableId" value="LOCAL-00028" />
-      <option name="project" value="LOCAL" />
-      <updated>1783946699298</updated>
-    </task>
-    <task id="LOCAL-00029" summary="Add support for page fixtures and extend infrastructure UI&#10;&#10;Introduced handling for page fixtures in `sync_all()` to enable better alignment with permission checks and native pages. Updated infrastructure workspace and frontend screens to include new shortcuts and links, such as &quot;Server Token Generator&quot; and &quot;SEBRUS::OPS&quot; pages. Enhanced database handling for pages with additional fields like `restrict_to_domain`.">
-      <option name="closed" value="true" />
-      <created>1783952296620</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1783952296620</updated>
-    </task>
-    <task id="LOCAL-00030" summary="Update log engine data files and index metadata&#10;&#10;Refreshed log entries in `wal.ndjson`, updated `.managed.json` with new index files, and modified `meta.json` to include new segments.">
-      <option name="closed" value="true" />
-      <created>1783966205438</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1783966205438</updated>
-    </task>
-    <task id="LOCAL-00031" summary="Add workspace redirects and enhance fleet UI filtering&#10;&#10;Introduced redirects for custom workspace pages in Rust runtime to align with new URL structure. Enhanced fleet UI with status-based filtering and visibility counts, improving user experience in Ops Portal. Updated log engine data files and index metadata to reflect recent changes in logs and segments.">
-      <option name="closed" value="true" />
-      <created>1783971205448</created>
-      <option name="number" value="00031" />
-      <option name="presentableId" value="LOCAL-00031" />
-      <option name="project" value="LOCAL" />
-      <updated>1783971205448</updated>
-    </task>
-    <task id="LOCAL-00032" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
-      <option name="closed" value="true" />
-      <created>1784049011223</created>
-      <option name="number" value="00032" />
-      <option name="presentableId" value="LOCAL-00032" />
-      <option name="project" value="LOCAL" />
-      <updated>1784049011223</updated>
-    </task>
-    <task id="LOCAL-00033" summary="Implement batch processing of logs and optimize vulnerability scans.&#10;&#10;Add batch ingestion to reduce write overhead for high-frequency logs. Optimize vulnerability scans by batching database writes, skipping unchanged servers, and enhancing OSV concurrency limits. Also introduce telemetry and heartbeat caching for improved performance.">
-      <option name="closed" value="true" />
-      <created>1784049058101</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1784049058101</updated>
-    </task>
-    <task id="LOCAL-00034" summary="Add in-memory caches for telemetry and job handling.&#10;&#10;Introduced RAM-based caches for patch jobs, software inventories, and log staging to reduce SQLite contention and enhance system responsiveness. Updated APIs and the log engine to leverage these caches for high-frequency tasks, ensuring consistent, real-time performance while persisting data asynchronously.">
-      <option name="closed" value="true" />
-      <created>1784060571483</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1784060571483</updated>
-    </task>
-    <task id="LOCAL-00035" summary="Refactor and optimize batch processing in core components&#10;&#10;Revised batch processing logic across multiple modules to reduce write contention and improve performance. Introduced chunked operations, environment-variable-driven configurations, and logic to cap resource usage dynamically, ensuring better scalability under heavy loads.">
-      <option name="closed" value="true" />
-      <created>1784095629273</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1784095629273</updated>
-    </task>
-    <task id="LOCAL-00036" summary="Refactor code for improved readability and formatting.&#10;&#10;Enhanced code readability by reformatting multi-line constructs such as match arms, function calls, and array definitions. Applied consistent indentation and alignment to enhance maintainability and prepare for future contributions.">
-      <option name="closed" value="true" />
-      <created>1784102007028</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1784102007028</updated>
-    </task>
-    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
-  <component name="UnknownFeatures">
-    <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
-  </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update password masking to align with Frappe's field initialization logic&#10;&#10;- Refined password masking to ensure non-authenticated fields are set to `Value::Null` instead of being removed.&#10;- Updated comments and tests to reflect Frappe's behavior of initializing non-table fields to `None`." />
-    <MESSAGE value="Switch workspace dependencies and configuration to Sebrus Apps  &#10;&#10;- Updated workspace and runtime dependencies to replace `audit_ready` with `sebrus_apps`.  &#10;- Adjusted `apps.json` and IntelliJ IDEA project files to align with the Sebrus Apps module." />
-    <MESSAGE value="Refactor password field handling in ORM and runtime&#10;&#10;- Moved plaintext password migration logic to `migrate_plaintext_password_values`.&#10;- Replaced password field extraction with `process_password_fields_for_save` for streamlined encryption and storage in `__auth`.&#10;- Updated ORM methods to persist password placeholders in data tables while encrypting secrets in `__auth`.&#10;- Improved comments and consistency for Frappe compatibility." />
-    <MESSAGE value="Refactor Sebrus Apps for service backfill and workflow enhancements&#10;&#10;Removed legacy `sebrus_app_service` and updated references to `Sebrus Service`. Introduced a migration script to backfill services and added a workflow implementation for deployment state transitions. Enhanced frontend to include secrets/variables inheritance and streamlined client/project integrations." />
-    <MESSAGE value="Add workflow and migration features for Sebrus Apps&#10;&#10;Introduce a state machine for deployment workflows and a data migration tool to backfill legacy service data. Enhance the UI with secrets/variables management and new app/integration navigation, while removing deprecated Sebrus App Service." />
-    <MESSAGE value="Introduce server-side deploy payload validation for Sebrus Apps&#10;&#10;Added a new `deploy_payload` module to centralize and enforce schema validation for deploy payloads in the Rust server. Supported `kind` types include `script`, `iis`, `kubernetes`, and `app`. Ensures compliance with Audit Ready standards and prevents invalid payloads from being processed. Includes comprehensive test coverage and Kubernetes manifest rendering support." />
-    <MESSAGE value="Preserve unsaved form inputs during DOM re-renders caused by 15s status polling in Vault UI." />
-    <MESSAGE value="Refactor Kubernetes form: consolidate toggle logic, add resource and probe blocks, and update environment variable shorthand mechanics." />
-    <MESSAGE value="Handle `Password`-field migration edge case in Sebrus Vault  &#10;&#10;Treat ORM placeholder values (`*`) as missing when re-typed `secret_value` fields are migrated to `Data`. Update doctype metadata to clarify deprecation of `Password` field to avoid placeholder mishandling." />
-    <MESSAGE value="Replace `datalist` with dropdown-backed target picker for deploy modals in Sebrus Apps" />
-    <MESSAGE value="Remove redundant hints and unused text in Sebrus frontend deployment forms" />
-    <MESSAGE value="Add &quot;Remove Service&quot; button and handling logic to Sebrus Apps frontend &#10;&#10;Includes functionality for deleting service documents and confirmation prompts. Adjusted hints and removed unnecessary explanatory text in deploy modals." />
-    <MESSAGE value="Add workflow buttons and initialization logic to Sebrus Apps frontend&#10;&#10;Implements state-specific actions (e.g., Approve, Reject, Resubmit) with server-side validation. Handles transitions via the `sebrus_apps.deployment_transition" />
-    <MESSAGE value="Add workflow buttons and initialization logic to Sebrus Apps frontend&#10;&#10;Implements state-specific actions (e.g., Approve, Reject, Resubmit) with server-side validation. Handles transitions via the `sebrus_apps.deployment_transition` API and updates UI elements dynamically based on workflow state." />
-    <MESSAGE value="Add version picker to deployment modal and list_service_versions API support&#10;&#10;Implements a dropdown-backed version picker for services in the deploy modal, replacing the free-text field for Kubernetes services. Adds the `list_service_versions` API to fetch tag data from the container registry, including server-side validation and fallback for non-container services." />
-    <MESSAGE value="Add live log fields to deployment synchronization  &#10;&#10;Extends `sync_deploy_status` to include Audit Ready's live log details (e.g., progress, result/error, console-output tail) for enhanced visibility of per-service deploy logs in Sebrus." />
-    <MESSAGE value="Add deployment logs modal and backend support&#10;&#10;Introduces `sebrus_apps.deployment_logs` API to fetch live deploy logs from Audit Ready without altering deploy status. Updates the frontend with a &quot;View logs&quot; button, a polling-based logs modal, and console output rendering for fine-grained per-service visibility. Refactors `sync_deploy_status` code for modularity and aligns documentation with updated flow." />
-    <MESSAGE value="Add `deployment_logs` API for live deploy log retrieval&#10;&#10;Refactors `sync_deploy_status` into modular components for loading, refreshing, and saving deployment refs. Adds `deployment_logs` API for fetching live deploy logs without altering `deploy_status`. Updates frontend to display logs in a modal with periodic polling. Includes enhancements to DEPLOY_FLOW.md." />
-    <MESSAGE value="Expand deployment status handling to include &quot;Done&quot; and &quot;Succeeded&quot; states  &#10;&#10;Extends `refresh_refs` and `sync_deploy_status` to recognize additional Audit Ready success states (&quot;Done&quot;, &quot;Succeeded&quot;). Improves error handling for live status fetch with detailed warnings. Updates frontend to account for the new states in log status coloring." />
-    <MESSAGE value="Expand deployment status handling to cover additional terminal states&#10;&#10;Extends deployment status checks to include `Done` and `Succeeded` as valid terminal success states. Enhances error handling for Audit Ready fetch failures, improving visibility of issues with live log retrieval. Updates frontend log status coloring and server-side logic for unattended DEK repair." />
-    <MESSAGE value="Simplify error message rendering in `refLogBody` function." />
-    <MESSAGE value="Surface terminal failures in deployment status handling&#10;&#10;Extends `sync_deploy_status` and `deployment_logs` to reflect terminal failure states (`Failed`/`Partial`) where all services have completed with issues. Updates frontend to dynamically render `Retry Deploy` action upon status change. Revises DEPLOY_FLOW.md for consistency." />
-    <MESSAGE value="Add cascading service deletion with linked deployment and record cleanup&#10;&#10;Implements `sebrus_apps.delete_service` for removing services along with associated Audit Ready deployments, deploy records, and related secrets/variables. Adds `s2s_deployment_deleted` callback for resetting linked deployments. Updates frontend confirmation prompts and API integration." />
-    <MESSAGE value="Add live sync of deployment health with Audit Ready&#10;&#10;Integrates `sync_deploy_status` API for real-time updates of deployment and environment health in Sebrus Apps. Updates server-side logic to mirror deploy outcomes in `update_env_health`. Modifies frontend to reflect live statuses in the deployment view. Removes deprecated `s2s_deployment_deleted` logic." />
-    <MESSAGE value="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add always-available &quot;Retry Deploy&quot; action for approved deployments&#10;&#10;Updates frontend and backend logic to surface the &quot;Retry Deploy&quot; action consistently for approved deployments. Removes conditional restrictions tied to specific statuses, allowing users to manually redeploy with refreshed configuration and secrets." />
+    <MESSAGE value="Fixed bugs" />
+    <MESSAGE value="Added edit button on vault" />
+    <MESSAGE value="Fixed Delete edit vault" />
+    <MESSAGE value="Fixed sty;ing and build piplines" />
+    <MESSAGE value="  • New service view (viewService) with three panels:                                                                                                                                                                              &#10;       • Configuration — app (link), delivery method, deploy target, delivery route, plus actions: Edit service, Service config (deploy target modal, same as before), and Remove                                                   &#10;       • Deployed in — every deployment of the app with this service's pinned version per env (Dev/UAT/Prod) and status dots; rows link into the deployment view                                                                    &#10;       • Secrets &amp; variables — service level — the existing level panel with inheritance (client → project → app → service) and + Variable / + Secret buttons                                                                       &#10;   • Navigation: service rows in the Services list now go to the service screen (the app name in the row still links to the app); service names in the app view are links too. Breadcrumb: Services / &lt;app&gt; / &lt;service&gt;, sidebar    &#10;     highlights Services, and a stale selection falls back gracefully after refresh.                                                                                                                                                &#10;   • Edit service: openServiceModal now supports edit mode — prefilled fields, saves via updateDoc('Sebrus Service', …) instead of create." />
+    <MESSAGE value="&quot;Replace 'Retry Deploy' with unified 'Deploy' action&quot;&#10;&#10;Simplify deployment actions by replacing the &quot;Retry Deploy&quot; and &quot;Mark Deployed&quot; steps with a single unified &quot;Deploy&quot; action. The updated workflow adjusts approval handling based on environments and clarifies roles, ensuring seamless transitions and reducing complexity for deployment scenarios." />
+    <MESSAGE value="&quot;Add commit resolution for services without linked repositories&quot;&#10;&#10;Introduce `find_commit_project` API to locate the Integration Project from a commit SHA. Update deployment modal to resolve repositories using pinned image versions when no repo link is provided, enhancing change history access for services." />
+    <MESSAGE value="&quot;Add commit lookup by SHA to resolve projects in Audit Ready integrations&quot;" />
+    <MESSAGE value="&quot;Introduce internal app store functionality with updated deployment options&quot;" />
+    <MESSAGE value="&quot;Add scoped secrets and variables by environment, project, and organization for app-level entries&quot;" />
+    <MESSAGE value="&quot;Update Dockerfile to reflect sebrus_apps rename to sebrus_logger and adapt workspace manifest references accordingly&quot;" />
+    <MESSAGE value="&quot;Update Dockerfile to rename SebrusAppsApp to SebrusLoggerApp and adjust Rust sources for runtime app generation&quot;" />
+    <MESSAGE value=" &quot;Update Dockerfile to rename SebrusAppsApp to SebrusLoggerApp and adjust Rust sources for runtime app generation&quot;" />
+    <MESSAGE value="&quot;Add Sebrus Deployment Service Config doctype with fields and permissions&quot;" />
+    <MESSAGE value="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;" />
   </component>
 </project>

@@ -4,9 +4,10 @@ const { query, queryRows } = require('./helpers/db.js');
 const { startMockAuditReady } = require('./helpers/mock_audit_ready.js');
 
 /**
- * Audit Ready s2s integration: approving a Sebrus Deployment calls the
- * external Audit Ready API; Mark Deployed syncs status back. The external
- * server is a local Node mock recording every request.
+ * Audit Ready s2s integration: approving/deploying a Sebrus Deployment calls
+ * the external Audit Ready API; live status is synced back via
+ * deployment_logs / sync_deploy_status. The external server is a local Node
+ * mock recording every request.
  */
 
 function uid() {
@@ -324,7 +325,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(mock.state.requests.filter((r) => r.method === 'POST').length).toBe(0);
   });
 
-  test('failed deploy does not block approval; Retry Deploy recovers', async ({ page }) => {
+  test('failed deploy does not block approval; Deploy recovers', async ({ page }) => {
     const suffix = uid();
     const { deployment } = await createFixture(page, suffix, mock.url);
     await callMethod(page, 'sebrus_apps.deployment_transition', {
@@ -343,43 +344,10 @@ test.describe('Audit Ready s2s deploy integration', () => {
     mock.state.failWith = null;
     const retry = await callMethod(page, 'sebrus_apps.deployment_transition', {
       deployment: deployment.name,
-      action: 'Retry Deploy',
+      action: 'Deploy',
     });
-    expect(retry.ok, `retry failed: ${retry.error}`).toBe(true);
+    expect(retry.ok, `deploy failed: ${retry.error}`).toBe(true);
     expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
-  });
-
-  test('Mark Deployed waits for Audit Ready live status', async ({ page }) => {
-    const suffix = uid();
-    const { deployment } = await createFixture(page, suffix, mock.url);
-    await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Submit for Approval',
-    });
-    await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Approve',
-    });
-
-    // Still running on the target → transition refused.
-    mock.state.liveStatus = 'InProgress';
-    const early = await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Mark Deployed',
-    });
-    expect(early.ok).toBe(false);
-    expect(deploymentRow(deployment.name).workflow_state).toBe('Approved');
-
-    // Running/Completed → transitions and marks deploy_status Deployed.
-    mock.state.liveStatus = 'Running';
-    const done = await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Mark Deployed',
-    });
-    expect(done.ok, `mark deployed failed: ${done.error}`).toBe(true);
-    const row = deploymentRow(deployment.name);
-    expect(row.workflow_state).toBe('Deployed');
-    expect(row.deploy_status).toBe('Deployed');
   });
 
   test('deployment_logs refreshes live output without changing deploy_status', async ({ page }) => {
@@ -439,7 +407,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(empty.message.note).toContain('No Audit Ready deploy');
   });
 
-  test('post-queue failure inside Audit Ready flips deploy_status and unlocks Retry Deploy', async ({ page }) => {
+  test('post-queue failure inside Audit Ready flips deploy_status and unlocks Deploy', async ({ page }) => {
     const suffix = uid();
     const { deployment } = await createFixture(page, suffix, mock.url);
     await callMethod(page, 'sebrus_apps.deployment_transition', {
@@ -453,7 +421,7 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
 
     // The rollout queued fine but then failed inside Audit Ready — the exact
-    // case that used to leave deploy_status stuck on Queued with no Retry.
+    // case that used to leave deploy_status stuck on Queued with no redeploy.
     mock.state.liveStatus = 'Failed';
     const logs = await callMethod(page, 'sebrus_apps.deployment_logs', {
       deployment: deployment.name,
@@ -463,37 +431,14 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(logs.message.deploy_status).toBe('Failed');
     expect(deploymentRow(deployment.name).deploy_status).toBe('Failed');
 
-    // Retry Deploy reruns the deploy and re-queues.
+    // Deploy reruns the rollout and re-queues.
     mock.state.liveStatus = 'Running';
     const retry = await callMethod(page, 'sebrus_apps.deployment_transition', {
       deployment: deployment.name,
-      action: 'Retry Deploy',
+      action: 'Deploy',
     });
-    expect(retry.ok, `retry failed: ${retry.error}`).toBe(true);
+    expect(retry.ok, `deploy failed: ${retry.error}`).toBe(true);
     expect(deploymentRow(deployment.name).deploy_status).toBe('Queued');
-  });
-
-  test('Mark Deployed surfaces a post-queue failure as deploy_status Failed', async ({ page }) => {
-    const suffix = uid();
-    const { deployment } = await createFixture(page, suffix, mock.url);
-    await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Submit for Approval',
-    });
-    await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Approve',
-    });
-
-    mock.state.liveStatus = 'Failed';
-    const mark = await callMethod(page, 'sebrus_apps.deployment_transition', {
-      deployment: deployment.name,
-      action: 'Mark Deployed',
-    });
-    expect(mark.ok, 'Mark Deployed must refuse while a service failed').toBe(false);
-    expect(JSON.stringify(mark)).toContain('Failed');
-    expect(deploymentRow(deployment.name).workflow_state).toBe('Approved');
-    expect(deploymentRow(deployment.name).deploy_status).toBe('Failed');
   });
 
   test('delete_service deletes the linked s2s deployment and cascades locally', async ({ page }) => {
@@ -668,15 +613,15 @@ test.describe('Audit Ready s2s deploy integration', () => {
     });
     expect(approve.ok, `approve failed: ${approve.error}`).toBe(true);
 
-    // v2 goes out (Retry Deploy after repinning the version).
+    // v2 goes out (Deploy after repinning the version).
     query(
       `UPDATE "sebrus_service_version" SET version = '2.1.0' WHERE parent = '${deployment.name}' AND service = '${service.name}'`
     );
     const retry = await callMethod(page, 'sebrus_apps.deployment_transition', {
       deployment: deployment.name,
-      action: 'Retry Deploy',
+      action: 'Deploy',
     });
-    expect(retry.ok, `retry failed: ${retry.error}`).toBe(true);
+    expect(retry.ok, `deploy failed: ${retry.error}`).toBe(true);
 
     const before = mock.state.requests.filter((r) => r.method === 'POST').length;
     expect(before).toBe(2);
