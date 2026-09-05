@@ -33,17 +33,14 @@ impl LogService {
             engine: Arc::new(Mutex::new(engine)),
         };
 
-        // Bridge sync trigger alerts into the async channel.
-        tokio::spawn(async move {
-            loop {
-                let alert = sync_alerts.recv();
-                match alert {
-                    Ok(a) => {
-                        if alert_tx.send(a).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
+        // Bridge sync trigger alerts into the async channel. The sync recv
+        // blocks, so the loop runs on the blocking pool — inside a plain
+        // tokio::spawn it would park the executor thread, deadlocking
+        // current-thread runtimes (e.g. #[tokio::test]).
+        tokio::task::spawn_blocking(move || {
+            while let Ok(alert) = sync_alerts.recv() {
+                if alert_tx.blocking_send(alert).is_err() {
+                    break;
                 }
             }
         });
