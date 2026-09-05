@@ -1,10 +1,17 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
+static TEMPLATE_DB: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
 
 pub fn temp_db_path() -> String {
     let n = DB_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("/tmp/kiff_test_{}.db", n)
+    format!("/tmp/kiff_test_{}_{}.db", std::process::id(), n)
+}
+
+fn remove_db_files(path: &str) {
+    let _ = std::fs::remove_file(path);
+    let _ = std::fs::remove_file(format!("{path}-wal"));
+    let _ = std::fs::remove_file(format!("{path}-shm"));
 }
 
 /// Argon2id hash of the password "admin". Tests log in as Administrator/admin,
@@ -14,13 +21,31 @@ const ADMIN_PASSWORD_HASH: &str =
     "$argon2id$v=19$m=19456,t=2,p=1$UEWqTMicBrdEJXqPMhP4oA$bR1RecCR37Rw+Spup2ULPNKAZ7H6vZTX4VeqNAfvdkY";
 
 pub async fn setup_test_db() -> error::Result<orm::DatabasePool> {
+    let template = template_db().await?;
     let path = temp_db_path();
-    let _ = std::fs::remove_file(&path);
-    let pool = orm::DatabasePool::connect_sqlite(&path).await?;
-    orm::migrations::Migrator::run(&pool).await?;
-    orm::doctype_sync::sync_all(&pool, vec![], vec![], vec![], vec![], vec![]).await?;
-    set_admin_password(&pool).await?;
-    Ok(pool)
+    remove_db_files(&path);
+    std::fs::copy(&template, &path)?;
+    orm::DatabasePool::connect_sqlite(&path).await
+}
+
+// sync_all replays ~5k statements over the full DocType set and costs seconds,
+// so it runs once per test process into a template DB; each test gets a file copy.
+async fn template_db() -> error::Result<String> {
+    Ok(TEMPLATE_DB
+        .get_or_try_init(|| async {
+            let path = format!("/tmp/kiff_test_template_{}.db", std::process::id());
+            remove_db_files(&path);
+            let pool = orm::DatabasePool::connect_sqlite(&path).await?;
+            orm::migrations::Migrator::run(&pool).await?;
+            orm::doctype_sync::sync_all(&pool, vec![], vec![], vec![], vec![], vec![]).await?;
+            set_admin_password(&pool).await?;
+            pool.execute_sql("PRAGMA wal_checkpoint(TRUNCATE)", vec![])
+                .await?;
+            pool.close().await;
+            Ok::<String, error::RuntimeError>(path)
+        })
+        .await?
+        .clone())
 }
 
 async fn set_admin_password(pool: &orm::DatabasePool) -> error::Result<()> {
@@ -34,7 +59,7 @@ async fn set_admin_password(pool: &orm::DatabasePool) -> error::Result<()> {
 }
 
 pub fn teardown_test_db(path: &str) {
-    let _ = std::fs::remove_file(path);
+    remove_db_files(path);
 }
 
 pub async fn create_doctype_table(pool: &orm::DatabasePool, doctype: &str) -> error::Result<()> {

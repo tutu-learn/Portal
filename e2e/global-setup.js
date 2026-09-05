@@ -96,10 +96,28 @@ async function waitForServer(url, timeoutMs = 120000) {
   throw new Error(`server did not become ready within ${timeoutMs}ms`);
 }
 
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
 module.exports = async function globalSetup() {
   if (fs.existsSync(LOCKFILE)) {
-    log('lockfile exists; assuming server is already managed externally');
-    return;
+    try {
+      const lock = JSON.parse(fs.readFileSync(LOCKFILE, 'utf8'));
+      if (lock.pid && isProcessAlive(lock.pid)) {
+        log(`lockfile held by live pid ${lock.pid}; server is managed externally`);
+        return;
+      }
+      log('stale lockfile (process no longer running); booting a fresh server');
+    } catch (_e) {
+      log('unreadable lockfile; booting a fresh server');
+    }
+    fs.rmSync(LOCKFILE, { force: true });
   }
 
   ensureRuntimeBuilt();

@@ -62,10 +62,30 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;">
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="&quot;Resolve integration project handling order in IIS deploy UI and fix SQL column name in registry for consistency&quot;">
+      <change afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/dataSources/data_sources_history.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/db-forest-config.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_2026_08_05,_08_23_[Changes]/shelved.patch" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/TIMESHEET.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.actions.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.boot.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.core.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.deploy.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.modals.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.pickers.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.views.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/release-flow.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/release-flow.spec.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/global-setup.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/global-setup.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/frontend/portal.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_apps/src/page.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/common/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,7 +93,6 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19539" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -102,23 +121,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4057693291044355" />
-      <entry key="MS500" value="4.170359544034271" />
-      <entry key="S2" value="6.662613644780002" />
-      <entry key="S5" value="7.423441757604969" />
-      <entry key="S10" value="7.704242735954868" />
-      <entry key="S30" value="7.89969832255386" />
-      <entry key="S60" value="7.949631191545857" />
-      <entry key="M2" value="7.9747608386454365" />
-      <entry key="M5" value="7.989891159707965" />
-      <entry key="M10" value="7.994943386425544" />
-      <entry key="M15" value="7.996634567399676" />
-      <entry key="M30" value="8.005319987060137" />
-      <entry key="H1" value="8.236011234004646" />
-      <entry key="H2" value="9.457222786339583" />
-      <entry key="H4" value="13.758829254247306" />
-      <entry key="D1" value="68.89541617395149" />
-      <entry key="W1" value="111.9630515672638" />
+      <entry key="MS100" value="1.3274769649586136" />
+      <entry key="MS500" value="2.7282177636921485" />
+      <entry key="S2" value="3.5979257764339105" />
+      <entry key="S5" value="3.830831165124034" />
+      <entry key="S10" value="3.9139543118036495" />
+      <entry key="S30" value="3.970986450498724" />
+      <entry key="S60" value="3.9854524232504955" />
+      <entry key="M2" value="3.995675722068722" />
+      <entry key="M5" value="4.336242834297706" />
+      <entry key="M10" value="5.645743228628231" />
+      <entry key="M15" value="6.788537260252466" />
+      <entry key="M30" value="8.723924268622817" />
+      <entry key="H1" value="10.17628811273094" />
+      <entry key="H2" value="11.255032148157309" />
+      <entry key="H4" value="12.401259195794573" />
+      <entry key="D1" value="50.73755930113312" />
+      <entry key="W1" value="126.95176195486837" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -140,23 +159,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.358929038639333" />
-      <entry key="MS500" value="4.143996378898" />
-      <entry key="S2" value="6.652006700121446" />
-      <entry key="S5" value="7.418696447553244" />
-      <entry key="S10" value="7.701776739011361" />
-      <entry key="S30" value="7.898854605208687" />
-      <entry key="S60" value="7.94920655475675" />
-      <entry key="M2" value="7.974547820882171" />
-      <entry key="M5" value="7.989805784130848" />
-      <entry key="M10" value="7.9949006705062216" />
-      <entry key="M15" value="7.996606083845511" />
-      <entry key="M30" value="8.005305731035724" />
-      <entry key="H1" value="8.236003922641622" />
-      <entry key="H2" value="9.45721863762223" />
-      <entry key="H4" value="13.758826113600923" />
-      <entry key="D1" value="68.89541215034409" />
-      <entry key="W1" value="111.96305054303444" />
+      <entry key="MS100" value="1.2833092490018725" />
+      <entry key="MS500" value="2.708355134788133" />
+      <entry key="S2" value="3.5911479090040084" />
+      <entry key="S5" value="3.827924027576911" />
+      <entry key="S10" value="3.91246569919194" />
+      <entry key="S30" value="3.97048222508967" />
+      <entry key="S60" value="3.985199292888566" />
+      <entry key="M2" value="3.995548826573948" />
+      <entry key="M5" value="4.3361886163759085" />
+      <entry key="M10" value="5.645709498434807" />
+      <entry key="M15" value="6.78851092222846" />
+      <entry key="M30" value="8.723907838160365" />
+      <entry key="H1" value="10.176278656780113" />
+      <entry key="H2" value="11.255026900689213" />
+      <entry key="H4" value="12.401256170572127" />
+      <entry key="D1" value="50.73755584203866" />
+      <entry key="W1" value="126.95176063877608" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -171,6 +190,7 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
@@ -218,6 +238,15 @@
     <MESSAGE value=" &quot;Update Dockerfile to rename SebrusAppsApp to SebrusLoggerApp and adjust Rust sources for runtime app generation&quot;" />
     <MESSAGE value="&quot;Add Sebrus Deployment Service Config doctype with fields and permissions&quot;" />
     <MESSAGE value="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;" />
-    <option name="LAST_COMMIT_MESSAGE" value="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;" />
+    <MESSAGE value="&quot;Unify deploy actions and add build-artifact lookup feature&#10;&#10;Replaces 'Retry Deploy' with standardized 'Deploy' action across workflows, simplifying transitions and user interactions. Introduces integration with Azure DevOps to fetch build artifacts, enabling artifact selection from commit SHA in IIS deployments. Enhances UI to group and display deployments, projects, and clients more effectively for better clarity.&quot;" />
+    <MESSAGE value="&quot;Extend build-artifact lookup to support branch-based queries and update IIS deploy UI to accommodate repository and branch selection. Update documentation and tests accordingly.&quot;" />
+    <MESSAGE value="&quot;Extend build-artifact lookup to support branch-based queries and update IIS deploy UI to accommodate repository and branch selection. Update documentation and tests accordingly.&quot;x" />
+    <MESSAGE value="&quot;Enhance IIS deploy UI with ADO integration for repo and branch selection, add ADO org/project auto-fill, and improve dropdown handling for Audit Ready targets.&quot;" />
+    <MESSAGE value="&quot;Allow Audit Ready to default to the synced repository branch when both SHA and branch are absent; fix minor formatting issue in frontend SVG element.&quot;" />
+    <MESSAGE value="fixed" />
+    <MESSAGE value="&quot;Fix repo fallback for pin button by using deployment project if service project is absent&quot;" />
+    <MESSAGE value="&quot;Add deployment-scoped service config overrides and update version picking logic to support effective deploy kinds&quot;" />
+    <MESSAGE value="&quot;Resolve integration project handling order in IIS deploy UI and fix SQL column name in registry for consistency&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="&quot;Resolve integration project handling order in IIS deploy UI and fix SQL column name in registry for consistency&quot;" />
   </component>
 </project>
