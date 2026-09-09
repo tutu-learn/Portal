@@ -16,7 +16,7 @@ test('authenticate as Administrator', async ({ page }) => {
 
   // Wait for Desk to load.
   await expect(page).toHaveURL(/\/(desk|app)$/);
-  await expect(page.locator('.desk-sidebar, [data-page-route="desktop"], .frappe-desktop, body')).toBeVisible({ timeout: 20000 });
+  await expect(page.locator('.desk-sidebar, [data-page-route="desktop"], .frappe-desktop, body').first()).toBeVisible({ timeout: 20000 });
 
   // Save auth state for other tests.
   await page.context().storageState({ path: authFile });

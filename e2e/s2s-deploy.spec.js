@@ -72,18 +72,21 @@ function deploymentRow(name) {
 
 /**
  * Full fixture: chain + service + secret + deployment (kind=script) wired at
- * the mock. Returns names.
+ * the mock. Returns names. Pass clientName to reuse an existing client
+ * (client-wide secret tests need two deployments under one client).
  */
-async function createFixture(page, suffix, mockUrl, kind = 'script') {
+async function createFixture(page, suffix, mockUrl, kind = 'script', clientName = null) {
   await page.goto('/desk');
   await page.locator('body').waitFor({ state: 'visible' });
 
-  const client = await saveDoc(page, {
-    doctype: 'Sebrus Client',
-    name: `new-sebrus-client-${suffix}`,
-    __islocal: 1,
-    client_name: `S2S Client ${suffix}`,
-  });
+  const client = clientName
+    ? { name: clientName }
+    : await saveDoc(page, {
+        doctype: 'Sebrus Client',
+        name: `new-sebrus-client-${suffix}`,
+        __islocal: 1,
+        client_name: `S2S Client ${suffix}`,
+      });
   const project = await saveDoc(page, {
     doctype: 'Sebrus Project',
     name: `new-sebrus-project-${suffix}`,
@@ -227,6 +230,106 @@ test.describe('Audit Ready s2s deploy integration', () => {
     expect(row.deploy_status).toBe('Queued');
     expect(row.s2s_refs).toContain('dep-mock-');
     expect(row.s2s_refs).not.toContain('super-secret-value');
+  });
+
+  test('set_secret_scope re-scopes an existing secret', async ({ page }) => {
+    const suffix = uid();
+    const { deployment } = await createFixture(page, suffix, mock.url);
+
+    // The fixture secret starts as Deployment env / dev / all services.
+    const secretName = query(
+      `SELECT name FROM "sebrus_secret" WHERE deployment = '${deployment.name}' AND secret_key = 'DB_URL'`
+    );
+    expect(secretName).not.toBe('');
+
+    // An unknown scope is rejected; the row is unchanged.
+    const bad = await callMethod(page, 'sebrus_apps.set_secret_scope', {
+      name: secretName,
+      scope: 'Everywhere',
+    });
+    expect(bad.ok).toBe(false);
+    expect(
+      query(`SELECT scope FROM "sebrus_secret" WHERE name = '${secretName}'`)
+    ).toBe('Deployment env');
+
+    // Re-scope: Client-wide, pinned to the fixture service (the pin matches
+    // the service_name string, which is what deploy-time filtering uses).
+    const upd = await callMethod(page, 'sebrus_apps.set_secret_scope', {
+      name: secretName,
+      scope: 'Client-wide',
+      service: `svc-${suffix}`,
+    });
+    expect(upd.ok, `set_secret_scope failed: ${upd.error}`).toBe(true);
+
+    const row = queryRows(
+      `SELECT scope, service FROM "sebrus_secret" WHERE name = '${secretName}'`
+    )[0];
+    expect(row.scope).toBe('Client-wide');
+    expect(row.service).toBe(`svc-${suffix}`);
+
+    // Deploy: the re-scoped secret is still injected for the pinned service.
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Submit for Approval',
+    });
+    const approve = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: deployment.name,
+      action: 'Approve',
+    });
+    expect(approve.ok, `approve failed: ${approve.error}`).toBe(true);
+    const post = mock.state.requests.find((r) => r.method === 'POST');
+    expect(post.body.script).toContain('export DB_URL="super-secret-value"');
+
+    // An unknown secret name is a NotFound, not a silent ok.
+    const missing = await callMethod(page, 'sebrus_apps.set_secret_scope', {
+      name: 'no-such-secret',
+      scope: 'Client-wide',
+    });
+    expect(missing.ok).toBe(false);
+  });
+
+  test('Client-wide secret resolves for other deployments of the same client', async ({ page }) => {
+    const suffix = uid();
+    // Two deployments (two apps) under ONE client.
+    const first = await createFixture(page, `a${suffix}`, mock.url);
+    const second = await createFixture(page, `b${suffix}`, mock.url, 'script', first.client.name);
+
+    // Client-wide secret created under the FIRST deployment, dev env.
+    const sec = await callMethod(page, 'sebrus_apps.create_secret', {
+      deployment: first.deployment.name,
+      env: 'dev',
+      secret_key: 'SHARED_TOKEN',
+      secret_value: 'shared-secret-value',
+      scope: 'Client-wide',
+    });
+    expect(sec.ok, `create_secret failed: ${sec.error}`).toBe(true);
+
+    // The portal's overview lists the Client-wide secret on the SECOND
+    // deployment's dev env too (marked by its scope).
+    const overview = await callMethod(page, 'sebrus_apps.portal_overview', {});
+    expect(overview.ok, `portal_overview failed: ${overview.error}`).toBe(true);
+    const depB = overview.message.deployments.find((d) => d.id === second.deployment.name);
+    const envSecrets = (depB.envs.dev && depB.envs.dev.secrets) || [];
+    const shared = envSecrets.find((s) => s.key === 'SHARED_TOKEN');
+    expect(shared, 'Client-wide secret should be listed on the second deployment').toBeTruthy();
+    expect(shared.scope).toBe('Client-wide');
+
+    // Approving the SECOND deployment must not fail vault-reference
+    // validation, and the client-wide value is injected alongside the
+    // deployment's own secrets.
+    await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: second.deployment.name,
+      action: 'Submit for Approval',
+    });
+    const approve = await callMethod(page, 'sebrus_apps.deployment_transition', {
+      deployment: second.deployment.name,
+      action: 'Approve',
+    });
+    expect(approve.ok, `approve failed: ${approve.error}`).toBe(true);
+    const posts = mock.state.requests.filter((r) => r.method === 'POST');
+    expect(posts.length).toBe(1);
+    expect(posts[0].body.script).toContain('export DB_URL="super-secret-value"');
+    expect(posts[0].body.script).toContain('export SHARED_TOKEN="shared-secret-value"');
   });
 
   test('iis kind injects secrets into iis.env and ADO_PAT into iis.pat', async ({ page }) => {
