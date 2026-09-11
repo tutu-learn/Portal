@@ -1386,10 +1386,12 @@ def _patch_real_module(mod):
                     self.__dict__.setdefault(_key, None)
                 self.__dict__["__assets_loaded"] = True
 
-            def _patched_formmeta_as_dict(self, no_nulls=False):
+            def _patched_formmeta_as_dict(self, no_nulls=False, **_kwargs):
                 # FormMeta is built from plain JSON/dict meta; the inherited
                 # Document._serialize skips non-Document child lists. Return the
                 # internal dict directly so fields/permissions survive.
+                # Extra kwargs (newer frappe passes ``parenttype`` from
+                # get_meta_bundle) are accepted and ignored.
                 from frappe._types import _dict
                 return _dict(self.__dict__)
 
