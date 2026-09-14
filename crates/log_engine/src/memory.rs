@@ -7,9 +7,11 @@
 
 /// Try to read the current process RSS in bytes.
 ///
-/// On Linux this parses `/proc/self/status`. On other platforms it falls back
+/// On Linux this parses `/proc/self/status`. On Unix platforms it falls back
 /// to `getrusage(RUSAGE_SELF)`, which reports the maximum RSS and may be less
-/// accurate but is good enough for a safety check.
+/// accurate but is good enough for a safety check. On Windows and other
+/// unsupported platforms it returns `None`, so the memory budget check is
+/// skipped.
 pub fn current_rss_bytes() -> Option<usize> {
     #[cfg(target_os = "linux")]
     {
@@ -18,7 +20,15 @@ pub fn current_rss_bytes() -> Option<usize> {
         }
     }
 
-    rss_bytes_from_getrusage()
+    #[cfg(unix)]
+    {
+        return rss_bytes_from_getrusage();
+    }
+
+    #[cfg(not(unix))]
+    {
+        None
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -36,6 +46,7 @@ fn rss_kb_from_proc_self_status() -> Option<usize> {
     None
 }
 
+#[cfg(unix)]
 fn rss_bytes_from_getrusage() -> Option<usize> {
     let mut usage = unsafe { std::mem::zeroed() };
     let rc = unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
