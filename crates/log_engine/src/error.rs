@@ -22,6 +22,13 @@ pub enum LogError {
 
     #[error("log engine reader is temporarily unavailable during commit")]
     ReaderUnavailable,
+
+    #[error("memory budget exceeded: {context} (rss {rss_mb} MiB / limit {limit_mb} MiB)")]
+    MemoryBudgetExceeded {
+        context: String,
+        rss_mb: usize,
+        limit_mb: usize,
+    },
 }
 
 pub type LogResult<T> = std::result::Result<T, LogError>;

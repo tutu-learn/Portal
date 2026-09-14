@@ -72,6 +72,9 @@ pub struct LogEngine {
     /// Commit as soon as staged data reaches this size, even if the count
     /// threshold has not been reached.
     staged_bytes_threshold: usize,
+    /// Optional in-process memory ceiling in bytes. Expensive operations check
+    /// RSS against this limit and back off before the kernel sends SIGBUS.
+    memory_limit_bytes: Option<usize>,
 }
 
 impl LogEngine {
@@ -127,6 +130,15 @@ impl LogEngine {
             .map(|mb: usize| mb * 1_000_000)
             .unwrap_or(64_000_000usize);
 
+        // In-process memory ceiling. When set, the engine refuses expensive
+        // operations (commits/merges) if RSS is already close to the limit.
+        // This keeps the pod alive on small nodes instead of relying on k8s
+        // OOM-killing it after a SIGBUS.
+        let memory_limit_bytes = std::env::var("KIFF_LOG_MEMORY_LIMIT_MB")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .map(|mb: usize| mb * 1_000_000);
+
         // Read pending (un-committed) WAL entries before we reopen for append.
         let pending: Vec<LogRecord> = if wal_path.exists() {
             let f = File::open(&wal_path)?;
@@ -162,6 +174,7 @@ impl LogEngine {
             staged_bytes: 0,
             staged_count_threshold,
             staged_bytes_threshold,
+            memory_limit_bytes,
         };
 
         // Crash recovery: re-index the pending logs (no WAL re-append, no
@@ -205,6 +218,49 @@ impl LogEngine {
         Ok(raw_len)
     }
 
+    /// Return current RSS in bytes, if we can read it.
+    fn rss_bytes(&self) -> Option<usize> {
+        crate::memory::current_rss_bytes()
+    }
+
+    /// Check whether the process is still safely below the memory ceiling.
+    ///
+    /// `reserved` is an estimated upper bound of additional bytes the upcoming
+    /// operation may need. If RSS + reserved would exceed the budget, the
+    /// operation is rejected with a clear error instead of allowing the kernel
+    /// to SIGBUS the whole pod.
+    fn check_memory_budget(&self, reserved: usize, context: &str) -> LogResult<()> {
+        let Some(limit) = self.memory_limit_bytes else {
+            return Ok(());
+        };
+        let Some(rss) = self.rss_bytes() else {
+            return Ok(());
+        };
+        let projected = rss.saturating_add(reserved);
+        if projected > limit {
+            return Err(LogError::MemoryBudgetExceeded {
+                context: context.to_string(),
+                rss_mb: rss / 1_000_000,
+                limit_mb: limit / 1_000_000,
+            });
+        }
+        Ok(())
+    }
+
+    /// True if RSS is below the configured memory ceiling with some headroom.
+    fn has_merge_headroom(&self) -> bool {
+        let Some(limit) = self.memory_limit_bytes else {
+            return true;
+        };
+        let Some(rss) = self.rss_bytes() else {
+            return true;
+        };
+        // Require 20 % headroom for a merge. Merges allocate working buffers
+        // proportional to segment size and are the main source of SIGBUS.
+        let threshold = limit.saturating_mul(80) / 100;
+        rss < threshold
+    }
+
     /// Ingest one log. Durability FIRST, then triggers, then indexing.
     pub fn ingest(&mut self, rec: LogRecord) -> LogResult<()> {
         self.ingest_batch(std::slice::from_ref(&rec))
@@ -240,12 +296,33 @@ impl LogEngine {
             self.staged_bytes += raw_len;
         }
 
+        // If we are already close to the memory ceiling, flush staged records
+        // early so the staging buffer does not push the process over the limit.
+        if self.should_commit_for_memory() {
+            self.commit()?;
+        }
+
         if self.staged.len() >= self.staged_count_threshold
             || self.staged_bytes >= self.staged_bytes_threshold
         {
             self.commit()?;
         }
         Ok(())
+    }
+
+    /// Return true if RSS is high enough that we should flush the staging
+    /// buffer immediately to keep the process below the memory ceiling.
+    fn should_commit_for_memory(&self) -> bool {
+        let Some(limit) = self.memory_limit_bytes else {
+            return false;
+        };
+        let Some(rss) = self.rss_bytes() else {
+            return false;
+        };
+        // Flush early once we cross 80 % of the budget. The staged buffer is
+        // part of RSS, so committing clears it and gives us headroom.
+        let threshold = limit.saturating_mul(80) / 100;
+        rss >= threshold
     }
 
     /// Persist staged logs to disk and make them searchable.
@@ -290,6 +367,10 @@ impl LogEngine {
         // garbage-collects old segments) and merge (which deletes old segments).
         // We then recreate the reader on the new, stable set of files.
         self.reader = None;
+        // A Tantivy commit can allocate buffers for segment flushing. Refuse
+        // to proceed if we are already at the memory ceiling; this turns a
+        // would-be SIGBUS into a recoverable error.
+        self.check_memory_budget(64_000_000, "commit")?;
         self.writer.commit()?;
         // Merge synchronously while we hold the exclusive lock. No searcher
         // exists at this point, so no mmap references can outlive the deletes.
@@ -314,6 +395,14 @@ impl LogEngine {
     fn merge_segments_if_needed(&mut self) -> LogResult<()> {
         let segment_ids = self.index.searchable_segment_ids()?;
         if segment_ids.len() <= MAX_SEGMENTS_BEFORE_MERGE {
+            return Ok(());
+        }
+
+        if !self.has_merge_headroom() {
+            tracing::warn!(
+                "log engine skipping merge of {} segments to stay within memory budget",
+                segment_ids.len()
+            );
             return Ok(());
         }
 
@@ -987,5 +1076,19 @@ mod tests {
         assert_eq!(counts[0].count, 1);
         assert_eq!(counts[0].first_ms, day1 + 1_000);
         assert_eq!(counts[0].last_ms, day1 + 1_000);
+    }
+
+    #[test]
+    fn memory_budget_rejects_operations_when_exceeded() {
+        let dir = temp_dir();
+        let (mut engine, _alerts) = LogEngine::open_or_create(&dir).unwrap();
+        // Force a 1 MB ceiling that any running test process already exceeds.
+        engine.memory_limit_bytes = Some(1_000_000);
+        let err = engine.check_memory_budget(0, "test").unwrap_err();
+        assert!(
+            matches!(err, LogError::MemoryBudgetExceeded { .. }),
+            "expected MemoryBudgetExceeded, got {:?}",
+            err
+        );
     }
 }

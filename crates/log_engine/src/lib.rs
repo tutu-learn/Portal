@@ -8,6 +8,7 @@
 
 mod engine;
 mod error;
+mod memory;
 mod record;
 mod service;
 mod trigger;
