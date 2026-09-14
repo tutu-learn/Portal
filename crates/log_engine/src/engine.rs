@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{Count, DocSetCollector, TopDocs};
 use tantivy::directory::MmapDirectory;
-use tantivy::merge_policy::LogMergePolicy;
+use tantivy::merge_policy::NoMergePolicy;
 use tantivy::query::{QueryParser, RangeQuery, TermQuery};
 use tantivy::schema::{
     Field, IndexRecordOption, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT,
@@ -19,6 +19,12 @@ use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument, Term};
 use crate::error::LogResult;
 use crate::record::LogRecord;
 use crate::trigger::{Alert, Trigger};
+
+/// Maximum number of committed segments before we force a synchronous merge.
+/// With background merges disabled, each commit creates a new segment; merging
+/// when we cross this bound keeps query performance sane without risking the
+/// mmap/file-deletion race that SIGBUSes on shared PVCs.
+const MAX_SEGMENTS_BEFORE_MERGE: usize = 20;
 
 /// Aggregate count of log records for a single (service, level) pair over a
 /// time window, along with the first and last record timestamps seen in that
@@ -93,12 +99,12 @@ impl LogEngine {
             .map(|mb: usize| mb * 1_000_000)
             .unwrap_or(64_000_000usize);
         let writer: IndexWriter = index.writer(writer_heap_bytes)?;
-        let mut merge_policy = LogMergePolicy::default();
-        // Require at least a few segments before Tantivy starts merging. This
-        // trades a small query-time penalty for much lower disk read churn
-        // when agents poll frequently.
-        merge_policy.set_min_num_segments(6);
-        writer.set_merge_policy(Box::new(merge_policy));
+        // Disable Tantivy's background merge policy. Background merges delete
+        // segment files while the IndexReader may still hold mmap references to
+        // them; on shared/remote storage (e.g. NFS-style PVCs) this produces
+        // SIGBUS. We merge segments synchronously inside commit_writer() while
+        // holding the LogService mutex, so no searcher can be active.
+        writer.set_merge_policy(Box::new(NoMergePolicy));
         let reader = index.reader()?;
         let (alert_tx, alert_rx) = channel();
 
@@ -260,11 +266,41 @@ impl LogEngine {
         Ok(())
     }
 
-    /// Commit the Tantivy writer and reload the reader without touching the
-    /// WAL or staged buffer. Used for recovery and explicit index maintenance.
+    /// Commit the Tantivy writer, run any pending merges synchronously, and
+    /// reload the reader. Used for recovery and explicit index maintenance.
+    ///
+    /// Because the log engine wraps the [`LogEngine`] in a single async mutex,
+    /// no query can be active while this function runs. We therefore merge
+    /// synchronously instead of letting Tantivy merge in the background, which
+    /// avoids the SIGBUS that occurs when a background merge deletes a segment
+    /// file that an active searcher still has memory-mapped on shared storage.
     fn commit_writer(&mut self) -> LogResult<()> {
         self.writer.commit()?;
+        // Merge synchronously while we hold the exclusive lock. The reader will
+        // be reloaded only after old segment files have been replaced, so the
+        // next searcher will mmap only live files.
+        self.merge_segments_if_needed()?;
         self.reader.reload()?;
+        Ok(())
+    }
+
+    /// If there are too many committed segments, merge them into one now.
+    /// Running this while holding the LogService mutex guarantees no active
+    /// searcher references the segments we are about to delete.
+    fn merge_segments_if_needed(&mut self) -> LogResult<()> {
+        let segment_ids = self.index.searchable_segment_ids()?;
+        if segment_ids.len() <= MAX_SEGMENTS_BEFORE_MERGE {
+            return Ok(());
+        }
+
+        tracing::info!(
+            "log engine merging {} segments synchronously",
+            segment_ids.len()
+        );
+        let merge_result = self.writer.merge(&segment_ids).wait()?;
+        if merge_result.is_none() {
+            tracing::debug!("log engine merge produced no new segment (all empty)");
+        }
         Ok(())
     }
 

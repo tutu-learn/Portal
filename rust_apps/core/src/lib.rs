@@ -526,7 +526,6 @@ const BOOT_INVALIDATING_DOCTYPES: &[&str] = &[
     "Desktop Settings",
     "DocType",
     "DocField",
-    "Route History",
 ];
 
 #[async_trait::async_trait]

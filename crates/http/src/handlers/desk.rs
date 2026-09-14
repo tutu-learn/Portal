@@ -189,7 +189,9 @@ const BOOT_CACHE_TABLES: &[&str] = &[
     "desktop_settings",
     "doctype",
     "docfield",
-    "route_history",
+    // Note: route_history is intentionally excluded. It changes on every desk
+    // navigation and would churn the cache constantly. frequently_visited_links
+    // may be slightly stale until the 5-minute TTL expires.
 ];
 
 /// Build a cache key for the per-user bootinfo cache. The key changes whenever
