@@ -19,6 +19,9 @@ pub enum LogError {
 
     #[error("data directory unavailable: {0}")]
     BadDirectory(PathBuf),
+
+    #[error("log engine reader is temporarily unavailable during commit")]
+    ReaderUnavailable,
 }
 
 pub type LogResult<T> = std::result::Result<T, LogError>;

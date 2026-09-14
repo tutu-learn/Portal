@@ -16,7 +16,7 @@ use tantivy::schema::{
 };
 use tantivy::{doc, Index, IndexReader, IndexWriter, TantivyDocument, Term};
 
-use crate::error::LogResult;
+use crate::error::{LogError, LogResult};
 use crate::record::LogRecord;
 use crate::trigger::{Alert, Trigger};
 
@@ -47,7 +47,11 @@ pub struct ServiceLevelCount {
 pub struct LogEngine {
     index: Index,
     writer: IndexWriter,
-    reader: IndexReader,
+    /// The reader is held as `Option` so we can drop it around commits and
+    /// merges. Dropping the reader guarantees Tantivy releases all mmap
+    /// references to segment files before the writer deletes them, which is
+    /// the only reliable way to avoid SIGBUS on shared/remote storage.
+    reader: Option<IndexReader>,
     f_timestamp: Field,
     f_level: Field,
     f_service: Field,
@@ -105,7 +109,9 @@ impl LogEngine {
         // SIGBUS. We merge segments synchronously inside commit_writer() while
         // holding the LogService mutex, so no searcher can be active.
         writer.set_merge_policy(Box::new(NoMergePolicy));
-        let reader = index.reader()?;
+        // Do not create the reader yet. If WAL recovery commits, the reader
+        // must not exist during that commit's file deletions. We create it
+        // after recovery is complete.
         let (alert_tx, alert_rx) = channel();
 
         // Memory-bounding knobs for the staging buffer. With 3 agents calling
@@ -142,7 +148,7 @@ impl LogEngine {
         let mut engine = LogEngine {
             index,
             writer,
-            reader,
+            reader: None,
             f_timestamp,
             f_level,
             f_service,
@@ -160,13 +166,16 @@ impl LogEngine {
 
         // Crash recovery: re-index the pending logs (no WAL re-append, no
         // re-firing triggers), then commit the writer so the recovered records
-        // become durable.
+        // become durable. commit_writer() recreates the reader after all file
+        // deletions are complete.
         if !pending.is_empty() {
             tracing::info!("recovering {} log(s) from the WAL", pending.len());
             for rec in &pending {
                 engine.index_record(rec)?;
             }
             engine.commit_writer()?;
+        } else {
+            engine.reader = Some(engine.index.reader()?);
         }
 
         Ok((engine, alert_rx))
@@ -275,12 +284,27 @@ impl LogEngine {
     /// avoids the SIGBUS that occurs when a background merge deletes a segment
     /// file that an active searcher still has memory-mapped on shared storage.
     fn commit_writer(&mut self) -> LogResult<()> {
+        // Drop the reader first. This is the critical step: it releases every
+        // mmap reference the searcher holds to existing segment files. Only
+        // after the reader is gone do we allow the writer to commit (which
+        // garbage-collects old segments) and merge (which deletes old segments).
+        // We then recreate the reader on the new, stable set of files.
+        self.reader = None;
         self.writer.commit()?;
-        // Merge synchronously while we hold the exclusive lock. The reader will
-        // be reloaded only after old segment files have been replaced, so the
-        // next searcher will mmap only live files.
+        // Merge synchronously while we hold the exclusive lock. No searcher
+        // exists at this point, so no mmap references can outlive the deletes.
         self.merge_segments_if_needed()?;
-        self.reader.reload()?;
+        self.reader = Some(self.index.reader()?);
+        Ok(())
+    }
+
+    /// Drop the reader, commit staged deletions, and recreate the reader.
+    /// Same lifecycle guarantee as [`commit_writer`] but for callers that have
+    /// already staged deletions (prune) rather than new documents.
+    fn commit_and_reload(&mut self) -> LogResult<()> {
+        self.reader = None;
+        self.writer.commit()?;
+        self.reader = Some(self.index.reader()?);
         Ok(())
     }
 
@@ -329,8 +353,7 @@ impl LogEngine {
             Bound::Excluded(cutoff_ms),
         ));
         self.writer.delete_query(query)?;
-        self.writer.commit()?;
-        self.reader.reload()?;
+        self.commit_and_reload()?;
         let after = self.count("*")?;
 
         Ok(before.saturating_sub(after))
@@ -349,8 +372,7 @@ impl LogEngine {
         let query: Box<dyn tantivy::query::Query> =
             Box::new(TermQuery::new(term, IndexRecordOption::Basic));
         self.writer.delete_query(query)?;
-        self.writer.commit()?;
-        self.reader.reload()?;
+        self.commit_and_reload()?;
         let after = self.count("*")?;
 
         Ok(before.saturating_sub(after))
@@ -358,7 +380,8 @@ impl LogEngine {
 
     /// Query the committed index plus any in-memory staged records.
     pub fn query(&self, q: &str, limit: usize) -> LogResult<Vec<LogRecord>> {
-        let searcher = self.reader.searcher();
+        let reader = self.reader.as_ref().ok_or(LogError::ReaderUnavailable)?;
+        let searcher = reader.searcher();
         let qp = QueryParser::for_index(
             &self.index,
             vec![self.f_message, self.f_level, self.f_service],
@@ -393,7 +416,8 @@ impl LogEngine {
     /// the documents. Staged (not-yet-committed) records are included as an
     /// upper-bound estimate so the desk count stays fresh.
     pub fn count(&self, q: &str) -> LogResult<usize> {
-        let searcher = self.reader.searcher();
+        let reader = self.reader.as_ref().ok_or(LogError::ReaderUnavailable)?;
+        let searcher = reader.searcher();
         let qp = QueryParser::for_index(
             &self.index,
             vec![self.f_message, self.f_level, self.f_service],
@@ -432,7 +456,8 @@ impl LogEngine {
             entry.2 = entry.2.max(ts);
         };
 
-        let searcher = self.reader.searcher();
+        let reader = self.reader.as_ref().ok_or(LogError::ReaderUnavailable)?;
+        let searcher = reader.searcher();
         let query = RangeQuery::new_i64_bounds(
             "timestamp".to_string(),
             Bound::Included(start_ms),
