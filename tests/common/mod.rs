@@ -184,5 +184,7 @@ fn build_state_with_apps(
         )),
         rust_apps: rust_apps_core::RustAppRegistry::new(apps),
         logger: Arc::new(std::sync::OnceLock::new()),
+        boot_cache: Arc::new(rust_apps_core::BootCache::new()),
+        asset_cache: Arc::new(rust_apps_core::AssetCache::default()),
     }
 }

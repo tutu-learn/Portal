@@ -8,10 +8,77 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime};
 
 use axum::Router;
 use dashmap::DashMap;
 use serde_json::Value;
+
+/// Cache for static Desk assets that change only on deploy.
+#[derive(Clone)]
+pub struct AssetCache {
+    /// Maps bundle name → hashed filename from assets.json, plus the file mtime
+    /// we saw when we last loaded it.
+    pub bundle_map: Arc<std::sync::RwLock<(HashMap<String, String>, SystemTime)>>,
+    /// Concatenated SVG icon sprites, plus the max mtime of the source files.
+    pub icon_sprites: Arc<std::sync::RwLock<(String, SystemTime)>>,
+}
+
+impl Default for AssetCache {
+    fn default() -> Self {
+        Self {
+            bundle_map: Arc::new(std::sync::RwLock::new((HashMap::new(), SystemTime::UNIX_EPOCH))),
+            icon_sprites: Arc::new(std::sync::RwLock::new((String::new(), SystemTime::UNIX_EPOCH))),
+        }
+    }
+}
+
+/// Cache for rendered Desk bootinfo JSON.
+#[derive(Clone, Default)]
+pub struct BootCache {
+    /// (user, cache_key) → (serialized boot JSON, inserted_at)
+    pub entries: Arc<DashMap<(String, String), (String, Instant)>>,
+}
+
+impl BootCache {
+    pub fn new() -> Self {
+        Self {
+            entries: Arc::new(DashMap::new()),
+        }
+    }
+
+    /// Maximum age of a cached bootinfo entry before it is ignored.
+    const TTL: Duration = Duration::from_secs(5 * 60);
+
+    pub fn get(&self, user: &str, key: &str) -> Option<String> {
+        self.entries
+            .get(&(user.to_string(), key.to_string()))
+            .and_then(|entry| {
+                let (json, inserted) = entry.value();
+                if inserted.elapsed() <= Self::TTL {
+                    Some(json.clone())
+                } else {
+                    None
+                }
+            })
+    }
+
+    pub fn set(&self, user: &str, key: &str, json: String) {
+        self.entries
+            .insert((user.to_string(), key.to_string()), (json, Instant::now()));
+    }
+
+    /// Remove all cached entries for a user.
+    pub fn invalidate_user(&self, user: &str) {
+        let prefix = user.to_string();
+        self.entries.retain(|(u, _), _| u != &prefix);
+    }
+
+    /// Remove every cached entry.
+    pub fn invalidate_all(&self) {
+        self.entries.clear();
+    }
+}
 
 pub mod hooks;
 pub mod layer;
@@ -35,6 +102,10 @@ pub struct AppState {
     /// Lazy-initialized crash-durable log engine. Apps that provide logging
     /// can set this during `on_startup`; handlers retrieve it with `get()`.
     pub logger: Arc<std::sync::OnceLock<log_engine::LogService>>,
+    /// Cached Desk bootinfo JSON per user.
+    pub boot_cache: Arc<BootCache>,
+    /// Cached static Desk assets (bundle map and icon sprites).
+    pub asset_cache: Arc<AssetCache>,
 }
 
 /// Context passed to every Rust app during registration and lifecycle hooks.
@@ -438,9 +509,44 @@ impl RustAppRegistry {
     }
 }
 
+/// DocTypes whose writes should invalidate the per-user Desk bootinfo cache.
+const BOOT_INVALIDATING_DOCTYPES: &[&str] = &[
+    "User",
+    "Role",
+    "Has Role",
+    "DocPerm",
+    "Workspace",
+    "Module Def",
+    "Property Setter",
+    "Custom Field",
+    "Client Script",
+    "Navbar Settings",
+    "Notification Settings",
+    "Letter Head",
+    "Desktop Settings",
+    "DocType",
+    "DocField",
+    "Route History",
+];
+
 #[async_trait::async_trait]
 impl orm::DocHookRunner for RustAppRegistry {
     async fn run_hook(&self, event: &str, doctype: &str, doc: &orm::Document) -> error::Result<()> {
+        // Invalidate the Desk bootinfo cache when config/permission/user data
+        // changes. Global changes clear the whole cache; per-user changes
+        // (e.g. User.desk_properties) clear only that user.
+        if matches!(event, "after_insert" | "on_update" | "after_trash")
+            && BOOT_INVALIDATING_DOCTYPES.contains(&doctype)
+        {
+            if let Some(state) = self.state.as_ref() {
+                if doctype == "User" {
+                    state.boot_cache.invalidate_user(&doc.name);
+                } else {
+                    state.boot_cache.invalidate_all();
+                }
+            }
+        }
+
         for app in self.apps.iter() {
             for hook in app.doc_hooks() {
                 if hook.event.as_str() == event && hook.doctype == doctype {
@@ -459,6 +565,8 @@ impl orm::DocHookRunner for RustAppRegistry {
                             translator: Arc::new(sql_translator::SqlTranslator::default()),
                             rust_apps: RustAppRegistry::default(),
                             logger: Arc::new(std::sync::OnceLock::new()),
+                            boot_cache: Arc::new(BootCache::new()),
+                            asset_cache: Arc::new(AssetCache::default()),
                         });
                     let ctx = AppContext::new(app.name(), state);
                     (hook.handler)(&ctx, doc)?;
@@ -490,5 +598,38 @@ impl RustAppRegistry {
             }
         }
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boot_cache_stores_and_retrieves() {
+        let cache = BootCache::new();
+        assert!(cache.get("alice", "key1").is_none());
+        cache.set("alice", "key1", "boot-json".to_string());
+        assert_eq!(cache.get("alice", "key1").as_deref(), Some("boot-json"));
+    }
+
+    #[test]
+    fn boot_cache_invalidates_per_user() {
+        let cache = BootCache::new();
+        cache.set("alice", "k", "a".to_string());
+        cache.set("bob", "k", "b".to_string());
+        cache.invalidate_user("alice");
+        assert!(cache.get("alice", "k").is_none());
+        assert_eq!(cache.get("bob", "k").as_deref(), Some("b"));
+    }
+
+    #[test]
+    fn boot_cache_invalidates_all() {
+        let cache = BootCache::new();
+        cache.set("alice", "k", "a".to_string());
+        cache.set("bob", "k", "b".to_string());
+        cache.invalidate_all();
+        assert!(cache.get("alice", "k").is_none());
+        assert!(cache.get("bob", "k").is_none());
     }
 }

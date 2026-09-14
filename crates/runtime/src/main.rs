@@ -164,6 +164,8 @@ async fn main() -> error::Result<()> {
         translator: Arc::new(sql_translator::SqlTranslator::default()),
         rust_apps: rust_app_registry.clone(),
         logger: Arc::new(std::sync::OnceLock::new()),
+        boot_cache: Arc::new(rust_apps_core::BootCache::new()),
+        asset_cache: Arc::new(rust_apps_core::AssetCache::default()),
     };
 
     // Initialize the shared log engine and start the sink consumer. This used

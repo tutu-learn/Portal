@@ -11,6 +11,7 @@ use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Serialize)]
 struct LoginRedirectQuery<'a> {
@@ -76,15 +77,50 @@ pub async fn serve_desk(
         _ => {}
     }
 
-    // Load assets.json once; used in both boot info and HTML includes
+    // Load assets.json once; used in both boot info and HTML includes.
+    // This is cached in AppState and only re-read when the file changes.
     let assets_base = PathBuf::from("crates/http/assets");
-    let bundle_map = load_bundle_map(&assets_base).await;
+    let (bundle_map, assets_mtime) = load_bundle_map(&state.asset_cache, &assets_base).await;
 
-    // Build boot info
-    let boot = build_boot_info(&state, &headers, user.as_deref(), &bundle_map).await;
-    let boot_json = match serde_json::to_string(&boot) {
-        Ok(j) => j,
-        Err(e) => return error_response(&format!("boot serialization error: {}", e)),
+    // Resolve the DB pool early so we can compute a cache key and check the
+    // per-user bootinfo cache before doing any heavy work.
+    let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
+
+    // Build or retrieve cached boot info.
+    let boot_json = if let Some(ref pool) = pool {
+        let cache_key = match compute_boot_cache_key(pool, assets_mtime).await {
+            Ok(key) => key,
+            Err(e) => {
+                tracing::warn!("failed to compute boot cache key: {}", e);
+                String::new()
+            }
+        };
+        let user_name = user.as_deref().unwrap_or("Guest");
+        if !cache_key.is_empty() {
+            if let Some(cached) = state.boot_cache.get(user_name, &cache_key) {
+                cached
+            } else {
+                let boot = build_boot_info(&state, &headers, user.as_deref(), &bundle_map).await;
+                let json = match serde_json::to_string(&boot) {
+                    Ok(j) => j,
+                    Err(e) => return error_response(&format!("boot serialization error: {}", e)),
+                };
+                state.boot_cache.set(user_name, &cache_key, json.clone());
+                json
+            }
+        } else {
+            let boot = build_boot_info(&state, &headers, user.as_deref(), &bundle_map).await;
+            match serde_json::to_string(&boot) {
+                Ok(j) => j,
+                Err(e) => return error_response(&format!("boot serialization error: {}", e)),
+            }
+        }
+    } else {
+        let boot = build_boot_info(&state, &headers, user.as_deref(), &bundle_map).await;
+        match serde_json::to_string(&boot) {
+            Ok(j) => j,
+            Err(e) => return error_response(&format!("boot serialization error: {}", e)),
+        }
     };
 
     // Discover JS/CSS assets from Frappe's assets.json
@@ -96,7 +132,7 @@ pub async fn serve_desk(
     let lang = "en";
     let layout_direction = "ltr";
 
-    let icon_sprites = load_icon_sprites().await;
+    let icon_sprites = load_icon_sprites(&state.asset_cache).await;
 
     let html = DESK_TEMPLATE
         .replace("{{BOOT_JSON}}", &boot_json)
@@ -135,6 +171,74 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Tables whose contents affect the rendered Desk bootinfo. When any of these
+/// change, the per-user bootinfo cache must be regenerated.
+const BOOT_CACHE_TABLES: &[&str] = &[
+    "user",
+    "role",
+    "has_role",
+    "docperm",
+    "workspace",
+    "module_def",
+    "property_setter",
+    "custom_field",
+    "client_script",
+    "navbar_settings",
+    "notification_settings",
+    "letter_head",
+    "desktop_settings",
+    "doctype",
+    "docfield",
+    "route_history",
+];
+
+/// Build a cache key for the per-user bootinfo cache. The key changes whenever
+/// any table that contributes to bootinfo is modified, or when the static asset
+/// manifest changes.
+async fn compute_boot_cache_key(
+    pool: &orm::DatabasePool,
+    assets_mtime: SystemTime,
+) -> error::Result<String> {
+    let mut parts = Vec::with_capacity(BOOT_CACHE_TABLES.len() + 1);
+    parts.push(format!("assets={:?}", assets_mtime));
+
+    for table in BOOT_CACHE_TABLES {
+        let sql = format!(
+            r#"SELECT COALESCE(MAX(modified), '') AS m, COUNT(*) AS c FROM "{}""#,
+            table
+        );
+        let (modified, count) = match pool.execute_sql(&sql, vec![]).await {
+            Ok(rows) => {
+                let row = rows.into_iter().next().unwrap_or_default();
+                (
+                    row.get("m")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    row.get("c").and_then(|v| v.as_i64()).unwrap_or(0),
+                )
+            }
+            Err(e) => {
+                // Tables may not exist on a fresh/empty site; treat them as
+                // empty so the cache key still computes.
+                tracing::debug!(
+                    "boot cache key table {} not available: {}",
+                    table,
+                    e
+                );
+                (String::new(), 0)
+            }
+        };
+        parts.push(format!("{}:{}:{}", table, count, modified));
+    }
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    parts.hash(&mut hasher);
+    Ok(format!("{:x}", hasher.finish()))
+}
+
 /// Load child-table rows for a set of workspaces and group them by workspace name.
 /// Returns a map of workspace name -> Vec<row-as-Value> for the requested child table.
 async fn load_workspace_children(
@@ -169,7 +273,7 @@ async fn load_workspace_children(
             .and_then(|v| v.as_str().map(String::from))
         {
             grouped.entry(parent).or_default().push(Value::Object(
-                row.into_iter().map(|(k, v)| (k, v)).collect(),
+                row.into_iter().collect(),
             ));
         }
     }
@@ -1057,126 +1161,6 @@ async fn build_boot_info(
     let desktop_icons = build_desktop_icons(&workspaces, &app_data);
     let desktop_icon_urls = load_desktop_icon_urls(&installed_apps);
 
-    // Try to build bootinfo via the real Frappe boot module through the Python bridge.
-    // Frappe 16's frontend expects many fields that are tedious to hardcode; delegating
-    // to the real framework is the most compatible path. We then overlay our own values
-    // (assets_json, user info, workspace sidebar, etc.) so the Kiff runtime stays in control.
-    if !is_guest {
-        let u = user_name.to_string();
-        let py_boot = tokio::task::spawn_blocking(move || {
-            kiff_core::call_method_with_user(
-                "frappe.boot.get_bootinfo",
-                &serde_json::json!({}),
-                Some(&u),
-            )
-        })
-        .await;
-
-        match &py_boot {
-            Ok(Ok(_)) => {}
-            Ok(Err(e)) => tracing::warn!("frappe.boot.get_bootinfo failed: {}", e),
-            Err(e) => tracing::warn!("frappe.boot.get_bootinfo task panicked: {}", e),
-        }
-
-        if let Some(Value::Object(mut wrapper)) = py_boot.ok().and_then(|r| r.ok()) {
-            // call_method_with_user returns {"message": <bootinfo>} for standard API methods.
-            let mut boot = if let Some(Value::Object(boot)) = wrapper.remove("message") {
-                boot
-            } else {
-                wrapper
-            };
-            // Overlay Kiff-specific / runtime-controlled fields.
-            boot.insert("assets_json".to_string(), json!(bundle_map));
-            boot.insert("sitename".to_string(), json!("localhost"));
-            boot.insert("home_page".to_string(), json!("desktop"));
-            boot.insert("lang".to_string(), json!("en"));
-            boot.insert("desk_theme".to_string(), json!("Light"));
-            boot.insert("developer_mode".to_string(), json!(true));
-            boot.insert("socketio_port".to_string(), json!(9000));
-            boot.insert("disable_async".to_string(), json!(false));
-            boot.insert(
-                "server_date".to_string(),
-                json!(chrono::Local::now().format("%Y-%m-%d").to_string()),
-            );
-            boot.insert("metadata_version".to_string(), json!("1"));
-            // Replace Python-generated workspace/module data with the Rust-built
-            // version so Rust-app workspaces show up and blocked modules are hidden.
-            boot.insert("workspaces".to_string(), workspaces_value);
-            boot.insert("allowed_workspaces".to_string(), json!(workspaces));
-            boot.insert(
-                "module_wise_workspaces".to_string(),
-                Value::Object(module_wise_workspaces),
-            );
-            boot.insert(
-                "workspace_sidebar_item".to_string(),
-                workspace_sidebar_item_value,
-            );
-            boot.insert("modules".to_string(), Value::Object(modules_map.clone()));
-            boot.insert("module_list".to_string(), json!(module_list.clone()));
-            boot.insert("module_app".to_string(), Value::Object(module_app.clone()));
-            boot.insert("app_data".to_string(), json!(app_data.clone()));
-            // The Python bootinfo reads desktop icons from the (empty) Desktop
-            // Icon table; overlay the runtime-generated list so the sidebar
-            // dropdown and /desk grid can reach every app's workspaces.
-            boot.insert("desktop_icons".to_string(), json!(desktop_icons.clone()));
-            boot.insert(
-                "desktop_icon_urls".to_string(),
-                Value::Object(desktop_icon_urls.clone()),
-            );
-            boot.insert("desktop_icon_style".to_string(), json!("Subtle"));
-            boot.insert(
-                "allowed_modules".to_string(),
-                json!(allowed_modules.clone()),
-            );
-            if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
-                user_obj.insert("default_workspace".to_string(), default_workspace_obj);
-                // Keep the Python user permissions in sync with the filtered module list.
-                user_obj.insert("allow_modules".to_string(), json!(module_list.clone()));
-
-                // The Python bootinfo shim populates can_read but leaves most
-                // other permission lists empty, so the desk hides actions like
-                // Create / Save / Delete. Recompute them from the Rust
-                // permission engine so the UI reflects the real DocPerms.
-                // Include all DocTypes known to the Rust metadata DB so Rust-
-                // contributed DocTypes (e.g. from audit_ready) are visible.
-                if let Some(ref pool) = pool {
-                    let mut all_doctypes = get_all_doctype_names(pool).await;
-                    let python_can_read: Vec<String> = user_obj
-                        .get("can_read")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| v.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    for dt in python_can_read {
-                        if !all_doctypes.contains(&dt) {
-                            all_doctypes.push(dt);
-                        }
-                    }
-                    let perms =
-                        compute_user_permission_lists(state, pool, user_name, &all_doctypes).await;
-                    for (ptype, list) in &perms {
-                        user_obj.insert(format!("can_{}", ptype), json!(list));
-                    }
-                    if let Some(read_list) = perms.get("read") {
-                        user_obj.insert("all_read".to_string(), json!(read_list));
-                        user_obj.insert("can_search".to_string(), json!(read_list));
-                    }
-                    if let Some(create_list) = perms.get("create") {
-                        user_obj.insert("in_create".to_string(), json!(create_list));
-                    }
-                    if let Some(report_list) = perms.get("report") {
-                        user_obj.insert("can_get_report".to_string(), json!(report_list));
-                    }
-                }
-            }
-            sanitize_bootinfo(&mut boot);
-            return Value::Object(boot);
-        }
-    }
-
     // Use the real permission engine for the user's role list. The fallback
     // used to hardcode ["Administrator"], which hid permlevel-1 fields on the
     // User form (Roles / Modules) because the client never matched the
@@ -1653,8 +1637,97 @@ async fn build_boot_info(
         json!(chrono::Local::now().format("%Y-%m-%d").to_string()),
     );
 
+    // Fill in fields that used to come from Python's get_bootinfo.
+    if let Some(ref pool) = pool {
+        augment_boot_info(&mut boot, state, pool, user_name).await;
+    }
+
     sanitize_bootinfo(&mut boot);
     Value::Object(boot)
+}
+
+/// Fill in bootinfo fields that the Python `frappe.boot.get_bootinfo` used to
+/// provide. This keeps the frontend happy while staying entirely in Rust.
+async fn augment_boot_info(
+    boot: &mut Map<String, Value>,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    user_name: &str,
+) {
+    boot.insert(
+        "versions".to_string(),
+        json!(build_versions().await.unwrap_or_default()),
+    );
+    boot.insert(
+        "frequently_visited_links".to_string(),
+        json!(load_frequently_visited_links(pool, user_name).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "letter_heads".to_string(),
+        json!(load_letter_heads(pool).await.unwrap_or_default()),
+    );
+    if let Ok(Some(settings)) = load_notification_settings(pool, user_name).await {
+        boot.insert("notification_settings".to_string(), settings);
+    }
+    if let Ok(Some(settings)) = load_navbar_settings(pool).await {
+        boot.insert("navbar_settings".to_string(), settings);
+    }
+    if let Ok(Some(settings)) = load_desk_settings(pool, user_name).await {
+        boot.insert("desk_settings".to_string(), settings);
+    }
+    boot.insert(
+        "link_preview_doctypes".to_string(),
+        json!(load_link_preview_doctypes(pool).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "link_title_doctypes".to_string(),
+        json!(load_link_title_doctypes(pool).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "single_types".to_string(),
+        json!(load_single_types(pool).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "nested_set_doctypes".to_string(),
+        json!(load_nested_set_doctypes(pool).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "tree_view_doctypes".to_string(),
+        json!(load_tree_view_doctypes(pool).await.unwrap_or_default()),
+    );
+    boot.insert(
+        "home_folder".to_string(),
+        json!(load_home_folder(pool).await.unwrap_or_default()),
+    );
+    if let Ok(Some(logo)) = load_app_logo_url(pool).await {
+        boot.insert("app_logo_url".to_string(), json!(logo));
+    }
+    boot.insert("__messages".to_string(), json!({}));
+    boot.insert("lang_dict".to_string(), json!({}));
+
+    // Append Country and Currency docs to the docs array.
+    append_country_currency_docs(boot, pool).await;
+
+    // Recompute permission lists from the Rust permission engine so the desk
+    // shows/hides Create / Save / Delete actions correctly. Include all
+    // non-table DocTypes known to the Rust metadata DB.
+    if let Some(Value::Object(user_obj)) = boot.get_mut("user") {
+        let all_doctypes = get_all_doctype_names(pool).await;
+        let perms = compute_user_permission_lists(state, pool, user_name, &all_doctypes).await;
+        for (ptype, list) in &perms {
+            user_obj.insert(format!("can_{}", ptype), json!(list));
+        }
+        if let Some(read_list) = perms.get("read") {
+            user_obj.insert("all_read".to_string(), json!(read_list));
+            user_obj.insert("can_search".to_string(), json!(read_list));
+        }
+        if let Some(create_list) = perms.get("create") {
+            user_obj.insert("in_create".to_string(), json!(create_list));
+        }
+        if let Some(report_list) = perms.get("report") {
+            user_obj.insert("can_get_report".to_string(), json!(report_list));
+        }
+    }
 }
 
 /// Ensure the bootinfo object contains the shapes the Frappe 16 frontend
@@ -1701,7 +1774,372 @@ fn sanitize_bootinfo(boot: &mut Map<String, Value>) {
     }
 }
 
-async fn load_icon_sprites() -> String {
+/// Build `boot.versions` by walking installed apps and reading their version.
+async fn build_versions() -> error::Result<Map<String, Value>> {
+    let mut versions = Map::new();
+    let apps = get_installed_apps_from_file().await;
+    for app in apps {
+        if let Some(version) = read_app_version(&app).await {
+            let mut entry = Map::new();
+            entry.insert("version".to_string(), json!(version));
+            versions.insert(app, Value::Object(entry));
+        }
+    }
+    Ok(versions)
+}
+
+/// Read installed apps from sites/apps.txt, matching get_installed_apps().
+async fn get_installed_apps_from_file() -> Vec<String> {
+    let mut apps = Vec::new();
+    if let Ok(content) = tokio::fs::read_to_string("sites/apps.txt").await {
+        for line in content.lines() {
+            let line = line.trim();
+            if !line.is_empty() && !line.starts_with('#') && !apps.contains(&line.to_string()) {
+                apps.push(line.to_string());
+            }
+        }
+    }
+    if apps.is_empty() {
+        apps.push("frappe".to_string());
+    }
+    apps
+}
+
+/// Read an app's version string. Frappe apps usually define __version__ in
+/// `apps/<app>/<app>/__init__.py`; we fall back to package.json if present.
+async fn read_app_version(app: &str) -> Option<String> {
+    let init_py = PathBuf::from("apps")
+        .join(app)
+        .join(app)
+        .join("__init__.py");
+    if let Ok(content) = tokio::fs::read_to_string(&init_py).await {
+        for line in content.lines() {
+            let line = line.trim();
+            if let Some(val) = line.strip_prefix("__version__") {
+                let val = val.trim_start_matches([' ', '=']).trim();
+                let val = val.trim_matches(['"', '\'']).trim();
+                if !val.is_empty() {
+                    return Some(val.to_string());
+                }
+            }
+        }
+    }
+
+    let package_json = PathBuf::from("apps").join(app).join("package.json");
+    if let Ok(content) = tokio::fs::read_to_string(&package_json).await {
+        if let Ok(Value::Object(obj)) = serde_json::from_str::<Value>(&content) {
+            if let Some(Value::String(v)) = obj.get("version") {
+                return Some(v.clone());
+            }
+        }
+    }
+
+    None
+}
+
+/// Load the user's most recently visited routes from `route_history`.
+async fn load_frequently_visited_links(
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<Vec<Value>> {
+    let sql = r#"
+        SELECT route, COUNT(*) as count
+        FROM "route_history"
+        WHERE user = ?
+        GROUP BY route
+        ORDER BY MAX(creation) DESC
+        LIMIT 10
+    "#;
+    let rows = pool.execute_sql(sql, vec![Value::String(user.into())]).await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let route = row
+                .get("route")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            json!({
+                "route": if route.is_empty() { Value::Null } else { json!(route) },
+                "count": row.get("count").and_then(|v| v.as_i64()).unwrap_or(0),
+            })
+        })
+        .collect())
+}
+
+/// Load letter heads the user is allowed to see.
+async fn load_letter_heads(pool: &orm::DatabasePool) -> error::Result<Map<String, Value>> {
+    let sql = r#"SELECT name, content, footer FROM "letter_head" WHERE disabled = 0"#;
+    let rows = pool.execute_sql(sql, vec![]).await?;
+    let mut map = Map::new();
+    for row in rows {
+        let name = row
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let header = row
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let footer = row
+            .get("footer")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        map.insert(
+            name,
+            json!({
+                "header": header,
+                "footer": footer,
+            }),
+        );
+    }
+    Ok(map)
+}
+
+/// Load the current user's Notification Settings doc.
+async fn load_notification_settings(
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<Option<Value>> {
+    let sql = r#"SELECT * FROM "notification_settings" WHERE name = ?"#;
+    let rows = pool.execute_sql(sql, vec![Value::String(user.into())]).await?;
+    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+}
+
+/// Load Navbar Settings.
+async fn load_navbar_settings(pool: &orm::DatabasePool) -> error::Result<Option<Value>> {
+    let sql = r#"SELECT * FROM "navbar_settings" LIMIT 1"#;
+    let rows = pool.execute_sql(sql, vec![]).await?;
+    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+}
+
+/// Load the current user's desk properties from `tabUser`.
+async fn load_desk_settings(
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<Option<Value>> {
+    let cols = [
+        "list_sidebar",
+        "form_sidebar",
+        "timeline",
+        "dashboard",
+        "search_bar",
+        "notifications",
+        "view_switcher",
+    ];
+    let sql = format!(
+        r#"SELECT {} FROM "user" WHERE name = ?"#,
+        cols.join(", ")
+    );
+    let rows = pool.execute_sql(&sql, vec![Value::String(user.into())]).await?;
+    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+}
+
+/// Load DocTypes configured to show a preview popup.
+async fn load_link_preview_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
+    let mut result: Vec<String> = Vec::new();
+
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name FROM "doctype" WHERE show_preview_popup = 1"#,
+            vec![],
+        )
+        .await?;
+    for row in rows {
+        if let Some(name) = row.get("name").and_then(|v| v.as_str()) {
+            result.push(name.to_string());
+        }
+    }
+
+    let custom_rows = pool
+        .execute_sql(
+            r#"SELECT doc_type FROM "property_setter" WHERE property = 'show_preview_popup'"#,
+            vec![],
+        )
+        .await?;
+    for row in custom_rows {
+        if let Some(dt) = row.get("doc_type").and_then(|v| v.as_str()) {
+            if !result.contains(&dt.to_string()) {
+                result.push(dt.to_string());
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Load DocTypes configured to show the title field in link fields.
+async fn load_link_title_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
+    let mut result: Vec<String> = Vec::new();
+
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name FROM "doctype" WHERE show_title_field_in_link = 1"#,
+            vec![],
+        )
+        .await?;
+    for row in rows {
+        if let Some(name) = row.get("name").and_then(|v| v.as_str()) {
+            result.push(name.to_string());
+        }
+    }
+
+    let custom_rows = pool
+        .execute_sql(
+            r#"SELECT doc_type FROM "property_setter" WHERE property = 'show_title_field_in_link' AND value = '1'"#,
+            vec![],
+        )
+        .await?;
+    for row in custom_rows {
+        if let Some(dt) = row.get("doc_type").and_then(|v| v.as_str()) {
+            if !result.contains(&dt.to_string()) {
+                result.push(dt.to_string());
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Load all single (singleton) DocTypes.
+async fn load_single_types(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
+    let rows = pool
+        .execute_sql(r#"SELECT name FROM "doctype" WHERE issingle = 1"#, vec![])
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+        .collect())
+}
+
+/// Load DocTypes that have an `lft` field (nested set models).
+async fn load_nested_set_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
+    let rows = pool
+        .execute_sql(
+            r#"SELECT DISTINCT parent FROM "docfield" WHERE fieldname = 'lft'"#,
+            vec![],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| r.get("parent").and_then(|v| v.as_str()).map(String::from))
+        .collect())
+}
+
+/// Load DocTypes whose default view is Tree.
+async fn load_tree_view_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
+    let rows = pool
+        .execute_sql(r#"SELECT name FROM "doctype" WHERE default_view = 'Tree'"#, vec![])
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+        .collect())
+}
+
+/// Load the home folder File name.
+async fn load_home_folder(pool: &orm::DatabasePool) -> error::Result<Option<String>> {
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name FROM "file" WHERE is_home_folder = 1 LIMIT 1"#,
+            vec![],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .next()
+        .and_then(|r| r.get("name").and_then(|v| v.as_str()).map(String::from)))
+}
+
+/// Load the app logo URL from Navbar Settings.
+async fn load_app_logo_url(pool: &orm::DatabasePool) -> error::Result<Option<String>> {
+    let rows = pool
+        .execute_sql(
+            r#"SELECT app_logo FROM "navbar_settings" LIMIT 1"#,
+            vec![],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .next()
+        .and_then(|r| r.get("app_logo").and_then(|v| v.as_str()).map(String::from)))
+}
+
+/// Append the user's Country doc and enabled Currency docs to `boot.docs`.
+async fn append_country_currency_docs(boot: &mut Map<String, Value>, pool: &orm::DatabasePool) {
+    let country = pool
+        .execute_sql(
+            r#"SELECT value FROM "tabDefaultValue" WHERE parenttype = 'System Settings' AND defkey = 'country' LIMIT 1"#,
+            vec![],
+        )
+        .await
+        .ok()
+        .and_then(|rows| rows.into_iter().next())
+        .and_then(|r| r.get("value").and_then(|v| v.as_str()).map(String::from));
+
+    if let Some(country) = country {
+        if let Ok(rows) = pool
+            .execute_sql(r#"SELECT * FROM "country" WHERE name = ?"#, vec![Value::String(country)])
+            .await
+        {
+            if let Some(obj) = rows.into_iter().next() {
+                let mut obj: Map<String, Value> = obj.into_iter().collect();
+                obj.insert("doctype".to_string(), json!(":Country"));
+                if let Some(docs) = boot.get_mut("docs").and_then(|v| v.as_array_mut()) {
+                    docs.push(Value::Object(obj));
+                }
+            }
+        }
+    }
+
+    match pool
+        .execute_sql(
+            r#"SELECT * FROM "currency" WHERE enabled = 1"#,
+            vec![],
+        )
+        .await
+    {
+        Ok(rows) => {
+            if let Some(docs) = boot.get_mut("docs").and_then(|v| v.as_array_mut()) {
+                for obj in rows {
+                    let mut obj: Map<String, Value> = obj.into_iter().collect();
+                    obj.insert("doctype".to_string(), json!(":Currency"));
+                    docs.push(Value::Object(obj));
+                }
+            }
+        }
+        Err(e) => tracing::debug!("currency docs not available for bootinfo: {}", e),
+    }
+}
+
+/// Load SVG icon sprites, caching them in `AppState` and only re-reading when
+/// the source files change.
+async fn load_icon_sprites(cache: &rust_apps_core::AssetCache) -> String {
+    // Compute the current max mtime of the sprite source files.
+    let mut current_mtime = SystemTime::UNIX_EPOCH;
+    for path in DESK_ICON_SPRITES {
+        if let Ok(meta) = tokio::fs::metadata(path).await {
+            if let Ok(mtime) = meta.modified() {
+                if mtime > current_mtime {
+                    current_mtime = mtime;
+                }
+            }
+        }
+    }
+
+    {
+        let cached = cache.icon_sprites.read().unwrap();
+        if current_mtime == cached.1 && !cached.0.is_empty() {
+            return cached.0.clone();
+        }
+    }
+
     let mut sprites = String::new();
     for path in DESK_ICON_SPRITES {
         match tokio::fs::read_to_string(path).await {
@@ -1719,19 +2157,43 @@ async fn load_icon_sprites() -> String {
             Err(e) => tracing::warn!("failed to load icon sprite {}: {}", path, e),
         }
     }
+
+    let mut cached = cache.icon_sprites.write().unwrap();
+    *cached = (sprites.clone(), current_mtime);
     sprites
 }
 
-async fn load_bundle_map(assets_base: &PathBuf) -> HashMap<String, String> {
+/// Load the asset bundle manifest, caching it in `AppState` and only re-reading
+/// when assets.json changes.
+async fn load_bundle_map(
+    cache: &rust_apps_core::AssetCache,
+    assets_base: &std::path::Path,
+) -> (HashMap<String, String>, SystemTime) {
     let path = assets_base.join("assets.json");
-    if path.exists() {
+    let current_mtime = tokio::fs::metadata(&path)
+        .await
+        .and_then(|m| m.modified())
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+
+    {
+        let cached = cache.bundle_map.read().unwrap();
+        if current_mtime == cached.1 && !cached.0.is_empty() {
+            return (cached.0.clone(), current_mtime);
+        }
+    }
+
+    let map = if path.exists() {
         match tokio::fs::read_to_string(&path).await {
             Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
             Err(_) => HashMap::new(),
         }
     } else {
         HashMap::new()
-    }
+    };
+
+    let mut cached = cache.bundle_map.write().unwrap();
+    *cached = (map.clone(), current_mtime);
+    (map, current_mtime)
 }
 
 fn discover_assets(bundle_map: &HashMap<String, String>) -> (String, String) {
@@ -2031,5 +2493,79 @@ mod tests {
         assert!(ws.get("shortcuts").and_then(|v| v.as_array()).is_some());
 
         let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[tokio::test]
+    async fn test_compute_boot_cache_key_changes_with_data() {
+        let tmp = std::env::temp_dir().join(format!(
+            "kiff_boot_key_test_{}.db",
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let pool = orm::DatabasePool::connect_sqlite(tmp.to_str().unwrap())
+            .await
+            .expect("connect test db");
+
+        // Create a minimal "user" table so the cache-key query succeeds.
+        pool.execute_sql(
+            r#"CREATE TABLE "user" (name TEXT PRIMARY KEY, modified TEXT)"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        let assets_mtime = SystemTime::UNIX_EPOCH;
+        let key1 = compute_boot_cache_key(&pool, assets_mtime)
+            .await
+            .expect("compute key");
+
+        pool.execute_sql(
+            r#"INSERT INTO "user" (name, modified) VALUES ('u1', '2024-01-01')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        let key2 = compute_boot_cache_key(&pool, assets_mtime)
+            .await
+            .expect("compute key");
+
+        assert_ne!(key1, key2, "cache key must change when data changes");
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[tokio::test]
+    async fn test_load_bundle_map_caches_assets_json() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "kiff_assets_test_{}",
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        tokio::fs::create_dir_all(&tmp_dir).await.unwrap();
+        let assets_json = tmp_dir.join("assets.json");
+        tokio::fs::write(&assets_json, r#"{"desk.bundle.js":"desk.bundle.js"}"#)
+            .await
+            .unwrap();
+
+        let cache = rust_apps_core::AssetCache::default();
+        let (map1, _) = load_bundle_map(&cache, &tmp_dir).await;
+        let (map2, _) = load_bundle_map(&cache, &tmp_dir).await;
+        assert_eq!(map1.get("desk.bundle.js"), Some(&"desk.bundle.js".to_string()));
+        assert_eq!(map1, map2);
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_load_icon_sprites_caches_empty_when_files_missing() {
+        let cache = rust_apps_core::AssetCache::default();
+        let sprites1 = load_icon_sprites(&cache).await;
+        let sprites2 = load_icon_sprites(&cache).await;
+        assert_eq!(sprites1, sprites2);
     }
 }
