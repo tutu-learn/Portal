@@ -5,10 +5,10 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
+      <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/config">
+      <package file="$PROJECT_DIR$/crates/email">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/error">
@@ -56,18 +56,23 @@
       <package file="$PROJECT_DIR$/crates/sql-translator">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/strongroom">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/protocol">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="fixed casing and home screen loading">
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development.">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/desk.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/common/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/azure-pipelines-strongroom.yml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/azure-pipelines-strongroom.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,11 +80,25 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19739" />
+    <option name="cachedIndexableFilesCount" value="43496" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <excluded-from-favorite>
+      <branch-storage>
+        <map>
+          <entry type="LOCAL">
+            <value>
+              <list>
+                <branch-info repo="$PROJECT_DIR$" source="master" />
+              </list>
+            </value>
+          </entry>
+        </map>
+      </branch-storage>
+    </excluded-from-favorite>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/strongroom" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -90,8 +109,8 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
-    &quot;accountId&quot;: &quot;08aba313-b204-4eb6-ae2d-b8068f0822df&quot;
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal&quot;,
+    &quot;accountId&quot;: &quot;3e6ef94f-e4a0-4876-a463-3202a5640077&quot;
   }
 }</component>
   <component name="MacroExpansionManager">
@@ -103,23 +122,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.000000084293697" />
-      <entry key="MS500" value="1.0385222241698577" />
-      <entry key="S2" value="1.5265332173951183" />
-      <entry key="S5" value="2.092632732164806" />
-      <entry key="S10" value="2.4585102075552845" />
-      <entry key="S30" value="2.794699022156049" />
-      <entry key="S60" value="2.8938452582256566" />
-      <entry key="M2" value="2.9481813971625277" />
-      <entry key="M5" value="3.0642400414523037" />
-      <entry key="M10" value="3.2860465486198214" />
-      <entry key="M15" value="3.4717547190506686" />
-      <entry key="M30" value="4.050164784733599" />
-      <entry key="H1" value="5.210172724558081" />
-      <entry key="H2" value="7.650477538223245" />
-      <entry key="H4" value="12.231934063911975" />
-      <entry key="D1" value="51.155858335213004" />
-      <entry key="W1" value="146.8107310588829" />
+      <entry key="MS100" value="1.388617081920099" />
+      <entry key="MS500" value="2.8734708692933975" />
+      <entry key="S2" value="3.658531085239025" />
+      <entry key="S5" value="3.857728567011388" />
+      <entry key="S10" value="3.9278786041412754" />
+      <entry key="S30" value="3.975736809754897" />
+      <entry key="S60" value="3.987840330582319" />
+      <entry key="M2" value="3.9939131290642824" />
+      <entry key="M5" value="3.9975635606662934" />
+      <entry key="M10" value="3.998781498317605" />
+      <entry key="M15" value="3.9991876029085955" />
+      <entry key="M30" value="3.9996214407449724" />
+      <entry key="H1" value="4.021485758026147" />
+      <entry key="H2" value="4.6696692493056595" />
+      <entry key="H4" value="8.394611073925063" />
+      <entry key="D1" value="51.7815211652984" />
+      <entry key="W1" value="159.36907467646807" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -141,23 +160,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9265881450235717" />
-      <entry key="MS500" value="1.0232814702066892" />
-      <entry key="S2" value="1.5221318831280335" />
-      <entry key="S5" value="2.0903953279981073" />
-      <entry key="S10" value="2.4572083938143727" />
-      <entry key="S30" value="2.7942053313108546" />
-      <entry key="S60" value="2.8935893489217257" />
-      <entry key="M2" value="2.948049638253973" />
-      <entry key="M5" value="3.064165038427416" />
-      <entry key="M10" value="3.2859821120307906" />
-      <entry key="M15" value="3.471698875326017" />
-      <entry key="M30" value="4.050126788370304" />
-      <entry key="H1" value="5.210149564975704" />
-      <entry key="H2" value="7.650463095133628" />
-      <entry key="H4" value="12.231924402397128" />
-      <entry key="D1" value="51.15585376492989" />
-      <entry key="W1" value="146.81072938173824" />
+      <entry key="MS100" value="1.354568834561699" />
+      <entry key="MS500" value="2.8591838966645327" />
+      <entry key="S2" value="3.6538365152328085" />
+      <entry key="S5" value="3.8557335185698483" />
+      <entry key="S10" value="3.926860307607372" />
+      <entry key="S30" value="3.9753926412187415" />
+      <entry key="S60" value="3.9876676466010688" />
+      <entry key="M2" value="3.993826636564505" />
+      <entry key="M5" value="3.9975289274695944" />
+      <entry key="M10" value="3.9987641756802312" />
+      <entry key="M15" value="3.999176053141212" />
+      <entry key="M30" value="3.999615665146107" />
+      <entry key="H1" value="4.02148285026849" />
+      <entry key="H2" value="4.669667386457433" />
+      <entry key="H4" value="8.39460856550448" />
+      <entry key="D1" value="51.7815172955855" />
+      <entry key="W1" value="159.36907295368775" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -178,14 +197,15 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/SebrusApps",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/StrongRoom",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": ""
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "ts.external.directory.path": "/Users/johannnefdt/RustroverProjects/StrongRoom/rust_apps/strongroom/e2e-tauri/node_modules/typescript/lib"
   }
 }]]></component>
   <component name="RustProjectSettings">
@@ -205,24 +225,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="&quot;Update Dockerfile to rename SebrusAppsApp to SebrusLoggerApp and adjust Rust sources for runtime app generation&quot;" />
-    <MESSAGE value=" &quot;Update Dockerfile to rename SebrusAppsApp to SebrusLoggerApp and adjust Rust sources for runtime app generation&quot;" />
-    <MESSAGE value="&quot;Add Sebrus Deployment Service Config doctype with fields and permissions&quot;" />
-    <MESSAGE value="&quot;Add deploy-time service config overrides with deep-merge support and modal enhancements&quot;" />
-    <MESSAGE value="&quot;Unify deploy actions and add build-artifact lookup feature&#10;&#10;Replaces 'Retry Deploy' with standardized 'Deploy' action across workflows, simplifying transitions and user interactions. Introduces integration with Azure DevOps to fetch build artifacts, enabling artifact selection from commit SHA in IIS deployments. Enhances UI to group and display deployments, projects, and clients more effectively for better clarity.&quot;" />
-    <MESSAGE value="&quot;Extend build-artifact lookup to support branch-based queries and update IIS deploy UI to accommodate repository and branch selection. Update documentation and tests accordingly.&quot;" />
-    <MESSAGE value="&quot;Extend build-artifact lookup to support branch-based queries and update IIS deploy UI to accommodate repository and branch selection. Update documentation and tests accordingly.&quot;x" />
-    <MESSAGE value="&quot;Enhance IIS deploy UI with ADO integration for repo and branch selection, add ADO org/project auto-fill, and improve dropdown handling for Audit Ready targets.&quot;" />
-    <MESSAGE value="&quot;Allow Audit Ready to default to the synced repository branch when both SHA and branch are absent; fix minor formatting issue in frontend SVG element.&quot;" />
-    <MESSAGE value="fixed" />
-    <MESSAGE value="&quot;Fix repo fallback for pin button by using deployment project if service project is absent&quot;" />
-    <MESSAGE value="&quot;Add deployment-scoped service config overrides and update version picking logic to support effective deploy kinds&quot;" />
-    <MESSAGE value="&quot;Resolve integration project handling order in IIS deploy UI and fix SQL column name in registry for consistency&quot;" />
-    <MESSAGE value="Remove unused `portal.js` from Sebrus apps frontend.&#10;&#10;This file is no longer relevant to the application and has been removed to clean up the codebase. It reduces unnecessary clutter, improving maintainability." />
-    <MESSAGE value="Switch to `spawn_blocking` for sync alert bridging&#10;&#10;Replaced `tokio::spawn` with `tokio::task::spawn_blocking` to prevent executor thread deadlocks in current-thread runtimes when bridging sync alerts into the async channel." />
-    <MESSAGE value="Refactor IIS deployment logic to support branch-specific builds&#10;&#10;Updated deployment save logic to persist IIS repository and branch details at the deployment level, ensuring version pins and deploys resolve builds from the specified branch instead of the repo's default. Introduced `lookupRepoValue` function to handle repo and branch extraction for deployment-scoped modals without repo pickers. Adjusted frontend logic and documentation to align with this behavior." />
-    <MESSAGE value="fixd sha error" />
-    <MESSAGE value="Update IIS deploy flow to support explicit ADO PAT overrides&#10;&#10;Clarify that the ADO PAT is resolved by default from Audit Ready's Integration Connection but can be explicitly overridden using the `ADO_PAT` vault secret. Introduce tests to ensure correct handling of the secret, including injection and absence scenarios. Update documentation to reflect these changes in the deployment process." />
     <MESSAGE value="fixed bugs" />
     <MESSAGE value="fix bugs" />
     <MESSAGE value="Add `set_secret_scope` API method to update secret scoping" />
@@ -230,6 +232,24 @@
     <MESSAGE value="Resolve `$VAR` placeholders in IIS deploy payloads&#10;&#10;Added support for resolving `$VAR` / `${VAR}` placeholders in all `iis` string fields and literal `iis.env` values during deploys, similar to Kubernetes template resolution. Updated frontend to document this behavior and revised backend logic to handle substitution before vault resolution. Introduced comprehensive tests for resolution across different config styles and edge cases. Updated documentation to reflect these changes." />
     <MESSAGE value="Update IIS deploy flow" />
     <MESSAGE value="fixed casing and home screen loading" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed casing and home screen loading" />
+    <MESSAGE value="update build file" />
+    <MESSAGE value="Add install location visibility and Thruster data location drift detection&#10;&#10;- Expose Strongroom's installation directory in the settings screen.&#10;- Introduce tools for identifying and resolving mismatches between Strongroom's current data location and Thruster's configured path.&#10;- Update modals and UI workflows to guide users on resolving data location issues.&#10;- Extend backend logic to handle Thruster-specific data directory settings and conflicts.&#10;" />
+    <MESSAGE value="Add install location display, Thruster data mismatch alerts, and pipeline path fixes&#10;&#10;- Added a read-only install location field in settings.&#10;- Implemented Thruster data location mismatch detection with user alerts and navigation options.&#10;- Refined Azure pipeline paths for consistent lowercase directory naming." />
+    <MESSAGE value="Migrate Azure pipeline steps to PowerShell for Windows compatibility and improve cleanup/debug scripts" />
+    <MESSAGE value="Add Node.js installation step to Azure pipeline for sidecar prep scripts" />
+    <MESSAGE value="Improve Frappe framework fetch step in Azure pipeline: add cleanup for existing dir, handle git clone errors" />
+    <MESSAGE value="Add Chocolatey installation step to Azure pipeline for missing agents" />
+    <MESSAGE value="Switch OpenSSL installation in Azure pipeline to FireDaemon redistributable for improved compatibility with non-admin agents" />
+    <MESSAGE value="Run migrations before doctype sync to fix ordering bug and avoid fresh DB errors; update app identifier and streamline data location logic." />
+    <MESSAGE value="Refactor module imports and reorganize `src` structure:&#10;&#10;- Moved general entities to `core` and practice-specific elements to `practice`.&#10;- Updated module paths across the entire codebase to reflect the new structure.&#10;- Introduced `entries` module within `diary`.&#10;- Adjusted doctypes and related constants." />
+    <MESSAGE value="Add core module and embed essential Frappe DocType fixtures for standalone runtime support" />
+    <MESSAGE value="Add collection fee handling, trust refund functionality, and minimum trust balance enforcement:&#10;&#10;- Introduced settings for collection fee mode and default percentage.&#10;- Added endpoints for posting trust refunds and collection fees.&#10;- Implemented minimum trust balance validation for trust transactions.&#10;- Enhanced invoice refund logic and ledger entry reversals.&#10;- Updated docs and refactored affected modules with auto-posted collection fee support." />
+    <MESSAGE value="Add trust refunds, collection fees, and enhanced trust balance validation:&#10;&#10;- Introduced APIs for trust refunds and collection fee posting.&#10;- Added support for minimum trust balance validation and auto-posting collection fees on trust receipts.&#10;- Expanded settings for manual/automatic collection fee modes and default collection fee percentage.&#10;- Implemented refund support for trust receipts, invoice payments, and collection fees with updated ledger entries.&#10;- Refactored modules for better extensibility and code organization." />
+    <MESSAGE value="Add integration tests for ledger features and collection fees:&#10;&#10;- Implemented comprehensive tests for trust refunds, collection fees, and minimum trust balance validation.&#10;- Added functionality to test manual and automatic collection fee modes.&#10;- Verified disbursement blocking based on minimum trust balance.&#10;- Ensured proper handling of trust refunds and fee calculations.&#10;- Introduced `collection_fee.rs` for modular collection fee handling with effective percent resolution." />
+    <MESSAGE value="Add PR validation pipeline and e2e tests for Strongroom:  &#10;&#10;- Introduced Azure DevOps pipeline configuration for lightweight PR validation without building the full Tauri bundle.  &#10;- Added e2e tests for bank reconciliation, beneficiaries, and billing modules in both TypeScript and Rust.  &#10;- Implemented tests for edge cases like fuzzy matching, transaction reconciliation, CRUD operations, and CSV/OFX imports.  &#10;- Ensured pipeline compatibility with non-admin Windows agents using FireDaemon OpenSSL and PowerShell scripts." />
+    <MESSAGE value="Add PR validation pipeline and comprehensive E2E deployment/test suite:&#10;&#10;- Introduced `azure-pipelines-pr.yml` for lightweight PR validation, including cache for Cargo registry and Rust target directory.&#10;- Added E2E tests for bank reconciliation, beneficiary management, and billing functionalities.&#10;- Implemented comprehensive Rust tests for auto-matching, manual matching, and transaction imports (CSV/OFX).&#10;- Integrated OpenSSL setup via FireDaemon in the pipeline for compatibility with Windows agents." />
+    <MESSAGE value="Add end-to-end tests for bank reconciliation, beneficiaries, and billing modules:&#10;&#10;- Introduced comprehensive E2E tests for bank reconciliation, including manual and automatic matching, unmatched transaction listing, and fuzzy matching logic.&#10;- Added beneficiary CRUD and estate filter tests to validate balance due calculations.&#10;- Implemented billing tests to verify time entry locking, invoice generation, VAT calculations, and sequential invoice numbering." />
+    <MESSAGE value="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development." />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development." />
   </component>
 </project>
