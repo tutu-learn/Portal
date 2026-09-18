@@ -195,13 +195,22 @@ async fn main() -> error::Result<()> {
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state_for_routes.clone());
         router = app.routes(&ctx, router);
     }
-    let router = router
+    let mut router = router
         .layer(axum::middleware::from_fn_with_state(
             app_state_for_routes.clone(),
             http::middleware::auth::token_auth_middleware,
         ))
-        .layer(CorsLayer::permissive())
-        .with_state(app_state_for_routes);
+        .layer(CorsLayer::permissive());
+
+    // Optional per-process request concurrency limit. E2E runs set this to 1
+    // to work around a SIGBUS under concurrent SQLite/TigerBeetle access on macOS.
+    if let Ok(limit_str) = std::env::var("KIFF_HTTP_CONCURRENCY") {
+        if let Ok(limit) = limit_str.parse::<usize>() {
+            router = router.layer(tower::limit::ConcurrencyLimitLayer::new(limit));
+        }
+    }
+
+    let router = router.with_state(app_state_for_routes);
     let http_future = http::run_server_with_router(router, &config.server.host, config.server.port);
 
     // Start background workers and scheduler if we have pools
