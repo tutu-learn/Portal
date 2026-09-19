@@ -65,14 +65,27 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development.">
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove outdated stages and streamline pipeline configs&#10;&#10;Removed legacy E2E and test stages from Azure pipeline to simplify CI/CD workflows. Updated project files, dependencies, and configurations for the transition from `audit_ready` to `strongroom` as the primary focus of development. Simplified outdated setups, improving maintainability and clarity.">
+      <change afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/helpers/test-mail-servers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/azure-pipelines-strongroom.yml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/azure-pipelines-strongroom.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/password.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/password.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/global-setup.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/global-setup.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/helpers/db.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/helpers/db.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/release-flow.spec.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/playwright.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/playwright.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/start-test-server.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/start-test-server.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/email-settings.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/email-settings.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/fixtures.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/fixtures.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/email/config.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/email/config.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,7 +111,7 @@
         </map>
       </branch-storage>
     </excluded-from-favorite>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/strongroom" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -122,23 +135,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.388617081920099" />
-      <entry key="MS500" value="2.8734708692933975" />
-      <entry key="S2" value="3.658531085239025" />
-      <entry key="S5" value="3.857728567011388" />
-      <entry key="S10" value="3.9278786041412754" />
-      <entry key="S30" value="3.975736809754897" />
-      <entry key="S60" value="3.987840330582319" />
-      <entry key="M2" value="3.9939131290642824" />
-      <entry key="M5" value="3.9975635606662934" />
-      <entry key="M10" value="3.998781498317605" />
-      <entry key="M15" value="3.9991876029085955" />
-      <entry key="M30" value="3.9996214407449724" />
-      <entry key="H1" value="4.021485758026147" />
-      <entry key="H2" value="4.6696692493056595" />
-      <entry key="H4" value="8.394611073925063" />
-      <entry key="D1" value="51.7815211652984" />
-      <entry key="W1" value="159.36907467646807" />
+      <entry key="MS100" value="1.4611613773848282" />
+      <entry key="MS500" value="2.957685398286464" />
+      <entry key="S2" value="3.6890634495407286" />
+      <entry key="S5" value="3.870904131342338" />
+      <entry key="S10" value="3.9346358599084224" />
+      <entry key="S30" value="3.978027764510927" />
+      <entry key="S60" value="3.988990680674328" />
+      <entry key="M2" value="3.9944895265031604" />
+      <entry key="M5" value="3.9977944135571515" />
+      <entry key="M10" value="3.99889697379407" />
+      <entry key="M15" value="3.9992645974110523" />
+      <entry key="M30" value="3.9996322728103646" />
+      <entry key="H1" value="3.9998161301758164" />
+      <entry key="H2" value="3.9999445058894265" />
+      <entry key="H4" value="4.023405057619142" />
+      <entry key="D1" value="23.43277604479245" />
+      <entry key="W1" value="142.54739474650088" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -160,23 +173,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.354568834561699" />
-      <entry key="MS500" value="2.8591838966645327" />
-      <entry key="S2" value="3.6538365152328085" />
-      <entry key="S5" value="3.8557335185698483" />
-      <entry key="S10" value="3.926860307607372" />
-      <entry key="S30" value="3.9753926412187415" />
-      <entry key="S60" value="3.9876676466010688" />
-      <entry key="M2" value="3.993826636564505" />
-      <entry key="M5" value="3.9975289274695944" />
-      <entry key="M10" value="3.9987641756802312" />
-      <entry key="M15" value="3.999176053141212" />
-      <entry key="M30" value="3.999615665146107" />
-      <entry key="H1" value="4.02148285026849" />
-      <entry key="H2" value="4.669667386457433" />
-      <entry key="H4" value="8.39460856550448" />
-      <entry key="D1" value="51.7815172955855" />
-      <entry key="W1" value="159.36907295368775" />
+      <entry key="MS100" value="1.3732036302184225" />
+      <entry key="MS500" value="2.931999809890411" />
+      <entry key="S2" value="3.6815631038630823" />
+      <entry key="S5" value="3.8677941593351046" />
+      <entry key="S10" value="3.9330615224596337" />
+      <entry key="S30" value="3.9774985836002625" />
+      <entry key="S60" value="3.988725533541523" />
+      <entry key="M2" value="3.9943568132786234" />
+      <entry key="M5" value="3.9977412946866338" />
+      <entry key="M10" value="3.99887040875679" />
+      <entry key="M15" value="3.999246886140917" />
+      <entry key="M30" value="3.999623416552559" />
+      <entry key="H1" value="3.9998117018912103" />
+      <entry key="H2" value="3.999942291693659" />
+      <entry key="H4" value="4.023403943511318" />
+      <entry key="D1" value="23.432774408032486" />
+      <entry key="W1" value="142.54739322244325" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -197,7 +210,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "master",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/StrongRoom",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -225,7 +238,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed bugs" />
     <MESSAGE value="fix bugs" />
     <MESSAGE value="Add `set_secret_scope` API method to update secret scoping" />
     <MESSAGE value="Remove Sebrus Apps API methods and related helpers" />
@@ -250,6 +262,7 @@
     <MESSAGE value="Add PR validation pipeline and comprehensive E2E deployment/test suite:&#10;&#10;- Introduced `azure-pipelines-pr.yml` for lightweight PR validation, including cache for Cargo registry and Rust target directory.&#10;- Added E2E tests for bank reconciliation, beneficiary management, and billing functionalities.&#10;- Implemented comprehensive Rust tests for auto-matching, manual matching, and transaction imports (CSV/OFX).&#10;- Integrated OpenSSL setup via FireDaemon in the pipeline for compatibility with Windows agents." />
     <MESSAGE value="Add end-to-end tests for bank reconciliation, beneficiaries, and billing modules:&#10;&#10;- Introduced comprehensive E2E tests for bank reconciliation, including manual and automatic matching, unmatched transaction listing, and fuzzy matching logic.&#10;- Added beneficiary CRUD and estate filter tests to validate balance due calculations.&#10;- Implemented billing tests to verify time entry locking, invoice generation, VAT calculations, and sequential invoice numbering." />
     <MESSAGE value="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development." />
+    <MESSAGE value="Remove outdated stages and streamline pipeline configs&#10;&#10;Removed legacy E2E and test stages from Azure pipeline to simplify CI/CD workflows. Updated project files, dependencies, and configurations for the transition from `audit_ready` to `strongroom` as the primary focus of development. Simplified outdated setups, improving maintainability and clarity." />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove outdated stages and streamline pipeline configs&#10;&#10;Removed legacy E2E and test stages from Azure pipeline to simplify CI/CD workflows. Updated project files, dependencies, and configurations for the transition from `audit_ready` to `strongroom` as the primary focus of development. Simplified outdated setups, improving maintainability and clarity." />
   </component>
 </project>

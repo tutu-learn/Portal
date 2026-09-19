@@ -183,10 +183,24 @@ impl DatabasePool {
             return Ok(());
         }
 
+        // Virtual child DocTypes (e.g. Frappe's User Session Display) have no
+        // physical table, so trying to delete/insert rows fails. Skip them.
+        let virtual_doctypes: std::collections::HashSet<String> = {
+            let meta_table = self.table_name("DocType");
+            let sql = format!(r#"SELECT name FROM "{}" WHERE is_virtual = 1"#, meta_table);
+            let rows = self.query_raw(&sql, vec![]).await.unwrap_or_default();
+            rows.into_iter()
+                .filter_map(|mut r| r.remove("name").and_then(|v| v.as_str().map(String::from)))
+                .collect()
+        };
+
         let now = Utc::now().to_rfc3339();
         let zero = serde_json::Number::from(0i32);
 
         for (fieldname, child_doctype) in table_fields {
+            if virtual_doctypes.contains(&child_doctype) {
+                continue;
+            }
             let Some(value) = doc.fields.get(&fieldname) else {
                 continue;
             };

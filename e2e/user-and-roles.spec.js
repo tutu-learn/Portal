@@ -137,38 +137,38 @@ test.describe('User creation and role assignment', () => {
     await expect(page.locator('.list-row-container, .list-row').filter({ hasText: email }).first()).toBeVisible();
   });
 
-  test('admin can assign Server Admin role', async ({ page }) => {
+  test('admin can assign System Manager role', async ({ page }) => {
     const email = uniqueEmail('serveradmin');
 
     // Create user via modal.
-    await createUserViaModal(page, email, 'Server Admin User');
+    await createUserViaModal(page, email, 'System Manager User');
 
     // Assign the role through the API (UI roles_html checkbox persistence is
     // unreliable in this runtime).
     const userName = query(`SELECT name FROM "user" WHERE email = '${email}'`);
-    await assignRoleViaApi(page, userName, 'Server Admin');
+    await assignRoleViaApi(page, userName, 'System Manager');
 
     // Verify the role assignment in the database.
     const rows = queryRows(`SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = '${userName}'`);
     const roles = rows.map((r) => r.role);
-    expect(roles).toContain('Server Admin');
+    expect(roles).toContain('System Manager');
   });
 
-  test('admin can assign Infrastructure Viewer role', async ({ page }) => {
-    const email = uniqueEmail('infraviewer');
+  test('admin can assign Website User role', async ({ page }) => {
+    const email = uniqueEmail('websiteuser');
 
-    await createUserViaModal(page, email, 'Infrastructure Viewer User');
+    await createUserViaModal(page, email, 'Website User');
 
     const userName = query(`SELECT name FROM "user" WHERE email = '${email}'`);
-    await assignRoleViaApi(page, userName, 'Infrastructure Viewer');
+    await assignRoleViaApi(page, userName, 'Website User');
 
     const rows = queryRows(`SELECT role FROM "has_role" WHERE parenttype = 'User' AND parent = '${userName}'`);
     const roles = rows.map((r) => r.role);
-    expect(roles).toContain('Infrastructure Viewer');
+    expect(roles).toContain('Website User');
   });
 
   test('admin can assign roles to existing Administrator user via Desk save', async ({ page }) => {
-    const roleName = 'Server Admin';
+    const roleName = 'System Manager';
 
     // Ensure we are on the site origin so fetch URLs resolve correctly.
     await page.goto('/desk');
@@ -237,36 +237,36 @@ test.describe('User creation and role assignment', () => {
     expect(roles).toContain(roleName);
   });
 
-  test('Infrastructure Viewer can view infrastructure servers', async ({ page, context, browser }) => {
-    const email = uniqueEmail('vieweraccess');
+  test('System Manager can access Desk', async ({ page, context, browser }) => {
+    const email = uniqueEmail('manageraccess');
     const password = 'TestPass123!';
 
     // Create the user first via the quick-entry modal.
-    await createUserViaModal(page, email, 'Access Test Viewer');
+    await createUserViaModal(page, email, 'Access Test Manager');
     const userName = query(`SELECT name FROM "user" WHERE email = '${email}'`);
 
-    // Set the password and assign the viewer role through the API; the UI
-    // password action sends a reset email and the roles checkboxes do not
-    // persist reliably in this runtime.
-    await setUserPasswordViaApi(page, userName, 'Access Test Viewer', password);
-    await assignRoleViaApi(page, userName, 'Infrastructure Viewer');
+    // Set the password and assign the role through the API; the UI password
+    // action sends a reset email and the roles checkboxes do not persist
+    // reliably in this runtime.
+    await setUserPasswordViaApi(page, userName, 'Access Test Manager', password);
+    await assignRoleViaApi(page, userName, 'System Manager');
 
     // Log in as the new user.
     await context.close();
-    const viewerContext = await browser.newContext();
-    const viewerPage = await viewerContext.newPage();
-    await viewerPage.goto('/login');
-    await viewerPage.locator('#login_email').fill(email);
-    await viewerPage.locator('#login_password').fill(password);
-    await viewerPage.locator('#login-form button[type="submit"]').click();
-    await expect(viewerPage).toHaveURL(/\/(desk|app)$/, { timeout: 20000 });
+    const managerContext = await browser.newContext();
+    const managerPage = await managerContext.newPage();
+    await managerPage.goto('/login');
+    await managerPage.locator('#login_email').fill(email);
+    await managerPage.locator('#login_password').fill(password);
+    await managerPage.locator('#login-form button[type="submit"]').click();
+    await expect(managerPage).toHaveURL(/\/(desk|app)$/, { timeout: 20000 });
 
-    // Navigate to infrastructure servers.
-    await viewerPage.goto('/desk/infrastructure-server');
-    await viewerPage.locator('body').waitFor({ state: 'visible' });
+    // Navigate to Desk.
+    await managerPage.goto('/desk');
+    await managerPage.locator('body').waitFor({ state: 'visible' });
 
     // Should load without permission error.
-    await expect(viewerPage.locator('body')).not.toContainText('Not Permitted');
-    await expect(viewerPage.locator('body')).not.toContainText('Permission Error');
+    await expect(managerPage.locator('body')).not.toContainText('Not Permitted');
+    await expect(managerPage.locator('body')).not.toContainText('Permission Error');
   });
 });

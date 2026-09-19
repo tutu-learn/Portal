@@ -15,46 +15,59 @@ function getDbPath() {
 }
 
 /**
- * Run a SQLite query against the ephemeral e2e site database.
+ * Run a SQLite query against the ephemeral e2e site database. Because the
+ * runtime keeps long-lived WAL-mode connections, external sqlite3 processes
+ * may not see un-checkpointed writes. Each helper invocation runs
+ * `PRAGMA wal_checkpoint(FULL)` in the same sqlite3 session as the query so
+ * the read is current.
+ *
  * @param {string} sql
  * @returns {string}
  */
 function query(sql) {
   const dbPath = getDbPath();
-  return execSync(`sqlite3 "${dbPath}" "${sql.replace(/"/g, '""')}"`, {
+  const script = `.mode json
+PRAGMA wal_checkpoint(FULL);
+${sql};`;
+  const out = execSync(`sqlite3 "${dbPath}"`, {
     encoding: 'utf8',
+    input: script,
   }).trim();
+  if (!out) return '';
+  const lines = out.split('\n');
+  // First line is the JSON array for the checkpoint result; remaining lines
+  // are the query result.
+  const queryJson = lines.slice(1).join('\n');
+  if (!queryJson) return '';
+  const rows = JSON.parse(queryJson);
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const first = rows[0];
+  const values = Object.values(first);
+  return values.length > 0 ? String(values[0]) : '';
 }
 
 /**
- * Quote an identifier for SQLite.
- * @param {string} name
- * @returns {string}
- */
-function quoteIdent(name) {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-/**
- * Run a SQLite query that returns rows, parse the pipe-delimited output.
+ * Run a SQLite query that returns rows. Output is read via JSON mode so we
+ * do not have to parse CSV.
+ *
  * @param {string} sql
- * @returns {Record<string, string>[]}
+ * @returns {Record<string, any>[]}
  */
 function queryRows(sql) {
   const dbPath = getDbPath();
-  const out = execSync(`sqlite3 -header -csv "${dbPath}" "${sql.replace(/"/g, '""')}"`, {
+  const script = `.mode json
+PRAGMA wal_checkpoint(FULL);
+${sql};`;
+  const out = execSync(`sqlite3 "${dbPath}"`, {
     encoding: 'utf8',
+    input: script,
   }).trim();
   if (!out) return [];
   const lines = out.split('\n');
-  const headers = lines[0].split(',').map((h) => h.replace(/^"|"$/g, ''));
-  return lines.slice(1).map((line) => {
-    // Very simple CSV parse: assume values are not quoted with commas inside.
-    const values = line.split(',').map((v) => v.replace(/^"|"$/g, ''));
-    const row = {};
-    headers.forEach((h, i) => (row[h] = values[i]));
-    return row;
-  });
+  const queryJson = lines.slice(1).join('\n');
+  if (!queryJson) return [];
+  const rows = JSON.parse(queryJson);
+  return Array.isArray(rows) ? rows : [];
 }
 
 module.exports = { query, queryRows };

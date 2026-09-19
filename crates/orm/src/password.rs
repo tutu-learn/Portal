@@ -105,15 +105,41 @@ async fn upsert_auth(
     fieldname: &str,
     encrypted: &str,
 ) -> Result<()> {
+    upsert_auth_with_encrypted_flag(pool, doctype, name, fieldname, encrypted, true).await
+}
+
+async fn upsert_auth_plaintext(
+    pool: &DatabasePool,
+    doctype: &str,
+    name: &str,
+    fieldname: &str,
+    hash: &str,
+) -> Result<()> {
+    upsert_auth_with_encrypted_flag(pool, doctype, name, fieldname, hash, false).await
+}
+
+async fn upsert_auth_with_encrypted_flag(
+    pool: &DatabasePool,
+    doctype: &str,
+    name: &str,
+    fieldname: &str,
+    password: &str,
+    encrypted: bool,
+) -> Result<()> {
+    let encrypted_flag = if encrypted { 1 } else { 0 };
     let sql = match pool.dialect() {
-        "postgres" => r#"INSERT INTO "__auth" (doctype, name, fieldname, password, encrypted)
-                         VALUES ($1, $2, $3, $4, 1)
-                         ON CONFLICT (doctype, name, fieldname)
-                         DO UPDATE SET password = EXCLUDED.password, encrypted = 1"#
-            .to_string(),
-        _ => r#"INSERT OR REPLACE INTO "__auth" (doctype, name, fieldname, password, encrypted)
-                VALUES (?, ?, ?, ?, 1)"#
-            .to_string(),
+        "postgres" => format!(
+            r#"INSERT INTO "__auth" (doctype, name, fieldname, password, encrypted)
+               VALUES ($1, $2, $3, $4, {})
+               ON CONFLICT (doctype, name, fieldname)
+               DO UPDATE SET password = EXCLUDED.password, encrypted = EXCLUDED.encrypted"#,
+            encrypted_flag
+        ),
+        _ => format!(
+            r#"INSERT OR REPLACE INTO "__auth" (doctype, name, fieldname, password, encrypted)
+               VALUES (?, ?, ?, ?, {})"#,
+            encrypted_flag
+        ),
     };
     pool.execute_sql(
         &sql,
@@ -121,7 +147,7 @@ async fn upsert_auth(
             Value::String(doctype.into()),
             Value::String(name.into()),
             Value::String(fieldname.into()),
-            Value::String(encrypted.into()),
+            Value::String(password.into()),
         ],
     )
     .await?;
@@ -147,6 +173,23 @@ async fn delete_auth(pool: &DatabasePool, doctype: &str, name: &str, fieldname: 
     Ok(())
 }
 
+/// Hash a password with argon2id for storage in `__auth`.
+///
+/// Login expects the `password` field for `User` to be stored as an argon2id
+/// hash (encrypted=0) rather than a Fernet-encrypted secret, so this is used
+/// when the User DocType's `new_password` field is set through the native
+/// Rust save path.
+fn hash_user_password(password: &str) -> Result<String> {
+    use argon2::password_hash::{rand_core::OsRng, SaltString};
+    use argon2::{Argon2, PasswordHasher};
+
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|h| h.to_string())
+        .map_err(|e| RuntimeError::Validation(format!("failed to hash user password: {}", e)))
+}
+
 /// Process Password fields on a document about to be saved, mirroring
 /// Frappe's `_save_passwords`. Must be called before `insert_doc`/`save_doc`
 /// so the data table only ever receives the dummy placeholder:
@@ -156,6 +199,10 @@ async fn delete_auth(pool: &DatabasePool, doctype: &str, name: &str, fieldname: 
 /// - dummy values (`*****`) are left untouched (unchanged secret)
 /// - anything else is Fernet-encrypted into `__auth` and replaced in the
 ///   document with `"*" * len(secret)`
+///
+/// For `User.new_password` specifically, the value is hashed with argon2id and
+/// stored in `__auth` under the canonical `password` field name so that the
+/// login path can verify it.
 ///
 /// `name` is the document name the row will be saved under (generated before
 /// insert for new documents).
@@ -173,8 +220,15 @@ pub async fn process_password_fields_for_save(
         let secret = value.as_str().unwrap_or_default();
         if secret.is_empty() {
             delete_auth(pool, doctype, name, &fieldname).await?;
+            if doctype == "User" && fieldname == "new_password" {
+                delete_auth(pool, doctype, name, "password").await?;
+            }
         } else if is_dummy_password(secret) {
             // Unchanged placeholder; keep the stored secret.
+        } else if doctype == "User" && fieldname == "new_password" {
+            let hash = hash_user_password(secret)?;
+            upsert_auth_plaintext(pool, doctype, name, "password", &hash).await?;
+            fields.insert(fieldname, Value::String("*".repeat(secret.chars().count())));
         } else {
             let encrypted = fernet_encrypt(encryption_key, secret)?;
             upsert_auth(pool, doctype, name, &fieldname, &encrypted).await?;

@@ -1,5 +1,6 @@
 // @ts-check
 const { execSync, spawn } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { setTimeout } = require('timers/promises');
@@ -58,6 +59,12 @@ function writeRuntimeToml(runtimeDir) {
   fs.writeFileSync(path.join(runtimeDir, 'runtime.toml'), toml);
 }
 
+function generateFernetKey() {
+  // Fernet keys are 32 random bytes encoded with base64url (no padding),
+  // matching cryptography.fernet.Fernet.generate_key().
+  return crypto.randomBytes(32).toString('base64url');
+}
+
 function createSite(runtimeDir) {
   const siteDir = path.join(runtimeDir, 'sites', 'localhost');
   fs.mkdirSync(path.join(siteDir, 'private', 'files'), { recursive: true });
@@ -67,8 +74,8 @@ function createSite(runtimeDir) {
   const siteConfig = {
     db_driver: 'sqlite',
     db_url: path.join(siteDir, 'site.db').replace(/\\/g, '/'),
-    encryption_key: '',
-    secret_key: '',
+    encryption_key: generateFernetKey(),
+    secret_key: crypto.randomUUID(),
     mail_server: '',
     mail_port: 587,
     mail_login: '',

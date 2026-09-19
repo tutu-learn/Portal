@@ -101,6 +101,15 @@ async fn main() -> error::Result<()> {
                         name, e
                     );
                 }
+                // E2E runs restart the server with a fresh database. Make sure
+                // all doctype-sync writes are checkpointed into the main DB file
+                // before the pool watchdog can quarantine the WAL during a heal;
+                // otherwise tables that only exist in the WAL can disappear.
+                if site.config.db_driver != "postgres" {
+                    if let Err(e) = p.execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![]).await {
+                        warn!("WAL checkpoint failed for site {}: {}", name, e);
+                    }
+                }
                 pools.insert(name.clone(), p);
             }
             Err(e) => {
