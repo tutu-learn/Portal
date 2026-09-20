@@ -598,6 +598,7 @@ impl DatabasePool {
         self.save_child_tables(doc).await?;
 
         crate::hooks::run_hook("on_update", &doc.doctype, doc).await?;
+        crate::hooks::run_hook("after_save", &doc.doctype, doc).await?;
         Ok(())
     }
 

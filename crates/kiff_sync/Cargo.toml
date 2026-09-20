@@ -1,0 +1,45 @@
+[package]
+name = "kiff_sync"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kiff-sync-server"
+path = "src/main.rs"
+
+[dependencies]
+error = { workspace = true }
+orm = { workspace = true }
+config = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+async-trait = "0.1"
+
+redb = "1.5"
+sha2 = "0.10"
+base64 = "0.22"
+chacha20poly1305 = "0.10"
+rand = { workspace = true }
+hex = "0.4"
+
+tonic = "0.13"
+prost = "0.13"
+tokio-stream = "0.1"
+futures = "0.3"
+async-stream = "0.3"
+clap = { version = "4", features = ["derive", "env"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
+tonic-build = "0.13"
+
+[build-dependencies]
+tonic-build = "0.13"
+protoc-bin-vendored = "3"

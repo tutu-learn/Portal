@@ -189,6 +189,22 @@ async fn main() -> error::Result<()> {
     rust_app_registry_for_hooks.set_state(app_state.clone());
     orm::set_hook_runner(Some(Arc::new(rust_app_registry_for_hooks)));
 
+    // Register framework-level sync capture if enabled.
+    if config.sync.enabled {
+        if let Some(entry) = pools.iter().next() {
+            let site_name = entry.key().clone();
+            let pool = entry.value().clone();
+            let node_id = config.sync.effective_node_id();
+            kiff_sync::outbox::register(&site_name, &node_id, &pool).await;
+            info!(
+                "sync outbox capture enabled for site {} as node {}",
+                site_name, node_id
+            );
+        } else {
+            warn!("sync enabled but no database pools available");
+        }
+    }
+
     // Run Rust app startup hooks.
     for app in rust_app_registry.apps() {
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state.clone());

@@ -23,6 +23,7 @@ async-trait    = "0.1"
 
 kiff_logger    = { path = "../kiff_logger" }
 log_engine     = { path = "../log_engine" }
+kiff_sync      = { path = "../kiff_sync" }
 axum           = { workspace = true }
 tower          = { workspace = true, features = ["limit"] }
 tokio          = { workspace = true }

@@ -23,6 +23,9 @@
       <package file="$PROJECT_DIR$/crates/kiff_logger">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/crates/kiff_sync">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/log_engine">
         <feature name="default" enabled="true" />
       </package>
@@ -66,26 +69,37 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove outdated stages and streamline pipeline configs&#10;&#10;Removed legacy E2E and test stages from Azure pipeline to simplify CI/CD workflows. Updated project files, dependencies, and configurations for the transition from `audit_ready` to `strongroom` as the primary focus of development. Simplified outdated setups, improving maintainability and clarity.">
-      <change afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/helpers/test-mail-servers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/build.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/proto/sync.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/lib.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/main.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/outbox.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/protocol.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/redb_store.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/server.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/src/store.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/kiff_sync/tests/outbox_capture.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/password.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/password.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/config/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/hooks.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/hooks.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/orm/src/migrations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/migrations.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/global-setup.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/global-setup.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/helpers/db.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/helpers/db.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/helpers/mock_audit_ready.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/release-flow.spec.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/s2s-deploy.spec.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" beforeDir="false" afterPath="$PROJECT_DIR$/e2e/user-and-roles.spec.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/playwright.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/playwright.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/start-test-server.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/start-test-server.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/email-settings.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/email-settings.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/fixtures.ts" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/tests/fixtures.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/email/config.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/email/config.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/.idea/strongroom.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/components/sidebar.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/components/sidebar.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/settings.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/settings.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,23 +149,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4611613773848282" />
-      <entry key="MS500" value="2.957685398286464" />
-      <entry key="S2" value="3.6890634495407286" />
-      <entry key="S5" value="3.870904131342338" />
-      <entry key="S10" value="3.9346358599084224" />
-      <entry key="S30" value="3.978027764510927" />
-      <entry key="S60" value="3.988990680674328" />
-      <entry key="M2" value="3.9944895265031604" />
-      <entry key="M5" value="3.9977944135571515" />
-      <entry key="M10" value="3.99889697379407" />
-      <entry key="M15" value="3.9992645974110523" />
-      <entry key="M30" value="3.9996322728103646" />
-      <entry key="H1" value="3.9998161301758164" />
-      <entry key="H2" value="3.9999445058894265" />
-      <entry key="H4" value="4.023405057619142" />
-      <entry key="D1" value="23.43277604479245" />
-      <entry key="W1" value="142.54739474650088" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.000006359537791" />
+      <entry key="S60" value="1.0050436145965316" />
+      <entry key="M2" value="1.1420367486680991" />
+      <entry key="M5" value="2.052437298240398" />
+      <entry key="M10" value="3.0517672925019683" />
+      <entry key="M15" value="3.5631384371879924" />
+      <entry key="M30" value="4.2019609152278425" />
+      <entry key="H1" value="4.578804779263725" />
+      <entry key="H2" value="4.783580309816327" />
+      <entry key="H4" value="4.9130757290783595" />
+      <entry key="D1" value="24.324436359896495" />
+      <entry key="W1" value="143.45305662459546" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -173,23 +187,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3732036302184225" />
-      <entry key="MS500" value="2.931999809890411" />
-      <entry key="S2" value="3.6815631038630823" />
-      <entry key="S5" value="3.8677941593351046" />
-      <entry key="S10" value="3.9330615224596337" />
-      <entry key="S30" value="3.9774985836002625" />
-      <entry key="S60" value="3.988725533541523" />
-      <entry key="M2" value="3.9943568132786234" />
-      <entry key="M5" value="3.9977412946866338" />
-      <entry key="M10" value="3.99887040875679" />
-      <entry key="M15" value="3.999246886140917" />
-      <entry key="M30" value="3.999623416552559" />
-      <entry key="H1" value="3.9998117018912103" />
-      <entry key="H2" value="3.999942291693659" />
-      <entry key="H4" value="4.023403943511318" />
-      <entry key="D1" value="23.432774408032486" />
-      <entry key="W1" value="142.54739322244325" />
+      <entry key="MS100" value="0.25" />
+      <entry key="MS500" value="0.757858283255199" />
+      <entry key="S2" value="0.9330329915368074" />
+      <entry key="S5" value="0.9726549474122855" />
+      <entry key="S10" value="0.9862327044933592" />
+      <entry key="S30" value="0.9953960377950367" />
+      <entry key="S60" value="1.0027354558758554" />
+      <entry key="M2" value="1.1408774513663638" />
+      <entry key="M5" value="2.0519613230901643" />
+      <entry key="M10" value="3.051522640054323" />
+      <entry key="M15" value="3.5629730651473914" />
+      <entry key="M30" value="4.2018768118404966" />
+      <entry key="H1" value="4.5787623096548" />
+      <entry key="H2" value="4.783558961487403" />
+      <entry key="H4" value="4.913065018523632" />
+      <entry key="D1" value="24.32443312619789" />
+      <entry key="W1" value="143.45305487233114" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -201,26 +215,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/StrongRoom",
-    "node.js.detected.package.eslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "ts.external.directory.path": "/Users/johannnefdt/RustroverProjects/StrongRoom/rust_apps/strongroom/e2e-tauri/node_modules/typescript/lib"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/StrongRoom&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/johannnefdt/RustroverProjects/StrongRoom/rust_apps/strongroom/e2e-tauri/node_modules/typescript/lib&quot;
   }
-}]]></component>
+}</component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
