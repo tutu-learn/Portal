@@ -985,6 +985,68 @@ async fn get_user_roles(
     }
 }
 
+fn is_privileged_log_user(user: &str, roles: &[String]) -> bool {
+    user == "Administrator"
+        || roles.iter().any(|r| r == "Administrator" || r == "System Manager")
+}
+
+async fn get_sebrus_log_viewer_service(
+    state: &AppState,
+    user: &str,
+    headers: &axum::http::HeaderMap,
+) -> Option<String> {
+    let (_, pool) = crate::site::resolve_site_pool(state, headers)?;
+    let doc = pool.get_doc("User", user).await.ok()?;
+    doc.get_field("sebrus_log_viewer_service")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Restrict log queries for users that only have the "Sebrus Log Viewer" role.
+/// Such users may only see logs whose service starts with the value configured
+/// on their User record, and framework logs (service starting with "frappe")
+/// are always excluded.
+async fn apply_sebrus_log_viewer_filter(
+    state: &AppState,
+    user: &str,
+    headers: &axum::http::HeaderMap,
+    query: &str,
+) -> String {
+    let roles = get_user_roles(state, user, headers).await;
+    if is_privileged_log_user(user, &roles) {
+        return query.to_string();
+    }
+    if !roles.iter().any(|r| r == "Sebrus Log Viewer") {
+        return query.to_string();
+    }
+
+    let service = match get_sebrus_log_viewer_service(state, user, headers).await {
+        Some(s) => s,
+        None => {
+            // Role is present but no service configured: deny all log access.
+            return "NOT service:*".to_string();
+        }
+    };
+
+    let base = if query == "*" || query.trim().is_empty() {
+        String::new()
+    } else {
+        format!("({})", query)
+    };
+
+    let parts: Vec<String> = vec![
+        base,
+        format!(r#"service:"{}""#, service.replace('"', "\\\"")),
+        "NOT service:frappe*".to_string(),
+    ]
+    .into_iter()
+    .filter(|s| !s.is_empty())
+    .collect();
+
+    parts.join(" AND ")
+}
+
 /// Native Rust implementation of frappe.desk.form.load.getdoc.
 /// Loads a single document (with child tables and __onload data) from the
 /// native ORM so forms that rely on controller onload data work even when the
@@ -998,7 +1060,7 @@ pub async fn getdoc_native(
     let name = params.get("name").cloned().unwrap_or_default();
 
     if doctype == "Kiff Log Entry" {
-        return get_kiff_log_doc(state, &name).await;
+        return get_kiff_log_doc(state, &name, &headers).await;
     }
 
     // New/unsaved documents are named `new-<scrubbed>-<random>`. Return a blank
@@ -1599,7 +1661,7 @@ pub async fn reportview_get(
     }
 
     if doctype == "Kiff Log Entry" {
-        return reportview_kiff_log_get(state, params).await;
+        return reportview_kiff_log_get(state, params, &headers).await;
     }
 
     let user = session_user_from_request(&state, &headers)
@@ -1753,7 +1815,7 @@ pub async fn reportview_get_count(
     }
 
     if doctype == "Kiff Log Entry" {
-        return kiff_log_count(state, params).await;
+        return kiff_log_count(state, params, &headers).await;
     }
 
     let pool = match resolve_site_pool(&state, &headers) {
@@ -1816,7 +1878,11 @@ fn insert_value(params: &mut HashMap<String, String>, key: String, value: Value)
     }
 }
 
-async fn get_kiff_log_doc(state: AppState, name: &str) -> (StatusCode, Json<Value>) {
+async fn get_kiff_log_doc(
+    state: AppState,
+    name: &str,
+    headers: &axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
     let service = match state.logger.get() {
         Some(s) => s.clone(),
         None => {
@@ -1827,10 +1893,15 @@ async fn get_kiff_log_doc(state: AppState, name: &str) -> (StatusCode, Json<Valu
         }
     };
 
+    let user = session_user_from_request(&state, headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+    let query = apply_sebrus_log_viewer_filter(&state, &user, headers, "*").await;
+
     let _ = service.commit().await;
 
     // Name format: KLE-<timestamp_ms>-<index>. Query broadly and match by name.
-    let records = match service.query("*", 100_000).await {
+    let records = match service.query(&query, 100_000).await {
         Ok(r) => r,
         Err(e) => {
             return (
@@ -1941,7 +2012,11 @@ fn sanitize_reportview_fields(fields: &[String]) -> Vec<String> {
         .collect()
 }
 
-async fn reportview_kiff_log_get(state: AppState, params: HashMap<String, String>) -> Response {
+async fn reportview_kiff_log_get(
+    state: AppState,
+    params: HashMap<String, String>,
+    headers: &axum::http::HeaderMap,
+) -> Response {
     let limit_start = params
         .get("limit_start")
         .and_then(|s| s.parse::<usize>().ok())
@@ -1953,6 +2028,11 @@ async fn reportview_kiff_log_get(state: AppState, params: HashMap<String, String
         .min(MAX_REPORTVIEW_PAGE_LENGTH);
     let query = params.get("filters").cloned().unwrap_or_default();
     let query = kiff_log_query_from_filters(&query);
+
+    let user = session_user_from_request(&state, headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+    let query = apply_sebrus_log_viewer_filter(&state, &user, headers, &query).await;
 
     let service = match state.logger.get() {
         Some(s) => s.clone(),
@@ -1995,9 +2075,18 @@ async fn reportview_kiff_log_get(state: AppState, params: HashMap<String, String
         .into_response()
 }
 
-async fn kiff_log_count(state: AppState, params: HashMap<String, String>) -> Response {
+async fn kiff_log_count(
+    state: AppState,
+    params: HashMap<String, String>,
+    headers: &axum::http::HeaderMap,
+) -> Response {
     let query = params.get("filters").cloned().unwrap_or_default();
     let query = kiff_log_query_from_filters(&query);
+
+    let user = session_user_from_request(&state, headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+    let query = apply_sebrus_log_viewer_filter(&state, &user, headers, &query).await;
 
     let service = match state.logger.get() {
         Some(s) => s.clone(),

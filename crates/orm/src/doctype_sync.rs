@@ -66,6 +66,7 @@ pub async fn sync_all(
 ) -> Result<()> {
     info!("syncing frappe doctypes");
     sync_metadata(pool, fixtures.clone()).await?;
+    ensure_sebrus_log_viewer_user_field(pool).await?;
     sync_data_tables(pool).await?;
     ensure_docperm_defaults(pool).await?;
     insert_seed_data(
@@ -225,6 +226,38 @@ async fn sync_metadata(pool: &DatabasePool, fixtures: Vec<DoctypeFixture>) -> Re
         "synced {} doctypes with {} fields into metadata tables",
         synced, fields_synced
     );
+    Ok(())
+}
+
+/// Ensure the User DocType has a field for configuring the service that a
+/// user with the "Sebrus Log Viewer" role is allowed to read logs from.
+/// This field is injected after the bundled Frappe metadata is synced so it
+/// survives the Frappe sync and is available on the User form.
+async fn ensure_sebrus_log_viewer_user_field(pool: &DatabasePool) -> Result<()> {
+    let field = serde_json::json!({
+        "fieldname": "sebrus_log_viewer_service",
+        "fieldtype": "Data",
+        "label": "Sebrus Log Viewer Service",
+        "description": "Service this user may view logs for when assigned the Sebrus Log Viewer role.",
+        "read_only": 0,
+        "hidden": 0,
+        "reqd": 0,
+        "in_list_view": 0
+    });
+
+    let max_idx = pool
+        .execute_sql(
+            r#"SELECT COALESCE(MAX(idx), 0) as max_idx FROM "docfield" WHERE parent = ?"#,
+            vec![serde_json::Value::String("User".into())],
+        )
+        .await?
+        .into_iter()
+        .next()
+        .and_then(|r| r.get("max_idx").and_then(|v| v.as_i64()))
+        .unwrap_or(0);
+
+    insert_docfield(pool, "User", &field, (max_idx as usize) + 1).await?;
+    info!("ensured sebrus_log_viewer_service field on User DocType");
     Ok(())
 }
 
@@ -1334,6 +1367,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Kiff Logs Admin", 1),
         ("Sebrus Log Rule Admin", 1),
         ("Sebrus Log Rule Viewer", 1),
+        ("Sebrus Log Viewer", 1),
         ("Server Admin", 1),
         ("Infrastructure Viewer", 1),
     ] {
