@@ -84,6 +84,10 @@ pub fn create_router() -> Router<AppState> {
             get(api::reportview_get_count).post(api::reportview_get_count),
         )
         .route(
+            "/api/method/frappe.desk.desktop.get_desktop_page",
+            get(desk::get_desktop_page).post(desk::get_desktop_page_post),
+        )
+        .route(
             "/api/method/:method",
             get(api::call_method_get).post(api::call_method),
         )

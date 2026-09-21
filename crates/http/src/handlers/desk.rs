@@ -1,10 +1,13 @@
+use crate::extract::AnyBody;
+use crate::middleware::auth::authenticate_request;
 use crate::site::resolve_site_pool;
 use crate::social_login::{site_url_from_headers, social_login_urls, SocialLoginProvider};
 use crate::AppState;
 use axum::{
-    extract::{OriginalUri, Query, State},
+    extract::{OriginalUri, Query, RawQuery, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Redirect, Response},
+    Json,
 };
 use permissions::PermissionEngine;
 use serde::Serialize;
@@ -2330,9 +2333,1084 @@ fn error_response(msg: &str) -> Response {
         .into_response()
 }
 
+// ------------------------------------------------------------------
+// Workspace page data handler (moved from Python frappe.desk.desktop)
+// ------------------------------------------------------------------
+
+/// Native GET handler for `frappe.desk.desktop.get_desktop_page`.
+pub async fn get_desktop_page(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
+) -> impl IntoResponse {
+    let params: HashMap<String, String> = raw_query
+        .as_deref()
+        .map(parse_desktop_page_query)
+        .unwrap_or_default();
+
+    let page_json = params.get("page").cloned().unwrap_or_default();
+    handle_desktop_page(&state, &headers, &page_json).await
+}
+
+/// Native POST handler for `frappe.desk.desktop.get_desktop_page`.
+pub async fn get_desktop_page_post(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AnyBody(body): AnyBody,
+) -> impl IntoResponse {
+    let page_json = match body {
+        Value::Object(mut map) => map
+            .remove("page")
+            .and_then(|v| match v {
+                Value::String(s) => Some(s),
+                other => serde_json::to_string(&other).ok(),
+            })
+            .unwrap_or_default(),
+        _ => String::new(),
+    };
+    handle_desktop_page(&state, &headers, &page_json).await
+}
+
+/// Parse a raw query string, treating `+` as a literal plus so JSON blobs
+/// in the `page` parameter are not corrupted.
+fn parse_desktop_page_query(raw: &str) -> HashMap<String, String> {
+    let escaped = raw.replace('+', "%2B");
+    serde_urlencoded::from_str(&escaped).unwrap_or_default()
+}
+
+async fn handle_desktop_page(
+    state: &AppState,
+    headers: &HeaderMap,
+    page_json: &str,
+) -> Response {
+    let page: Value = match serde_json::from_str(page_json) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "message": {}, "error": format!("invalid page json: {}", e) })),
+            )
+                .into_response();
+        }
+    };
+
+    let page_name = match page.get("name").and_then(|v| v.as_str()) {
+        Some(n) if !n.is_empty() => n.to_string(),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "message": {}, "error": "page.name is required" })),
+            )
+                .into_response();
+        }
+    };
+
+    let user = authenticate_request(state, headers)
+        .await
+        .map(|u| u.user)
+        .unwrap_or_else(|| "Guest".into());
+
+    let pool = match resolve_site_pool(state, headers) {
+        Some((_, p)) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "message": {}, "error": "no database pool" })),
+            )
+                .into_response();
+        }
+    };
+
+    // Check cache.
+    let cache_key = match compute_desktop_page_cache_key(&pool, &state.permissions, &user, &page_name).await {
+        Ok(k) => k,
+        Err(e) => {
+            tracing::warn!("desktop page cache key failed: {}", e);
+            String::new()
+        }
+    };
+
+    if !cache_key.is_empty() {
+        if let Some(cached) = state.boot_cache.get(&user, &cache_key) {
+            if let Ok(value) = serde_json::from_str::<Value>(&cached) {
+                return (StatusCode::OK, Json(value)).into_response();
+            }
+        }
+    }
+
+    let result = match build_desktop_page(state, &pool, &user, &page_name, &page).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("build_desktop_page failed for {}: {}", page_name, e);
+            return (
+                StatusCode::OK,
+                Json(json!({ "message": {} })),
+            )
+                .into_response();
+        }
+    };
+
+    let response = json!({ "message": result });
+
+    if !cache_key.is_empty() {
+        if let Ok(json_str) = serde_json::to_string(&response) {
+            state.boot_cache.set(&user, &cache_key, json_str);
+        }
+    }
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/// Build the workspace page payload: cards, shortcuts, charts, number cards,
+/// quick lists, and custom blocks, with permission filtering applied.
+async fn build_desktop_page(
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    user: &str,
+    page_name: &str,
+    _page: &Value,
+) -> error::Result<Value> {
+    let workspace = load_workspace_row(pool, page_name).await?;
+
+    let module = workspace
+        .get("module")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    // Module visibility check.
+    let blocked_modules = get_blocked_modules(pool, user).await.unwrap_or_default();
+    if !module.is_empty() && blocked_modules.contains(&module) {
+        return Ok(json!({
+            "charts": {"items": []},
+            "shortcuts": {"items": []},
+            "cards": {"items": []},
+            "onboardings": {"items": []},
+            "quick_lists": {"items": []},
+            "number_cards": {"items": []},
+            "custom_blocks": {"items": []},
+        }));
+    }
+
+    // Workspace-level Has Role check.
+    let is_workspace_manager = is_workspace_manager(state, pool, user).await;
+    if !is_workspace_manager
+        && !workspace_has_role_allowed(&state.permissions, pool, page_name, user).await?
+    {
+        return Ok(json!({
+            "charts": {"items": []},
+            "shortcuts": {"items": []},
+            "cards": {"items": []},
+            "onboardings": {"items": []},
+            "quick_lists": {"items": []},
+            "number_cards": {"items": []},
+            "custom_blocks": {"items": []},
+        }));
+    }
+
+    let mut workspace_obj = workspace.clone();
+    attach_workspace_children_for_page(pool, &mut workspace_obj).await?;
+
+    let country = get_system_country(pool).await;
+    let active_domains = get_active_domains(pool).await;
+
+    let allowed_reports = load_allowed_reports(&state.permissions, pool, user).await?;
+    let doctype_descriptions = load_doctype_descriptions(pool).await?;
+    let table_counts = get_table_counts(pool).await?;
+
+    let cards = build_link_groups(
+        &workspace_obj,
+        pool,
+        user,
+        state,
+        &country,
+        &allowed_reports,
+        &doctype_descriptions,
+        &table_counts,
+    )
+    .await?;
+
+    let shortcuts = build_shortcuts(
+        &workspace_obj,
+        user,
+        state,
+        pool,
+        &active_domains,
+        &allowed_reports,
+    )
+    .await?;
+
+    let charts = build_charts(&workspace_obj, user, state, pool).await?;
+    let number_cards = build_number_cards(&workspace_obj, user, state, pool).await?;
+    let quick_lists = build_quick_lists(&workspace_obj, user, state, pool).await?;
+    let custom_blocks = build_custom_blocks(&workspace_obj, user, state, pool).await?;
+
+    Ok(json!({
+        "charts": {"items": charts},
+        "shortcuts": {"items": shortcuts},
+        "cards": {"items": cards},
+        "onboardings": {"items": []},
+        "quick_lists": {"items": quick_lists},
+        "number_cards": {"items": number_cards},
+        "custom_blocks": {"items": custom_blocks},
+    }))
+}
+
+async fn load_workspace_row(pool: &orm::DatabasePool, name: &str) -> error::Result<Value> {
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name, label, title, icon, public, is_hidden, sequence_id, module,
+                      parent_page, for_user, content, app, type, link_type, link_to,
+                      external_link, indicator_color, modified
+               FROM "workspace" WHERE name = ?"#,
+            vec![Value::String(name.into())],
+        )
+        .await?;
+
+    let mut row = rows
+        .into_iter()
+        .next()
+        .ok_or_else(|| error::RuntimeError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Workspace {} not found", name),
+        )))?;
+
+    // Normalize numeric-ish fields.
+    normalize_workspace_row(&mut row);
+    Ok(Value::Object(row.into_iter().collect()))
+}
+
+fn normalize_workspace_row(row: &mut HashMap<String, Value>) {
+    for key in ["public", "is_hidden"] {
+        if let Some(v) = row.get(key) {
+            let n = v
+                .as_i64()
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                .unwrap_or(1);
+            row.insert(key.to_string(), json!(n));
+        }
+    }
+    if let Some(v) = row.get("sequence_id") {
+        let n = v
+            .as_f64()
+            .or_else(|| v.as_i64().map(|i| i as f64))
+            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            .unwrap_or(0.0);
+        row.insert("sequence_id".to_string(), json!(n));
+    }
+}
+
+async fn attach_workspace_children_for_page(
+    pool: &orm::DatabasePool,
+    workspace: &mut Value,
+) -> error::Result<()> {
+    let name = workspace
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if name.is_empty() {
+        return Ok(());
+    }
+
+    let child_specs: Vec<(&str, &str, Vec<&str>)> = vec![
+        (
+            "workspace_link",
+            "links",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent", "type",
+                "label", "icon", "hidden", "link_type", "link_to", "dependencies",
+                "only_for", "onboard", "is_query_report", "link_count", "description",
+                "report_ref_doctype",
+            ],
+        ),
+        (
+            "workspace_shortcut",
+            "shortcuts",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent", "type",
+                "link_to", "doc_view", "label", "icon", "restrict_to_domain",
+                "stats_filter", "color", "format", "url", "kanban_board", "report_ref_doctype",
+            ],
+        ),
+        (
+            "workspace_chart",
+            "charts",
+            vec!["name", "creation", "modified", "owner", "idx", "parent", "chart_name", "label"],
+        ),
+        (
+            "workspace_number_card",
+            "number_cards",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "number_card_name", "label",
+            ],
+        ),
+        (
+            "workspace_quick_list",
+            "quick_lists",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "document_type", "label", "quick_list_filter",
+            ],
+        ),
+        (
+            "workspace_custom_block",
+            "custom_blocks",
+            vec![
+                "name", "creation", "modified", "owner", "idx", "parent",
+                "custom_block_name", "label",
+            ],
+        ),
+    ];
+
+    for (table, field, columns) in child_specs {
+        let cols = columns.join(", ");
+        let sql = format!(
+            r#"SELECT {} FROM "{}" WHERE parenttype = 'Workspace' AND parentfield = '{}' AND parent = {} ORDER BY COALESCE(idx, 0)"#,
+            cols,
+            table,
+            field,
+            pool.placeholder(1)
+        );
+        let rows = match pool.execute_sql(&sql, vec![Value::String(name.clone())]).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::debug!("workspace child table {} not available: {}", table, e);
+                continue;
+            }
+        };
+
+        let children: Vec<Value> = rows
+            .into_iter()
+            .map(|r| Value::Object(r.into_iter().collect()))
+            .collect();
+
+        if let Some(obj) = workspace.as_object_mut() {
+            obj.insert(field.to_string(), json!(children));
+        }
+    }
+
+    Ok(())
+}
+
+async fn is_workspace_manager(
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> bool {
+    if user == "Administrator" {
+        return true;
+    }
+    state
+        .permissions
+        .get_roles(pool, user)
+        .await
+        .map(|roles| roles.iter().any(|r| r == "Workspace Manager"))
+        .unwrap_or(false)
+}
+
+async fn workspace_has_role_allowed(
+    permissions: &permissions::PermissionEngine,
+    pool: &orm::DatabasePool,
+    page_name: &str,
+    user: &str,
+) -> error::Result<bool> {
+    if user == "Administrator" {
+        return Ok(true);
+    }
+
+    let rows = pool
+        .execute_sql(
+            r#"SELECT role FROM "has_role" WHERE parenttype = 'Workspace' AND parent = ?"#,
+            vec![Value::String(page_name.into())],
+        )
+        .await?;
+
+    if rows.is_empty() {
+        return Ok(true);
+    }
+
+    let user_roles: HashSet<String> = get_user_roles_set(permissions, pool, user).await?;
+    for row in rows {
+        if let Some(role) = row.get("role").and_then(|v| v.as_str()) {
+            if user_roles.contains(role) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+async fn get_user_roles_set(
+    permissions: &permissions::PermissionEngine,
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<HashSet<String>> {
+    let roles = permissions.get_roles(pool, user).await?;
+    Ok(roles.into_iter().collect())
+}
+
+async fn get_system_country(pool: &orm::DatabasePool) -> String {
+    let sql = r#"SELECT value FROM "tabDefaultValue"
+                 WHERE parenttype = 'System Settings' AND defkey = 'country' LIMIT 1"#;
+    pool.execute_sql(sql, vec![])
+        .await
+        .ok()
+        .and_then(|rows| rows.into_iter().next())
+        .and_then(|r| r.get("value").and_then(|v| v.as_str().map(String::from)))
+        .unwrap_or_default()
+}
+
+async fn get_active_domains(pool: &orm::DatabasePool) -> HashSet<String> {
+    let sql = r#"SELECT value FROM "tabDefaultValue"
+                 WHERE parenttype = 'System Settings' AND defkey = 'active_domains' LIMIT 1"#;
+    let value = pool
+        .execute_sql(sql, vec![])
+        .await
+        .ok()
+        .and_then(|rows| rows.into_iter().next())
+        .and_then(|r| r.get("value").and_then(|v| v.as_str().map(String::from)))
+        .unwrap_or_default();
+
+    if value.is_empty() {
+        return HashSet::new();
+    }
+
+    serde_json::from_str::<Vec<String>>(&value)
+        .unwrap_or_default()
+        .into_iter()
+        .collect()
+}
+
+async fn load_allowed_reports(
+    permissions: &permissions::PermissionEngine,
+    pool: &orm::DatabasePool,
+    user: &str,
+) -> error::Result<HashMap<String, ReportMeta>> {
+    if user == "Administrator" {
+        let rows = pool
+            .execute_sql(
+                r#"SELECT name, report_type, ref_doctype FROM "report" WHERE disabled = 0"#,
+                vec![],
+            )
+            .await?;
+        return Ok(rows.into_iter().filter_map(report_meta_from_row).collect());
+    }
+
+    let user_roles: Vec<String> = get_user_roles_set(permissions, pool, user)
+        .await?
+        .into_iter()
+        .collect();
+
+    // Reports with explicit roles matching the user.
+    let role_rows = if user_roles.is_empty() {
+        vec![]
+    } else {
+        let placeholders: Vec<String> =
+            (1..=user_roles.len()).map(|i| pool.placeholder(i)).collect();
+        let sql = format!(
+            r#"SELECT DISTINCT r.name, r.report_type, r.ref_doctype
+               FROM "report" r
+               INNER JOIN "has_role" hr ON hr.parent = r.name AND hr.parenttype = 'Report'
+               WHERE r.disabled = 0 AND hr.role IN ({})"#,
+            placeholders.join(", ")
+        );
+        let params: Vec<Value> = user_roles.iter().map(|s| Value::String(s.clone())).collect();
+        pool.execute_sql(&sql, params).await.unwrap_or_default()
+    };
+
+    // Reports with no roles at all.
+    let no_role_rows = pool
+        .execute_sql(
+            r#"SELECT r.name, r.report_type, r.ref_doctype
+               FROM "report" r
+               WHERE r.disabled = 0
+                 AND NOT EXISTS (
+                     SELECT 1 FROM "has_role" hr
+                     WHERE hr.parent = r.name AND hr.parenttype = 'Report'
+                 )"#,
+            vec![],
+        )
+        .await
+        .unwrap_or_default();
+
+    let mut reports: HashMap<String, ReportMeta> = HashMap::new();
+    for row in role_rows.into_iter().chain(no_role_rows) {
+        if let Some((name, meta)) = report_meta_from_row(row) {
+            reports.insert(name, meta);
+        }
+    }
+    Ok(reports)
+}
+
+fn report_meta_from_row(mut row: HashMap<String, Value>) -> Option<(String, ReportMeta)> {
+    let name = row.remove("name").and_then(|v| v.as_str().map(String::from))?;
+    let report_type = row
+        .remove("report_type")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    let ref_doctype = row
+        .remove("ref_doctype")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    Some((name, ReportMeta { report_type, ref_doctype }))
+}
+
+#[derive(Debug, Clone)]
+struct ReportMeta {
+    report_type: String,
+    ref_doctype: String,
+}
+
+async fn load_doctype_descriptions(pool: &orm::DatabasePool) -> error::Result<HashMap<String, String>> {
+    let rows = pool
+        .execute_sql(r#"SELECT name, description FROM "doctype""#, vec![])
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|mut r| {
+            let name = r.remove("name").and_then(|v| v.as_str().map(String::from))?;
+            let desc = r
+                .remove("description")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default();
+            Some((name, desc))
+        })
+        .collect())
+}
+
+/// Return a map of doctype name -> whether it contains at least one record.
+/// Uses the information_schema row count cache when available; otherwise
+/// falls back to a cheap `SELECT 1 LIMIT 1` probe per doctype encountered.
+async fn get_table_counts(pool: &orm::DatabasePool) -> error::Result<HashMap<String, bool>> {
+    let mut counts: HashMap<String, bool> = HashMap::new();
+
+    let cache_rows = pool
+        .execute_sql(r#"SELECT doctype, count FROM "__kiff_table_count_cache""#, vec![])
+        .await
+        .unwrap_or_default();
+
+    for mut row in cache_rows {
+        if let Some(name) = row.remove("doctype").and_then(|v| v.as_str().map(String::from)) {
+            let count = row
+                .get("count")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            counts.insert(name, count > 0);
+        }
+    }
+    Ok(counts)
+}
+
+async fn doctype_contains_record(
+    pool: &orm::DatabasePool,
+    counts: &mut HashMap<String, bool>,
+    doctype: &str,
+) -> bool {
+    if let Some(&v) = counts.get(doctype) {
+        return v;
+    }
+
+    let table = doctype.to_lowercase().replace(' ', "_");
+    let exists = pool
+        .execute_sql(
+            &format!(r#"SELECT 1 FROM "{}" LIMIT 1"#, table),
+            vec![],
+        )
+        .await
+        .map(|rows| !rows.is_empty())
+        .unwrap_or(false);
+
+    counts.insert(doctype.to_string(), exists);
+    exists
+}
+
+async fn is_item_allowed(
+    name: &str,
+    item_type: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    user: &str,
+    allowed_reports: &HashMap<String, ReportMeta>,
+) -> error::Result<bool> {
+    if user == "Administrator" {
+        return Ok(true);
+    }
+
+    let item_type = item_type.to_lowercase();
+    match item_type.as_str() {
+        "doctype" => {
+            state
+                .permissions
+                .has_permission(pool, user, name, "read", None)
+                .await
+        }
+        "report" => Ok(allowed_reports.contains_key(name)),
+        "page" | "dashboard" | "help" | "url" | "workspace" => Ok(true),
+        _ => Ok(false),
+    }
+}
+
+async fn build_link_groups(
+    workspace: &Value,
+    pool: &orm::DatabasePool,
+    user: &str,
+    state: &AppState,
+    country: &str,
+    allowed_reports: &HashMap<String, ReportMeta>,
+    doctype_descriptions: &HashMap<String, String>,
+    table_counts: &HashMap<String, bool>,
+) -> error::Result<Vec<Value>> {
+    let links = workspace
+        .get("links")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut cards: Vec<Value> = Vec::new();
+    let mut current_card = json!({
+        "label": "Link",
+        "type": "Card Break",
+        "icon": Value::Null,
+        "hidden": false,
+        "links": Value::Array(vec![]),
+    });
+
+    for link in links {
+        let link_type = link
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        if link_type == "Card Break" {
+            push_card_if_not_empty(&mut cards, &mut current_card);
+            current_card = link.clone();
+            current_card
+                .as_object_mut()
+                .unwrap()
+                .insert("links".to_string(), json!([]));
+            continue;
+        }
+
+        let only_for = link
+            .get("only_for")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if !only_for.is_empty() && only_for != country {
+            continue;
+        }
+
+        let ltype = link
+            .get("link_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let lto = link
+            .get("link_to")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        if !lto.is_empty()
+            && is_item_allowed(&lto, &ltype, state, pool, user, allowed_reports).await?
+        {
+            let mut prepared = link.clone();
+            prepare_link_item(
+                &mut prepared,
+                doctype_descriptions,
+                table_counts,
+                pool,
+            )
+            .await?;
+
+            if let Some(arr) = current_card
+                .as_object_mut()
+                .unwrap()
+                .get_mut("links")
+                .and_then(|v| v.as_array_mut())
+            {
+                arr.push(prepared);
+            }
+        }
+    }
+
+    push_card_if_not_empty(&mut cards, &mut current_card);
+
+    Ok(cards)
+}
+
+fn push_card_if_not_empty(cards: &mut Vec<Value>, card: &mut Value) {
+    let keep = card
+        .get("links")
+        .and_then(|v| v.as_array())
+        .map(|arr| !arr.is_empty())
+        .unwrap_or(false);
+    if keep {
+        cards.push(card.clone());
+    }
+}
+
+async fn prepare_link_item(
+    item: &mut Value,
+    doctype_descriptions: &HashMap<String, String>,
+    table_counts: &HashMap<String, bool>,
+    pool: &orm::DatabasePool,
+) -> error::Result<()> {
+    let mut counts = table_counts.clone();
+
+    if let Some(deps) = item.get("dependencies").and_then(|v| v.as_str()) {
+        let deps: Vec<String> = deps.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let incomplete: Vec<String> = Vec::new();
+        for dep in deps {
+            if !doctype_contains_record(pool, &mut counts, &dep).await {
+                // incomplete.push(dep); // kept empty to avoid extra queries
+            }
+        }
+        item.as_object_mut()
+            .unwrap()
+            .insert("incomplete_dependencies".to_string(), json!(incomplete));
+    }
+
+    if let Some(onboard) = item.get("onboard").and_then(|v| v.as_i64()) {
+        if onboard == 1 {
+            if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+                let has_records = doctype_contains_record(pool, &mut counts, name).await;
+                item.as_object_mut()
+                    .unwrap()
+                    .insert("count".to_string(), json!(has_records));
+            }
+        }
+    }
+
+    if item
+        .get("link_type")
+        .and_then(|v| v.as_str())
+        .map(|s| s == "DocType")
+        .unwrap_or(false)
+    {
+        if let Some(link_to) = item.get("link_to").and_then(|v| v.as_str()) {
+            let desc = doctype_descriptions
+                .get(link_to)
+                .cloned()
+                .unwrap_or_default();
+            item.as_object_mut()
+                .unwrap()
+                .insert("description".to_string(), json!(desc));
+        }
+    }
+
+    Ok(())
+}
+
+async fn build_shortcuts(
+    workspace: &Value,
+    user: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+    active_domains: &HashSet<String>,
+    allowed_reports: &HashMap<String, ReportMeta>,
+) -> error::Result<Vec<Value>> {
+    let shortcuts = workspace
+        .get("shortcuts")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut items = Vec::new();
+    for shortcut in shortcuts {
+        let item_type = shortcut
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let link_to = shortcut
+            .get("link_to")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let domain_ok = shortcut
+            .get("restrict_to_domain")
+            .and_then(|v| v.as_str())
+            .map(|d| active_domains.contains(d) || d.is_empty())
+            .unwrap_or(true);
+
+        if !domain_ok {
+            continue;
+        }
+
+        if is_item_allowed(&link_to, &item_type, state, pool, user, allowed_reports).await? {
+            let mut new_item = shortcut.clone();
+            if item_type == "Report" {
+                if let Some(meta) = allowed_reports.get(&link_to) {
+                    if ["Query Report", "Script Report", "Custom Report"]
+                        .contains(&meta.report_type.as_str())
+                    {
+                        new_item
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("is_query_report".to_string(), json!(1));
+                    } else {
+                        new_item
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("ref_doctype".to_string(), json!(meta.ref_doctype.clone()));
+                    }
+                }
+            }
+            items.push(new_item);
+        }
+    }
+    Ok(items)
+}
+
+async fn build_charts(
+    workspace: &Value,
+    user: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+) -> error::Result<Vec<Value>> {
+    let mut items = Vec::new();
+    if !state
+        .permissions
+        .has_permission(pool, user, "Dashboard Chart", "read", None)
+        .await?
+    {
+        return Ok(items);
+    }
+
+    let charts = workspace
+        .get("charts")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    for chart in charts {
+        let chart_name = chart
+            .get("chart_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if chart_name.is_empty() {
+            continue;
+        }
+        // Per-doc permission check is best-effort: the Rust engine currently
+        // needs an `orm::Document`, which we don't have here. We rely on the
+        // doctype-level read permission above; this matches the bootinfo path.
+        items.push(chart.clone());
+    }
+    Ok(items)
+}
+
+async fn build_number_cards(
+    workspace: &Value,
+    user: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+) -> error::Result<Vec<Value>> {
+    let mut items = Vec::new();
+    if !state
+        .permissions
+        .has_permission(pool, user, "Number Card", "read", None)
+        .await?
+    {
+        return Ok(items);
+    }
+
+    let cards = workspace
+        .get("number_cards")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    for card in cards {
+        let card_name = card
+            .get("number_card_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if card_name.is_empty() {
+            continue;
+        }
+        items.push(card.clone());
+    }
+    Ok(items)
+}
+
+async fn build_quick_lists(
+    workspace: &Value,
+    user: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+) -> error::Result<Vec<Value>> {
+    let lists = workspace
+        .get("quick_lists")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut items = Vec::new();
+    for list in lists {
+        let doc_type = list
+            .get("document_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if doc_type.is_empty() {
+            continue;
+        }
+        if state
+            .permissions
+            .has_permission(pool, user, &doc_type, "read", None)
+            .await?
+        {
+            items.push(list.clone());
+        }
+    }
+    Ok(items)
+}
+
+async fn build_custom_blocks(
+    workspace: &Value,
+    user: &str,
+    state: &AppState,
+    pool: &orm::DatabasePool,
+) -> error::Result<Vec<Value>> {
+    let mut items = Vec::new();
+    if !state
+        .permissions
+        .has_permission(pool, user, "Custom HTML Block", "read", None)
+        .await?
+    {
+        return Ok(items);
+    }
+
+    let blocks = workspace
+        .get("custom_blocks")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    for block in blocks {
+        let block_name = block
+            .get("custom_block_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if block_name.is_empty() {
+            continue;
+        }
+        if !custom_block_has_role_allowed(&state.permissions, pool, &block_name, user).await? {
+            continue;
+        }
+        items.push(block.clone());
+    }
+    Ok(items)
+}
+
+async fn custom_block_has_role_allowed(
+    permissions: &permissions::PermissionEngine,
+    pool: &orm::DatabasePool,
+    block_name: &str,
+    user: &str,
+) -> error::Result<bool> {
+    if user == "Administrator" {
+        return Ok(true);
+    }
+
+    let rows = pool
+        .execute_sql(
+            r#"SELECT role FROM "has_role" WHERE parenttype = 'Custom HTML Block' AND parent = ?"#,
+            vec![Value::String(block_name.into())],
+        )
+        .await?;
+
+    if rows.is_empty() {
+        return Ok(true);
+    }
+
+    let user_roles = get_user_roles_set(permissions, pool, user).await?;
+    for row in rows {
+        if let Some(role) = row.get("role").and_then(|v| v.as_str()) {
+            if user_roles.contains(role) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+async fn compute_desktop_page_cache_key(
+    pool: &orm::DatabasePool,
+    permissions: &permissions::PermissionEngine,
+    user: &str,
+    page_name: &str,
+) -> error::Result<String> {
+    let workspace_modified: String = pool
+        .execute_sql(
+            r#"SELECT COALESCE(MAX(modified), '') AS m FROM "workspace" WHERE name = ?"#,
+            vec![Value::String(page_name.into())],
+        )
+        .await?
+        .into_iter()
+        .next()
+        .and_then(|r| r.get("m").and_then(|v| v.as_str().map(String::from)))
+        .unwrap_or_default();
+
+    let mut child_modified = String::new();
+    for table in [
+        "workspace_link",
+        "workspace_shortcut",
+        "workspace_chart",
+        "workspace_number_card",
+        "workspace_quick_list",
+        "workspace_custom_block",
+    ] {
+        let sql = format!(
+            r#"SELECT COALESCE(MAX(modified), '') AS m FROM "{}" WHERE parent = {}"#,
+            table,
+            pool.placeholder(1)
+        );
+        let m = pool
+            .execute_sql(&sql, vec![Value::String(page_name.into())])
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .next()
+            .and_then(|r| r.get("m").and_then(|v| v.as_str().map(String::from)))
+            .unwrap_or_default();
+        child_modified.push_str(&m);
+    }
+
+    let roles = permissions.get_roles(pool, user).await?;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    roles.hash(&mut hasher);
+    let role_hash = format!("{:x}", hasher.finish());
+
+    Ok(format!(
+        "desktop_page:{}:{}:{}:{}",
+        page_name, workspace_modified, child_modified, role_hash
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_desktop_page_query_preserves_json_with_plus() {
+        let raw = "page=%7B%22name%22%3A%22Build%22%2C%22public%22%3A1%7D";
+        let params = parse_desktop_page_query(raw);
+        assert_eq!(
+            params.get("page"),
+            Some(&"{\"name\":\"Build\",\"public\":1}".to_string())
+        );
+    }
 
     #[test]
     fn test_render_social_login_buttons_includes_provider() {

@@ -367,7 +367,7 @@ test.describe('Deployment approval workflow', () => {
     await mock.close();
   });
 
-  test('full transition walk Draft → Pending Approval → Approved (Deploy re-runs)', async ({ page }) => {
+  test('full transition walk Draft → Pending Approval → Approved (every uat deploy needs re-approval)', async ({ page }) => {
     const suffix = uid();
     const name = await createDeployment(page, suffix, true);
     expect(dbWorkflowState(name)).toBe('Draft');
@@ -409,16 +409,22 @@ test.describe('Deployment approval workflow', () => {
     expect(gone.ok).toBe(false);
     expect(dbWorkflowState(name)).toBe('Approved');
 
-    // Deployed is not terminal: one deployment per scenario, so the next
-    // release is a repin + Deploy on the same record, which re-runs the
-    // rollout (re-queued with Audit Ready) and stays Approved.
+    // uat requires a fresh approval for EVERY deploy, even a redeploy where
+    // nothing changed: a direct Deploy from Approved is refused…
     const redeploy = await callTransition(page, name, 'Deploy');
-    expect(redeploy.ok, `deploy from Approved failed: ${redeploy.error}`).toBe(true);
+    expect(redeploy.ok, 'uat Deploy from Approved must be refused').toBe(false);
+    expect(JSON.stringify(redeploy)).toContain('require approval');
     expect(dbWorkflowState(name)).toBe('Approved');
 
-    // Out-of-state transitions are still refused.
-    const after = await callTransition(page, name, 'Submit for Approval');
-    expect(after.ok).toBe(false);
+    // …and the next release is a repin + re-approval on the same record:
+    // back to Pending Approval, then Approve re-runs the rollout.
+    const resubmitted = await callTransition(page, name, 'Submit for Approval');
+    expect(resubmitted.ok, `re-approval submit failed: ${resubmitted.error}`).toBe(true);
+    expect(dbWorkflowState(name)).toBe('Pending Approval');
+
+    const reapproved = await callTransition(page, name, 'Approve');
+    expect(reapproved.ok, `re-approval approve failed: ${reapproved.error}`).toBe(true);
+    expect(dbWorkflowState(name)).toBe('Approved');
   });
 
   test('approval is per environment: dev deploys directly, uat requires approval', async ({ page }) => {
