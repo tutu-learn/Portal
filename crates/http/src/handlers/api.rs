@@ -1236,12 +1236,12 @@ async fn getdoc_new(
     name: &str,
     headers: &axum::http::HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    let meta = match load_doctype_metadata(&state, doctype, "").await {
+    let pool = crate::site::resolve_site_pool(&state, headers).map(|(_, p)| p);
+    let meta = match load_doctype_metadata(&state, doctype, "", pool.as_ref()).await {
         Ok(docs) => docs.into_iter().next().unwrap_or_else(|| json!({})),
         Err(_) => json!({}),
     };
 
-    let pool = crate::site::resolve_site_pool(&state, headers).map(|(_, p)| p);
     let user = authenticate_request(&state, headers).await.map(|u| u.user);
     let owner = user.as_deref().unwrap_or("Administrator");
 
@@ -1301,13 +1301,18 @@ async fn getdoc_new(
 /// missing DB tables.
 pub async fn getdoctype_native(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
     let doctype = params.get("doctype").cloned().unwrap_or_default();
     let _with_parent = params.get("with_parent").map(|s| s == "1").unwrap_or(false);
     let cached_timestamp = params.get("cached_timestamp").cloned().unwrap_or_default();
 
-    match load_doctype_metadata(&state, &doctype, &cached_timestamp).await {
+    let pool = crate::site::resolve_site_pool(&state, &headers)
+        .map(|(_, p)| p)
+        .or_else(|| state.pools.iter().next().map(|e| e.value().clone()));
+
+    match load_doctype_metadata(&state, &doctype, &cached_timestamp, pool.as_ref()).await {
         Ok(docs) => {
             let mut resp = serde_json::Map::new();
             resp.insert("docs".to_string(), serde_json::Value::Array(docs));
@@ -2352,6 +2357,7 @@ async fn load_doctype_metadata(
     state: &AppState,
     doctype: &str,
     cached_timestamp: &str,
+    pool: Option<&orm::DatabasePool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     for fixture in state.rust_apps.all_doctypes() {
         if fixture.name == doctype {
@@ -2363,7 +2369,15 @@ async fn load_doctype_metadata(
                 Some(path) => read_doctype_assets(&path).await?,
                 None => (None, None),
             };
-            return load_doctype_from_content(doctype, &fixture.json, cached_timestamp, js, css);
+            return load_doctype_from_content(
+                doctype,
+                &fixture.json,
+                cached_timestamp,
+                js,
+                css,
+                pool,
+            )
+            .await;
         }
     }
 
@@ -2373,7 +2387,7 @@ async fn load_doctype_metadata(
         .await
         .map_err(|e| format!("read error: {}", e))?;
     let (js, css) = read_doctype_assets(&path).await?;
-    load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
+    load_doctype_from_content(doctype, &content, cached_timestamp, js, css, pool).await
 }
 
 fn find_doctype_json_path(doctype: &str) -> Option<PathBuf> {
@@ -2498,34 +2512,125 @@ async fn read_doctype_assets(
     Ok((js, css))
 }
 
-fn read_doctype_assets_sync(
-    path: &std::path::Path,
-) -> Result<(Option<String>, Option<String>), String> {
-    let (js_path, css_path) = doctype_asset_paths(path);
-    let js = match js_path {
-        Some(p) => {
-            Some(std::fs::read_to_string(&p).map_err(|e| format!("read doctype js error: {}", e))?)
+/// Merge fields present in the `docfield` metadata table but missing from the
+/// static DocType JSON into the metadata response. This makes dynamically
+/// injected fields (e.g. the Logger tab on User) visible on Desk forms.
+async fn merge_dynamic_fields_into_doctype(
+    doc: &mut serde_json::Value,
+    doctype: &str,
+    pool: &orm::DatabasePool,
+) -> Result<bool, String> {
+    let static_fieldnames: std::collections::HashSet<String> = doc
+        .get("fields")
+        .and_then(|f| f.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|f| f.get("fieldname").and_then(|v| v.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let rows = match pool
+        .execute_sql(
+            r#"SELECT fieldname, fieldtype, label, options, description, idx,
+                      permlevel, reqd, read_only, hidden, in_list_view,
+                      in_standard_filter, in_preview, in_global_search, in_filter,
+                      bold, italic, no_copy, allow_in_quick_entry, translatable,
+                      collapsible, "unique", set_only_once, remember_last_selected_value,
+                      ignore_user_permissions, allow_on_submit, report_hide,
+                      search_index, show_dashboard, "default", depends_on,
+                      fetch_from, fetch_if_empty, mandatory_depends_on,
+                      read_only_depends_on, placeholder, tooltip, is_system_generated
+               FROM "docfield" WHERE parent = ? ORDER BY idx"#,
+            vec![serde_json::Value::String(doctype.into())],
+        )
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            warn!("failed to load dynamic fields for {}: {}", doctype, e);
+            return Ok(false);
         }
-        None => None,
     };
-    let css = match css_path {
-        Some(p) => Some(
-            std::fs::read_to_string(&p).map_err(|e| format!("read doctype css error: {}", e))?,
-        ),
-        None => None,
-    };
-    Ok((js, css))
+
+    let mut dynamic_fields = Vec::new();
+    for mut row in rows {
+        let fieldname = match row
+            .remove("fieldname")
+            .and_then(|v| v.as_str().map(String::from))
+        {
+            Some(name) => name,
+            None => continue,
+        };
+        if static_fieldnames.contains(&fieldname) {
+            continue;
+        }
+
+        // Build a JSON DocField from the metadata row, skipping null/empty
+        // values so the desk client sees the same shape as static fields.
+        let mut field = serde_json::Map::new();
+        field.insert("fieldname".into(), serde_json::Value::String(fieldname));
+        for (key, value) in row {
+            if key == "fieldname" {
+                continue;
+            }
+            let include = match &value {
+                serde_json::Value::Null => false,
+                serde_json::Value::String(s) => !s.is_empty(),
+                serde_json::Value::Number(n) => n.as_i64() != Some(0),
+                _ => true,
+            };
+            if include {
+                field.insert(key, value);
+            }
+        }
+        dynamic_fields.push(serde_json::Value::Object(field));
+    }
+
+    if dynamic_fields.is_empty() {
+        return Ok(false);
+    }
+
+    // Append dynamic fields to the fields array and field_order so the desk
+    // form renders them. The generated dynamic-fields client script will move
+    // them to their configured target location on the page.
+    if let Some(fields) = doc.get_mut("fields").and_then(|f| f.as_array_mut()) {
+        fields.extend(dynamic_fields.iter().cloned());
+    }
+    if let Some(field_order) = doc.get_mut("field_order").and_then(|f| f.as_array_mut()) {
+        for field in &dynamic_fields {
+            if let Some(name) = field.get("fieldname").and_then(|v| v.as_str()) {
+                field_order.push(serde_json::Value::String(name.into()));
+            }
+        }
+    }
+
+    Ok(true)
 }
 
-fn load_doctype_from_content(
+async fn load_doctype_from_content(
     doctype: &str,
     content: &str,
     cached_timestamp: &str,
     js: Option<String>,
     css: Option<String>,
+    pool: Option<&orm::DatabasePool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let mut doc: serde_json::Value =
         serde_json::from_str(content).map_err(|e| format!("parse error: {}", e))?;
+
+    // Merge dynamic fields that were injected into `docfield` (e.g. the Logger
+    // tab on User) so they appear on Desk forms even though they are not part
+    // of the static DocType JSON.
+    let mut merged_dynamic = false;
+    if let Some(pool) = pool {
+        if merge_dynamic_fields_into_doctype(&mut doc, doctype, pool)
+            .await
+            .unwrap_or(false)
+        {
+            merged_dynamic = true;
+        }
+    }
 
     // Ensure common meta arrays that the desk client expects are present.
     // If we had to inject them, bump `modified` so browsers with a stale
@@ -2538,7 +2643,7 @@ fn load_doctype_from_content(
                 injected_meta = true;
             }
         }
-        if injected_meta {
+        if injected_meta || merged_dynamic {
             map.insert(
                 "modified".to_string(),
                 serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
@@ -2549,7 +2654,7 @@ fn load_doctype_from_content(
     // Check cache timestamp
     if !cached_timestamp.is_empty() {
         if let Some(modified) = doc.get("modified").and_then(|m| m.as_str()) {
-            if modified == cached_timestamp && !injected_meta {
+            if modified == cached_timestamp && !injected_meta && !merged_dynamic {
                 return Err("use_cache".into());
             }
         }
@@ -2636,7 +2741,9 @@ fn load_doctype_from_content(
         if child_dt == doctype {
             continue;
         }
-        if let Ok(child_meta) = load_child_doctype_from_json(&child_dt, cached_timestamp) {
+        if let Ok(child_meta) =
+            load_child_doctype_from_json(&child_dt, cached_timestamp, pool).await
+        {
             docs.extend(child_meta);
         }
     }
@@ -2644,15 +2751,26 @@ fn load_doctype_from_content(
     Ok(docs)
 }
 
-fn load_child_doctype_from_json(
+async fn load_child_doctype_from_json(
     doctype: &str,
     cached_timestamp: &str,
+    pool: Option<&orm::DatabasePool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let path = find_doctype_json_path(doctype)
         .ok_or_else(|| format!("doctype json not found for {}", doctype))?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("read error: {}", e))?;
-    let (js, css) = read_doctype_assets_sync(&path)?;
-    load_doctype_from_content(doctype, &content, cached_timestamp, js, css)
+    let content = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|e| format!("read error: {}", e))?;
+    let (js, css) = read_doctype_assets(&path).await?;
+    Box::pin(load_doctype_from_content(
+        doctype,
+        &content,
+        cached_timestamp,
+        js,
+        css,
+        pool,
+    ))
+    .await
 }
 
 async fn session_user_from_request(
