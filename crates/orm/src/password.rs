@@ -154,7 +154,12 @@ async fn upsert_auth_with_encrypted_flag(
     Ok(())
 }
 
-async fn delete_auth(pool: &DatabasePool, doctype: &str, name: &str, fieldname: &str) -> Result<()> {
+async fn delete_auth(
+    pool: &DatabasePool,
+    doctype: &str,
+    name: &str,
+    fieldname: &str,
+) -> Result<()> {
     let sql = format!(
         r#"DELETE FROM "__auth" WHERE doctype = {} AND name = {} AND fieldname = {}"#,
         pool.placeholder(1),
@@ -271,8 +276,10 @@ pub async fn migrate_plaintext_password_values(
 
     for mut row in rows {
         let (Some(doctype), Some(fieldname)) = (
-            row.remove("parent").and_then(|v| v.as_str().map(String::from)),
-            row.remove("fieldname").and_then(|v| v.as_str().map(String::from)),
+            row.remove("parent")
+                .and_then(|v| v.as_str().map(String::from)),
+            row.remove("fieldname")
+                .and_then(|v| v.as_str().map(String::from)),
         ) else {
             continue;
         };
@@ -290,8 +297,12 @@ pub async fn migrate_plaintext_password_values(
         let mut migrated = 0u32;
         for mut secret_row in secrets {
             let (Some(name), Some(secret)) = (
-                secret_row.remove("name").and_then(|v| v.as_str().map(String::from)),
-                secret_row.remove("secret").and_then(|v| v.as_str().map(String::from)),
+                secret_row
+                    .remove("name")
+                    .and_then(|v| v.as_str().map(String::from)),
+                secret_row
+                    .remove("secret")
+                    .and_then(|v| v.as_str().map(String::from)),
             ) else {
                 continue;
             };
