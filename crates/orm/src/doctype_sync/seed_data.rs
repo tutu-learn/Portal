@@ -8,13 +8,10 @@ use tracing::{info, warn};
 /// Seed data — minimal records needed for the desk to boot.
 pub(crate) async fn insert_seed_data(
     pool: &DatabasePool,
-    fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,
-    module_fixtures: Vec<ModuleFixture>,
     page_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
     ensure_core_users_and_roles(pool).await?;
-    insert_module_defs(pool, fixtures, workspace_fixtures.clone(), module_fixtures).await?;
     insert_user_types(pool).await?;
     insert_workflow_defaults(pool).await?;
     insert_genders_and_salutations(pool).await?;
@@ -324,7 +321,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     Ok(())
 }
 
-async fn insert_module_defs(
+pub(crate) async fn insert_module_defs(
     pool: &DatabasePool,
     fixtures: Vec<DoctypeFixture>,
     workspace_fixtures: Vec<(String, String, String)>,

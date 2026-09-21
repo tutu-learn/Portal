@@ -3620,4 +3620,119 @@ mod tests {
         assert_eq!(params.get("docname").unwrap(), "a@b.c");
         assert!(!params.contains_key("args"));
     }
+
+    #[tokio::test]
+    async fn load_doctype_from_content_merges_dynamic_fields() {
+        let path = format!("/tmp/http_doctype_merge_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let pool = orm::DatabasePool::connect_sqlite(&path).await.unwrap();
+
+        pool.execute_sql(
+            r#"CREATE TABLE "docfield" (
+                name TEXT PRIMARY KEY,
+                parent TEXT,
+                parentfield TEXT,
+                parenttype TEXT,
+                idx INTEGER DEFAULT 0,
+                fieldname TEXT,
+                fieldtype TEXT,
+                label TEXT,
+                options TEXT,
+                description TEXT,
+                permlevel INTEGER DEFAULT 0,
+                reqd INTEGER DEFAULT 0,
+                read_only INTEGER DEFAULT 0,
+                hidden INTEGER DEFAULT 0,
+                in_list_view INTEGER DEFAULT 0,
+                in_standard_filter INTEGER DEFAULT 0,
+                in_preview INTEGER DEFAULT 0,
+                in_global_search INTEGER DEFAULT 0,
+                in_filter INTEGER DEFAULT 0,
+                bold INTEGER DEFAULT 0,
+                italic INTEGER DEFAULT 0,
+                no_copy INTEGER DEFAULT 0,
+                allow_in_quick_entry INTEGER DEFAULT 0,
+                translatable INTEGER DEFAULT 0,
+                collapsible INTEGER DEFAULT 0,
+                "unique" INTEGER DEFAULT 0,
+                set_only_once INTEGER DEFAULT 0,
+                remember_last_selected_value INTEGER DEFAULT 0,
+                ignore_user_permissions INTEGER DEFAULT 0,
+                allow_on_submit INTEGER DEFAULT 0,
+                report_hide INTEGER DEFAULT 0,
+                search_index INTEGER DEFAULT 0,
+                show_dashboard INTEGER DEFAULT 0,
+                "default" TEXT,
+                depends_on TEXT,
+                fetch_from TEXT,
+                fetch_if_empty INTEGER DEFAULT 0,
+                mandatory_depends_on TEXT,
+                read_only_depends_on TEXT,
+                placeholder TEXT,
+                tooltip TEXT,
+                is_system_generated INTEGER DEFAULT 0
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        pool.execute_sql(
+            r#"INSERT INTO "docfield" (
+                name, parent, parentfield, parenttype, idx, fieldname, fieldtype, label, description
+            ) VALUES (
+                'User-logger_tab', 'User', 'fields', 'DocType', 100,
+                'logger_tab', 'Tab Break', 'Logger', 'Log service settings'
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        pool.execute_sql(
+            r#"INSERT INTO "docfield" (
+                name, parent, parentfield, parenttype, idx, fieldname, fieldtype, label, description
+            ) VALUES (
+                'User-sebrus_log_viewer_service', 'User', 'fields', 'DocType', 101,
+                'sebrus_log_viewer_service', 'Data', 'Sebrus Log Viewer Service',
+                'Service this user may view logs for.'
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        let content = r#"{
+            "name": "User",
+            "doctype": "DocType",
+            "field_order": ["enabled"],
+            "fields": [
+                {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"}
+            ]
+        }"#;
+
+        let docs = load_doctype_from_content("User", content, "", None, None, Some(&pool))
+            .await
+            .unwrap();
+        let meta = &docs[0];
+        let fields = meta.get("fields").unwrap().as_array().unwrap();
+        let field_names: Vec<&str> = fields
+            .iter()
+            .filter_map(|f| f.get("fieldname").and_then(|v| v.as_str()))
+            .collect();
+
+        assert!(field_names.contains(&"enabled"));
+        assert!(field_names.contains(&"logger_tab"));
+        assert!(field_names.contains(&"sebrus_log_viewer_service"));
+
+        let field_order = meta.get("field_order").unwrap().as_array().unwrap();
+        let order_names: Vec<&str> = field_order
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert!(order_names.contains(&"logger_tab"));
+        assert!(order_names.contains(&"sebrus_log_viewer_service"));
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
