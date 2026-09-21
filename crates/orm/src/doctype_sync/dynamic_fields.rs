@@ -174,7 +174,7 @@ async fn seed_dynamic_field_rules(pool: &DatabasePool) -> Result<()> {
             "Data",
             "Sebrus Log Viewer Service",
             "",
-            "Service this user may view logs for when assigned the Sebrus Log Viewer role.",
+            "Service this user may view logs for when assigned the Sebrus Log Viewer or Sebrus Log Rule Viewer role.",
             sebrus_logger_installed,
             "logger_tab",
             "",
