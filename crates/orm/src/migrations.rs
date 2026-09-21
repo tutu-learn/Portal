@@ -310,6 +310,33 @@ impl Migrator {
                 CREATE INDEX IF NOT EXISTS idx_docshare_everyone ON __kiff_docshare(everyone, share_doctype, share_name);
                 "#,
             ),
+            (
+                "012_sync_outbox_tables",
+                r#"
+                CREATE TABLE IF NOT EXISTS __kiff_sync_outbox (
+                    id TEXT PRIMARY KEY,
+                    site TEXT NOT NULL,
+                    op_id TEXT NOT NULL UNIQUE,
+                    lsn INTEGER,
+                    doctype TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    file_refs_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    sent_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_sync_outbox_sent
+                    ON __kiff_sync_outbox(sent_at, created_at);
+
+                CREATE TABLE IF NOT EXISTS __kiff_sync_state (
+                    site TEXT PRIMARY KEY,
+                    last_applied_lsn INTEGER NOT NULL DEFAULT 0,
+                    last_sent_lsn INTEGER NOT NULL DEFAULT 0,
+                    node_id TEXT NOT NULL
+                );
+                "#,
+            ),
         ];
 
         for (name, sql) in migrations {

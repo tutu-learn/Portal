@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package kiff_sync;
+
+service SyncService {
+  // Append one or more change ops to the site's log. The server assigns LSNs.
+  rpc Append(AppendRequest) returns (AppendResponse);
+
+  // Tail the log after a given LSN.
+  rpc Tail(TailRequest) returns (TailResponse);
+
+  // Upload an encrypted file blob.
+  rpc UploadFile(stream FileChunk) returns (UploadFileResponse);
+
+  // Download an encrypted file blob.
+  rpc DownloadFile(DownloadFileRequest) returns (stream FileChunk);
+}
+
+message ChangeOp {
+  string op_id = 1;
+  string site_id = 2;
+  string node_id = 3;
+  string doctype = 4;
+  string name = 5;
+  string action = 6;
+  // Plaintext payload. Prefer encrypted_payload when a site key is configured.
+  string payload_json = 7;
+  repeated FileRef files = 8;
+  bytes signature = 9;
+  uint64 lsn = 10;
+  // AES-256-GCM encrypted payload. When set, payload_json should be empty.
+  bytes encrypted_payload = 11;
+}
+
+message FileRef {
+  string hash = 1;
+  uint64 size = 2;
+  string path = 3;
+  bytes encrypted_key = 4;
+}
+
+message AppendRequest {
+  string site_id = 1;
+  repeated ChangeOp ops = 2;
+}
+
+message AppendResponse {
+  uint64 first_lsn = 1;
+  repeated uint64 lsns = 2;
+}
+
+message TailRequest {
+  string site_id = 1;
+  uint64 after_lsn = 2;
+  uint32 max_count = 3;
+}
+
+message TailResponse {
+  repeated ChangeOp ops = 1;
+  uint64 head_lsn = 2;
+}
+
+message FileChunk {
+  string site_id = 1;
+  string hash = 2;
+  bytes data = 3;
+}
+
+message UploadFileResponse {
+  string hash = 1;
+}
+
+message DownloadFileRequest {
+  string site_id = 1;
+  string hash = 2;
+}

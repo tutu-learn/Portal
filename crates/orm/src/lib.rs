@@ -10,6 +10,6 @@ pub mod query;
 
 pub use document::Document;
 pub use filters::FilterCondition;
-pub use hooks::{set_hook_runner, DocHookRunner};
+pub use hooks::{add_hook_runner, clear_hook_runners, set_hook_runner, DocHookRunner};
 pub use pool::DatabasePool;
 pub use query::QueryBuilder;

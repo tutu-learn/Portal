@@ -2803,6 +2803,34 @@ async fn desk_form_save(
         doc.set_field(k, v);
     }
 
+    // Frappe's User DocType implements a custom `autoname()` that names the
+    // document from the email address (or first_name for admin/guest). Replicate
+    // that behavior in Rust so the native save path produces the same names the
+    // Python Document stack would.
+    if is_new && doctype == "User" {
+        let is_admin = doc
+            .fields
+            .get("is_admin")
+            .and_then(|v| v.as_i64())
+            .map(|n| n == 1)
+            .unwrap_or(false);
+        let is_guest = doc
+            .fields
+            .get("is_guest")
+            .and_then(|v| v.as_i64())
+            .map(|n| n == 1)
+            .unwrap_or(false);
+        if is_admin || is_guest {
+            if let Some(first_name) = doc.fields.get("first_name").and_then(|v| v.as_str()) {
+                doc.name = first_name.to_string();
+            }
+        } else if let Some(email) = doc.fields.get("email").and_then(|v| v.as_str()) {
+            let email = email.trim().to_lowercase();
+            doc.name = email.clone();
+            doc.set_field("email", json!(email));
+        }
+    }
+
     // Honor DocType `autoname = "field:<fieldname>"` (e.g. Sebrus Client is
     // named by client_name) instead of a random UUID.
     if is_new {
@@ -2971,6 +2999,63 @@ async fn method_response(
 
     if method == "frappe.desk.form.save" || method == "frappe.desk.form.save.savedocs" {
         return desk_form_save(state, params, headers).await.into_response();
+    }
+
+    // frappe.client.save / insert are used by Desk's quick-entry modal and by
+    // API callers. The embedded Python Frappe stack fails here for core doctypes
+    // such as User because frappe.get_cached_doc returns None in the shim, so
+    // route these through the native Rust save path and return the Frappe
+    // { message: doc } shape the callers expect.
+    if method == "frappe.client.save" || method == "frappe.client.insert" {
+        let mut params = params;
+        if method == "frappe.client.insert" {
+            if let Some(raw_doc) = params.get("doc") {
+                let mut doc_map = match raw_doc {
+                    Value::String(s) => serde_json::from_str::<Value>(s)
+                        .ok()
+                        .and_then(|v| v.as_object().cloned())
+                        .unwrap_or_default(),
+                    Value::Object(m) => m.clone(),
+                    _ => serde_json::Map::new(),
+                };
+                if !doc_map.is_empty() {
+                    let name = doc_map
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !name.starts_with("new-") {
+                        let doctype = doc_map
+                            .get("doctype")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let suffix = uuid::Uuid::new_v4().to_string();
+                        doc_map.insert(
+                            "name".to_string(),
+                            json!(format!("new-{}-{}", doctype, suffix)),
+                        );
+                    }
+                    params.insert("doc".to_string(), Value::Object(doc_map));
+                }
+            }
+        }
+
+        let (status, Json(body)) = desk_form_save(state, params, headers).await;
+        if status != StatusCode::OK {
+            return (status, Json(body)).into_response();
+        }
+
+        let message = body
+            .get("docs")
+            .and_then(|d| d.as_array())
+            .and_then(|arr| arr.first().cloned())
+            .unwrap_or(body);
+        return (
+            status,
+            Json(json!({ "message": message, "_server_messages": "[]" })),
+        )
+            .into_response();
     }
 
     // Microsoft/Office365 OAuth login runs natively in Rust (state

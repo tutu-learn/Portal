@@ -65,6 +65,12 @@ impl SchedulerBackend for RuntimeSchedulerBackend {
     async fn fire(&self, trigger_id: &str) -> error::Result<()> {
         info!("firing scheduler trigger: {}", trigger_id);
 
+        // Allow E2E and local test runs to skip scheduled jobs that can race
+        // with test execution (e.g. TigerBeetle ledger access).
+        if std::env::var("KIFF_DISABLE_SCHEDULER").is_ok() {
+            return Ok(());
+        }
+
         if let Some(freq) = trigger_id.strip_prefix("py:scheduler_events:") {
             let hooks = self.hook_registry.get_hooks("scheduler_events", Some(freq));
             if hooks.is_empty() {

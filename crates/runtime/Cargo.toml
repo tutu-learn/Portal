@@ -8,7 +8,6 @@ name = "kiff-runtime"
 path = "src/main.rs"
 
 [dependencies]
-audit_ready = { path = "../../rust_apps/audit_ready" }
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
@@ -24,7 +23,9 @@ async-trait    = "0.1"
 
 kiff_logger    = { path = "../kiff_logger" }
 log_engine     = { path = "../log_engine" }
+kiff_sync      = { path = "../kiff_sync" }
 axum           = { workspace = true }
+tower          = { workspace = true, features = ["limit"] }
 tokio          = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
@@ -34,6 +35,7 @@ dashmap        = { workspace = true }
 chrono         = { workspace = true }
 pyo3           = { workspace = true }
 tower-http     = { workspace = true }
+strongroom = { path = "../../rust_apps/strongroom" }
 
 [build-dependencies]
 serde          = { workspace = true, features = ["derive"] }

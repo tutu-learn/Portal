@@ -398,6 +398,10 @@ pub fn spawn(
     pools: Arc<dashmap::DashMap<String, orm::DatabasePool>>,
     site_manager: Arc<config::SiteManager>,
 ) {
+    if std::env::var("KIFF_DISABLE_POOL_WATCHDOG").is_ok() {
+        info!("database pool watchdog disabled by KIFF_DISABLE_POOL_WATCHDOG");
+        return;
+    }
     tokio::spawn(async move {
         info!("database pool watchdog started (probe every {:?})", PROBE_INTERVAL);
         let mut last_attempt: HashMap<String, Instant> = HashMap::new();

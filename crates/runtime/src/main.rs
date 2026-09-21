@@ -101,6 +101,15 @@ async fn main() -> error::Result<()> {
                         name, e
                     );
                 }
+                // E2E runs restart the server with a fresh database. Make sure
+                // all doctype-sync writes are checkpointed into the main DB file
+                // before the pool watchdog can quarantine the WAL during a heal;
+                // otherwise tables that only exist in the WAL can disappear.
+                if site.config.db_driver != "postgres" {
+                    if let Err(e) = p.execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![]).await {
+                        warn!("WAL checkpoint failed for site {}: {}", name, e);
+                    }
+                }
                 pools.insert(name.clone(), p);
             }
             Err(e) => {
@@ -180,6 +189,22 @@ async fn main() -> error::Result<()> {
     rust_app_registry_for_hooks.set_state(app_state.clone());
     orm::set_hook_runner(Some(Arc::new(rust_app_registry_for_hooks)));
 
+    // Register framework-level sync capture if enabled.
+    if config.sync.enabled {
+        if let Some(entry) = pools.iter().next() {
+            let site_name = entry.key().clone();
+            let pool = entry.value().clone();
+            let node_id = config.sync.effective_node_id();
+            kiff_sync::outbox::register(&site_name, &node_id, &pool).await;
+            info!(
+                "sync outbox capture enabled for site {} as node {}",
+                site_name, node_id
+            );
+        } else {
+            warn!("sync enabled but no database pools available");
+        }
+    }
+
     // Run Rust app startup hooks.
     for app in rust_app_registry.apps() {
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state.clone());
@@ -195,13 +220,22 @@ async fn main() -> error::Result<()> {
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state_for_routes.clone());
         router = app.routes(&ctx, router);
     }
-    let router = router
+    let mut router = router
         .layer(axum::middleware::from_fn_with_state(
             app_state_for_routes.clone(),
             http::middleware::auth::token_auth_middleware,
         ))
-        .layer(CorsLayer::permissive())
-        .with_state(app_state_for_routes);
+        .layer(CorsLayer::permissive());
+
+    // Optional per-process request concurrency limit. E2E runs set this to 1
+    // to work around a SIGBUS under concurrent SQLite/TigerBeetle access on macOS.
+    if let Ok(limit_str) = std::env::var("KIFF_HTTP_CONCURRENCY") {
+        if let Ok(limit) = limit_str.parse::<usize>() {
+            router = router.layer(tower::limit::ConcurrencyLimitLayer::new(limit));
+        }
+    }
+
+    let router = router.with_state(app_state_for_routes);
     let http_future = http::run_server_with_router(router, &config.server.host, config.server.port);
 
     // Start background workers and scheduler if we have pools

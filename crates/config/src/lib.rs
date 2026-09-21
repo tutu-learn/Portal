@@ -104,6 +104,34 @@ pub struct AuthSection {
     pub custom_home_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SyncConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// gRPC endpoint of the central sync server.
+    #[serde(default)]
+    pub server_url: String,
+    /// Pre-shared token that authenticates this site to the sync server.
+    #[serde(default)]
+    pub site_token: String,
+    /// Unique identifier for this machine. If empty, the runtime will use the
+    /// hostname.
+    #[serde(default)]
+    pub node_id: String,
+}
+
+impl SyncConfig {
+    pub fn effective_node_id(&self) -> String {
+        if !self.node_id.is_empty() {
+            return self.node_id.clone();
+        }
+        hostname::get()
+            .ok()
+            .and_then(|h| h.into_string().ok())
+            .unwrap_or_else(|| "unknown".into())
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeConfig {
     pub runtime: RuntimeSection,
@@ -115,6 +143,8 @@ pub struct RuntimeConfig {
     pub queue: QueueConfig,
     #[serde(default)]
     pub auth: AuthSection,
+    #[serde(default)]
+    pub sync: SyncConfig,
 }
 
 impl Default for RuntimeConfig {
@@ -141,6 +171,7 @@ impl Default for RuntimeConfig {
                 long_workers: 1,
             },
             auth: AuthSection::default(),
+            sync: SyncConfig::default(),
         }
     }
 }

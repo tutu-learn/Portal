@@ -24,3 +24,24 @@ python/frappe/**/*.pyc
 # Independently managed repos checked out under rust_apps/ (own git history/remote)
 /rust_apps/audit_ready/
 /rust_apps/sebrus_logger/
+/apps/.idea/.gitignore
+/apps/.idea/apps.iml
+/apps/.idea/encodings.xml
+/.idea/modules.xml
+/apps/.idea/modules.xml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_18,_22_25_[Changes]/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_18,_22_25_[Changes]1/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_25,_20_50_[Changes]/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_25,_20_52_[Changes]/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_08_04,_20_48_[Changes]/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_09_14,_21_20_[Changes]/shelved.patch
+/.idea/StrongRoom.iml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_18__22_25__Changes_.xml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_25__20_50__Changes_.xml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_25__20_52__Changes_.xml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_08_04__20_48__Changes_.xml
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_09_14__21_20__Changes_.xml
+/apps/.idea/vcs.xml
+/rust_apps/strongroom/.idea/
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_18,_22_25_[Changes]/shelved.patch
+/.idea/shelf/Uncommitted_changes_before_Update_at_2026_07_18,_22_25_[Changes]/shelved.patch
