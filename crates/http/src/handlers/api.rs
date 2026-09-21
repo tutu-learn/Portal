@@ -990,23 +990,36 @@ fn is_privileged_log_user(user: &str, roles: &[String]) -> bool {
         || roles.iter().any(|r| r == "Administrator" || r == "System Manager")
 }
 
-async fn get_sebrus_log_viewer_service(
+async fn get_sebrus_log_viewer_services(
     state: &AppState,
     user: &str,
     headers: &axum::http::HeaderMap,
-) -> Option<String> {
-    let (_, pool) = crate::site::resolve_site_pool(state, headers)?;
-    let doc = pool.get_doc("User", user).await.ok()?;
+) -> Vec<String> {
+    let Some((_, pool)) = crate::site::resolve_site_pool(state, headers) else {
+        return Vec::new();
+    };
+    let Ok(doc) = pool.get_doc("User", user).await else {
+        return Vec::new();
+    };
     doc.get_field("sebrus_log_viewer_service")
-        .and_then(|v| v.as_str())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+        .and_then(|v| v.as_array())
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| {
+                    row.get("log_service")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
 }
 
 /// Restrict log queries for users that only have the "Sebrus Log Viewer" role.
-/// Such users may only see logs whose service starts with the value configured
-/// on their User record, and framework logs (service starting with "frappe")
-/// are always excluded.
+/// Such users may only see logs whose service is one of those configured on
+/// their User record, and framework logs (service starting with "frappe") are
+/// always excluded.
 async fn apply_sebrus_log_viewer_filter(
     state: &AppState,
     user: &str,
@@ -1021,13 +1034,11 @@ async fn apply_sebrus_log_viewer_filter(
         return query.to_string();
     }
 
-    let service = match get_sebrus_log_viewer_service(state, user, headers).await {
-        Some(s) => s,
-        None => {
-            // Role is present but no service configured: deny all log access.
-            return "NOT service:*".to_string();
-        }
-    };
+    let services = get_sebrus_log_viewer_services(state, user, headers).await;
+    if services.is_empty() {
+        // Role is present but no service configured: deny all log access.
+        return "NOT service:*".to_string();
+    }
 
     let base = if query == "*" || query.trim().is_empty() {
         String::new()
@@ -1035,14 +1046,21 @@ async fn apply_sebrus_log_viewer_filter(
         format!("({})", query)
     };
 
-    let parts: Vec<String> = vec![
-        base,
-        format!(r#"service:"{}""#, service.replace('"', "\\\"")),
-        "NOT service:frappe*".to_string(),
-    ]
-    .into_iter()
-    .filter(|s| !s.is_empty())
-    .collect();
+    let service_clause = if services.len() == 1 {
+        format!(r#"service:"{}""#, services[0].replace('"', "\\\""))
+    } else {
+        let joined = services
+            .iter()
+            .map(|s| format!(r#""{}""#, s.replace('"', "\\\"")))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        format!("service:({})", joined)
+    };
+
+    let parts: Vec<String> = vec![base, service_clause, "NOT service:frappe*".to_string()]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect();
 
     parts.join(" AND ")
 }
@@ -3691,11 +3709,12 @@ mod tests {
 
         pool.execute_sql(
             r#"INSERT INTO "docfield" (
-                name, parent, parentfield, parenttype, idx, fieldname, fieldtype, label, description
+                name, parent, parentfield, parenttype, idx, fieldname, fieldtype, label, options, description
             ) VALUES (
                 'User-sebrus_log_viewer_service', 'User', 'fields', 'DocType', 101,
-                'sebrus_log_viewer_service', 'Data', 'Sebrus Log Viewer Service',
-                'Service this user may view logs for.'
+                'sebrus_log_viewer_service', 'Table MultiSelect', 'Sebrus Log Viewer Services',
+                'User Sebrus Log Viewer Service',
+                'Services this user may view logs for.'
             )"#,
             vec![],
         )

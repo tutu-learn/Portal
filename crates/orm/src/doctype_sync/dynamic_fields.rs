@@ -2,7 +2,7 @@ use crate::doctype_sync::helpers::*;
 use crate::doctype_sync::metadata::insert_docfield;
 use crate::pool::DatabasePool;
 use error::Result;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Schema-driven dynamic field injection.
 ///
@@ -171,10 +171,10 @@ async fn seed_dynamic_field_rules(pool: &DatabasePool) -> Result<()> {
             "user-sebrus-log-viewer-service",
             "User",
             "sebrus_log_viewer_service",
-            "Data",
-            "Sebrus Log Viewer Service",
-            "",
-            "Service this user may view logs for when assigned the Sebrus Log Viewer or Sebrus Log Rule Viewer role.",
+            "Table MultiSelect",
+            "Sebrus Log Viewer Services",
+            "User Sebrus Log Viewer Service",
+            "Services this user may view logs for when assigned the Sebrus Log Viewer or Sebrus Log Rule Viewer role.",
             sebrus_logger_installed,
             "logger_tab",
             "",
@@ -309,6 +309,144 @@ async fn ensure_dynamic_field_client_scripts(pool: &DatabasePool) -> Result<()> 
     Ok(())
 }
 
+/// One-time migration for the User.sebrus_log_viewer_service field.
+///
+/// The field was originally a single `Data` value. It is now a
+/// `Table MultiSelect` backed by the "User Sebrus Log Viewer Service" child
+/// table. Any existing non-empty value on the User record is moved into a
+/// single child row so it keeps working after the schema change.
+pub(crate) async fn migrate_legacy_log_viewer_service(pool: &DatabasePool) -> Result<()> {
+    let user_table = crate::doctype_sync::data_tables::data_table_name("User");
+    let child_table =
+        crate::doctype_sync::data_tables::data_table_name("User Sebrus Log Viewer Service");
+
+    // If the legacy column does not exist, there is nothing to migrate.
+    let legacy_rows = match pool
+        .execute_sql(
+            &format!(
+                r#"SELECT name, sebrus_log_viewer_service FROM "{}" WHERE sebrus_log_viewer_service IS NOT NULL AND sebrus_log_viewer_service != ''"#,
+                user_table
+            ),
+            vec![],
+        )
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            debug!(
+                "legacy sebrus_log_viewer_service column not present or not readable: {}",
+                e
+            );
+            return Ok(());
+        }
+    };
+
+    if legacy_rows.is_empty() {
+        return Ok(());
+    }
+
+    // Ensure the child table exists before trying to migrate.
+    let child_exists = pool
+        .execute_sql(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+            vec![val(child_table.clone())],
+        )
+        .await
+        .map(|rows| !rows.is_empty())
+        .unwrap_or(false);
+    if !child_exists {
+        warn!(
+            "cannot migrate legacy sebrus_log_viewer_service values: child table {} does not exist yet",
+            child_table
+        );
+        return Ok(());
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut migrated = 0usize;
+    for row in legacy_rows {
+        let user = row_str(&row, "name");
+        let service = row_str(&row, "sebrus_log_viewer_service").trim().to_string();
+        if user.is_empty() || service.is_empty() {
+            continue;
+        }
+
+        // Avoid duplicating rows if the migration is rerun.
+        let existing = pool
+            .execute_sql(
+                &format!(
+                    r#"SELECT name FROM "{}" WHERE parent = {} AND log_service = {}"#,
+                    child_table,
+                    pool.placeholder(1),
+                    pool.placeholder(2)
+                ),
+                vec![val(user.clone()), val(service.clone())],
+            )
+            .await?
+            .is_empty();
+        if !existing {
+            continue;
+        }
+
+        let name = uuid::Uuid::new_v4().to_string();
+        pool.execute_sql(
+            &format!(
+                r#"INSERT INTO "{}" (
+                    name, creation, modified, modified_by, owner,
+                    docstatus, idx, parent, parentfield, parenttype,
+                    log_service
+                ) VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})"#,
+                child_table,
+                pool.placeholder(1),
+                pool.placeholder(2),
+                pool.placeholder(3),
+                pool.placeholder(4),
+                pool.placeholder(5),
+                pool.placeholder(6),
+                pool.placeholder(7),
+                pool.placeholder(8),
+                pool.placeholder(9),
+                pool.placeholder(10),
+                pool.placeholder(11),
+            ),
+            vec![
+                val(name),
+                val(now.clone()),
+                val(now.clone()),
+                val("Administrator".to_string()),
+                val("Administrator".to_string()),
+                num(0),
+                num(1),
+                val(user.clone()),
+                val("sebrus_log_viewer_service".to_string()),
+                val("User".to_string()),
+                val(service),
+            ],
+        )
+        .await?;
+        migrated += 1;
+    }
+
+    if migrated > 0 {
+        // Clear the legacy column values so a future rerun does not duplicate
+        // rows. Dropping the column is not necessary and is expensive on SQLite.
+        pool.execute_sql(
+            &format!(
+                r#"UPDATE "{}" SET sebrus_log_viewer_service = '' WHERE sebrus_log_viewer_service IS NOT NULL AND sebrus_log_viewer_service != ''"#,
+                user_table
+            ),
+            vec![],
+        )
+        .await?;
+        info!(
+            "migrated {} legacy sebrus_log_viewer_service value(s) to child table",
+            migrated
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,12 +541,16 @@ mod tests {
 
         let rows = pool
             .execute_sql(
-                r#"SELECT fieldname, idx FROM "docfield" WHERE parent = 'User' AND fieldname = 'sebrus_log_viewer_service'"#,
+                r#"SELECT fieldname, fieldtype, options, idx FROM "docfield" WHERE parent = 'User' AND fieldname = 'sebrus_log_viewer_service'"#,
                 vec![],
             )
             .await
             .unwrap();
         assert_eq!(rows.len(), 1);
+        let fieldtype = row_str(&rows[0], "fieldtype");
+        assert_eq!(fieldtype, "Table MultiSelect");
+        let options = row_str(&rows[0], "options");
+        assert_eq!(options, "User Sebrus Log Viewer Service");
         let idx = rows[0]
             .get("idx")
             .and_then(|v| {
@@ -436,6 +578,75 @@ mod tests {
         let script = scripts[0].get("script").and_then(|v| v.as_str()).unwrap();
         assert!(script.contains("sebrus_log_viewer_service"));
         assert!(script.contains("logger_tab"));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Legacy single-service values on the User record are moved into the
+    /// Table MultiSelect child table on startup.
+    #[tokio::test]
+    async fn legacy_log_viewer_service_is_migrated_to_child_table() {
+        let path = format!("/tmp/orm_migrate_legacy_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let pool = DatabasePool::connect_sqlite(&path).await.unwrap();
+
+        // Create the legacy User table with the old Data column.
+        pool.execute_sql(
+            r#"CREATE TABLE "user" (
+                name TEXT PRIMARY KEY,
+                sebrus_log_viewer_service TEXT
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+        pool.execute_sql(
+            r#"INSERT INTO "user" (name, sebrus_log_viewer_service) VALUES ('test@example.com', 'api-gateway')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        // Create the child table that sync_data_tables would have created.
+        pool.execute_sql(
+            r#"CREATE TABLE "user_sebrus_log_viewer_service" (
+                name TEXT PRIMARY KEY,
+                creation TEXT,
+                modified TEXT,
+                modified_by TEXT,
+                owner TEXT,
+                docstatus INTEGER DEFAULT 0,
+                idx INTEGER DEFAULT 0,
+                parent TEXT,
+                parentfield TEXT,
+                parenttype TEXT,
+                log_service TEXT
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        migrate_legacy_log_viewer_service(&pool).await.unwrap();
+
+        let children = pool
+            .execute_sql(
+                r#"SELECT parent, log_service FROM "user_sebrus_log_viewer_service" WHERE parent = 'test@example.com'"#,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(children.len(), 1);
+        assert_eq!(row_str(&children[0], "log_service"), "api-gateway");
+
+        let legacy = pool
+            .execute_sql(
+                r#"SELECT sebrus_log_viewer_service FROM "user" WHERE name = 'test@example.com'"#,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(legacy.is_empty() || row_str(&legacy[0], "sebrus_log_viewer_service").is_empty());
 
         let _ = std::fs::remove_file(&path);
     }

@@ -92,6 +92,7 @@ pub async fn sync_all(
     .await?;
     dynamic_fields::ensure_dynamic_fields(pool).await?;
     data_tables::sync_data_tables(pool).await?;
+    dynamic_fields::migrate_legacy_log_viewer_service(pool).await?;
     permissions::ensure_docperm_defaults(pool).await?;
     seed_data::insert_seed_data(pool, workspace_fixtures, page_fixtures)
         .await?;
