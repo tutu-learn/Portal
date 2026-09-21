@@ -26,6 +26,7 @@ pub fn create_router() -> Router<AppState> {
         )
         .route("/api/method/login", post(auth::login))
         .route("/api/method/logout", post(auth::logout))
+        .route("/logout", get(auth::logout_redirect))
         .route("/api/method/upload_file", post(files::upload_file))
         .route(
             "/api/method/frappe.desk.form.load.getdoc",

@@ -2275,7 +2275,7 @@ fn render_social_login_buttons(providers: &[(SocialLoginProvider, String)]) -> S
 /// `redirect-to`). Returns `None` when the feature is off or the configured
 /// path is unsafe: it must be a local absolute path and not `/login` itself
 /// (which would redirect in a loop).
-fn custom_login_target(config: &config::RuntimeConfig, raw_query: Option<&str>) -> Option<String> {
+pub(crate) fn custom_login_target(config: &config::RuntimeConfig, raw_query: Option<&str>) -> Option<String> {
     let path = config.auth.custom_login_path.as_deref()?.trim();
     if path.is_empty() || !path.starts_with('/') || path.starts_with("//") || path == "/login" {
         tracing::warn!(custom_login_path = %path, "ignoring invalid custom login path");

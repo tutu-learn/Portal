@@ -1,9 +1,10 @@
+use crate::handlers::desk::custom_login_target;
 use crate::site::resolve_site_pool;
 use crate::AppState;
 use axum::{
     extract::{ConnectInfo, State},
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Redirect},
     Json,
 };
 use std::net::SocketAddr;
@@ -104,6 +105,25 @@ pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl I
         }
         None => Json(serde_json::json!({ "message": "Logged Out" })).into_response(),
     }
+}
+
+/// GET /logout — clear the session cookie and redirect to the login page.
+pub async fn logout_redirect(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
+    if let Some(pool) = pool {
+        if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
+            if let Some(sid) = extract_cookie_value(cookie_header, "sid") {
+                let auth = session::AuthService::new(session::SessionStore::new());
+                let _ = auth.logout(&pool, &sid).await;
+            }
+        }
+    }
+    let cookie = "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+    let target = custom_login_target(&state.config, None).unwrap_or_else(|| "/login".into());
+    let mut res = Redirect::temporary(&target).into_response();
+    res.headers_mut()
+        .insert(SET_COOKIE, cookie.parse().unwrap());
+    res
 }
 
 fn extract_cookie_value(header: &str, name: &str) -> Option<String> {

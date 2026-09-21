@@ -166,7 +166,9 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.message === 'Logged In') {
-                    window.location.href = '/app';
+                    const params = new URLSearchParams(window.location.search);
+                    const redirectTo = params.get('redirect-to') || '/app';
+                    window.location.href = redirectTo;
                 } else {
                     errorMsg.textContent = data.error || 'Login failed';
                     errorMsg.style.display = 'block';
