@@ -195,6 +195,13 @@ impl RuntimeConfig {
             }
         }
 
+        if let Some(ref path) = config.auth.custom_login_path {
+            tracing::info!("auth.custom_login_path configured: {}", path);
+        }
+        if let Some(ref path) = config.auth.custom_home_path {
+            tracing::info!("auth.custom_home_path configured: {}", path);
+        }
+
         Ok(config)
     }
 }

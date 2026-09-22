@@ -13,6 +13,7 @@ use std::time::{Duration, Instant, SystemTime};
 use axum::Router;
 use dashmap::DashMap;
 use serde_json::Value;
+use tracing::info;
 
 /// Cache for static Desk assets that change only on deploy.
 #[derive(Clone)]
@@ -617,6 +618,7 @@ pub async fn seed_framework_property_setters(pool: &orm::DatabasePool) -> error:
     "#;
     pool.execute_sql(sql, vec![now.clone().into(), now.into()])
         .await?;
+    info!("seeded framework property setter: User.home_page hidden=0");
     Ok(())
 }
 
