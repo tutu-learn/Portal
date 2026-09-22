@@ -1,5 +1,5 @@
 use crate::TargetDialect;
-use error::{Result, RuntimeError};
+use error::Result;
 
 pub fn rewrite(sql: &str, target: TargetDialect) -> Result<String> {
     match target {
