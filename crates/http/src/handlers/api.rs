@@ -2637,7 +2637,8 @@ async fn apply_property_setters(
         .execute_sql(
             r#"SELECT field_name, property, value, property_type
                FROM "property_setter"
-               WHERE doc_type = ? AND doctype_or_field = 'DocField'"#,
+               WHERE doc_type = ? AND doctype_or_field = 'DocField'
+               ORDER BY modified DESC"#,
             vec![serde_json::Value::String(doctype.into())],
         )
         .await

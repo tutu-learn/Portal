@@ -603,9 +603,17 @@ impl RustAppRegistry {
 
 /// Seed framework-wide Property Setters that should exist on every site.
 /// This runs during runtime startup for each site, before Rust app hooks.
-pub async fn seed_framework_property_setters(pool: &orm::DatabasePool) -> error::Result<()> {
+///
+/// If `home_page_default` is provided, it is also set as the default value for
+/// `User.home_page` so new users are created with that landing page.
+pub async fn seed_framework_property_setters(
+    pool: &orm::DatabasePool,
+    home_page_default: Option<&str>,
+) -> error::Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
-    let sql = r#"
+
+    // Always unhide User.home_page.
+    let hidden_sql = r#"
         INSERT INTO "property_setter" (
             name, creation, modified, modified_by, owner, docstatus,
             doctype_or_field, doc_type, field_name, property, property_type, value
@@ -616,9 +624,71 @@ pub async fn seed_framework_property_setters(pool: &orm::DatabasePool) -> error:
         ON CONFLICT(name) DO UPDATE SET
             modified=EXCLUDED.modified, value=EXCLUDED.value
     "#;
-    pool.execute_sql(sql, vec![now.clone().into(), now.into()])
+    pool.execute_sql(hidden_sql, vec![now.clone().into(), now.clone().into()])
         .await?;
     info!("seeded framework property setter: User.home_page hidden=0");
+
+    // Optionally seed a default value for User.home_page.
+    if let Some(default) = home_page_default {
+        let default_sql = r#"
+            INSERT INTO "property_setter" (
+                name, creation, modified, modified_by, owner, docstatus,
+                doctype_or_field, doc_type, field_name, property, property_type, value
+            ) VALUES (
+                'User-home_page-default', ?, ?, 'Administrator', 'Administrator', 0,
+                'DocField', 'User', 'home_page', 'default', 'Data', ?
+            )
+            ON CONFLICT(name) DO UPDATE SET
+                modified=EXCLUDED.modified, value=EXCLUDED.value
+        "#;
+        pool.execute_sql(
+            default_sql,
+            vec![
+                now.clone().into(),
+                now.into(),
+                serde_json::Value::String(default.to_string()),
+            ],
+        )
+        .await?;
+        info!(
+            "seeded framework property setter: User.home_page default={}",
+            default
+        );
+    }
+
+    Ok(())
+}
+
+/// Seed framework-wide User permissions so every user can read their own
+/// User record (and therefore see fields like `home_page` on their profile).
+pub async fn seed_framework_user_permissions(pool: &orm::DatabasePool) -> error::Result<()> {
+    // Check whether the own-record read permission already exists.
+    let existing = pool
+        .execute_sql(
+            r#"SELECT 1 FROM __kiff_docperm
+               WHERE parent = 'User' AND role = 'All' AND permlevel = 0 AND if_owner = 1
+               LIMIT 1"#,
+            vec![],
+        )
+        .await?;
+
+    if existing.is_empty() {
+        pool.execute_sql(
+            r#"
+            INSERT INTO __kiff_docperm (
+                parent, role, permlevel, "read", "write", "create", "delete",
+                "submit", "cancel", if_owner, "select", "report", "export", "import",
+                "share", "print", "email", "mask", "amend"
+            ) VALUES (
+                'User', 'All', 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            )
+            "#,
+            vec![],
+        )
+        .await?;
+        info!("seeded framework user permission: All can read own User record");
+    }
+
     Ok(())
 }
 

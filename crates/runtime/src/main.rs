@@ -102,9 +102,14 @@ async fn main() -> error::Result<()> {
                     );
                 }
                 // Seed framework-wide Property Setters (e.g. make User.home_page
-                // visible) for every site, independent of any Rust app.
-                if let Err(e) = rust_apps_core::seed_framework_property_setters(&p).await {
+                // visible and default it to the configured custom home path) for
+                // every site, independent of any Rust app.
+                let home_page_default = config.auth.custom_home_path.as_deref();
+                if let Err(e) = rust_apps_core::seed_framework_property_setters(&p, home_page_default).await {
                     error!("failed to seed framework property setters for site {}: {}", name, e);
+                }
+                if let Err(e) = rust_apps_core::seed_framework_user_permissions(&p).await {
+                    error!("failed to seed framework user permissions for site {}: {}", name, e);
                 }
                 // E2E runs restart the server with a fresh database. Make sure
                 // all doctype-sync writes are checkpointed into the main DB file
