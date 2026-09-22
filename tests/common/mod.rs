@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);

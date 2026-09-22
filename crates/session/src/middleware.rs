@@ -1,5 +1,4 @@
 use axum::{extract::Request, middleware::Next, response::Response};
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct AuthContext {
