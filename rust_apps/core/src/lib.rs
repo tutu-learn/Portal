@@ -601,6 +601,90 @@ impl RustAppRegistry {
     }
 }
 
+/// Ensure the `User.home_page` field and its backing data column exist.
+///
+/// Some Portal/Frappe checkouts omit this field. We inject it into `docfield`
+/// and the `user` table so the framework-wide property setters below always
+/// have something to apply to.
+pub async fn ensure_user_home_page_field(pool: &orm::DatabasePool) -> error::Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Inject the DocField metadata if it is missing.
+    let existing_field = pool
+        .execute_sql(
+            r#"SELECT 1 FROM "docfield" WHERE parent = 'User' AND fieldname = 'home_page' LIMIT 1"#,
+            vec![],
+        )
+        .await?;
+
+    if existing_field.is_empty() {
+        pool.execute_sql(
+            r#"
+            INSERT INTO "docfield" (
+                name, creation, modified, modified_by, owner, docstatus,
+                parent, parentfield, parenttype, idx, fieldname, fieldtype, label,
+                options, description, permlevel, reqd, read_only, hidden, in_list_view,
+                in_standard_filter, in_preview, in_global_search, in_filter,
+                bold, italic, no_copy, allow_in_quick_entry, translatable,
+                collapsible, "unique", set_only_once, remember_last_selected_value,
+                ignore_user_permissions, allow_on_submit, report_hide, search_index,
+                show_dashboard, "default", depends_on, fetch_from, fetch_if_empty,
+                mandatory_depends_on, read_only_depends_on, placeholder, tooltip,
+                is_system_generated
+            ) VALUES (
+                'User-home_page', ?, ?, 'Administrator', 'Administrator', 0,
+                'User', 'fields', 'DocType', 90, 'home_page', 'Data', 'Home Page', '',
+                'Route the user lands on after login (e.g. /desk/crm). Leave blank to use the default desk.',
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, '', '', 0, '', '', '', '', 0
+            )
+            ON CONFLICT(name) DO UPDATE SET
+                modified=EXCLUDED.modified, fieldtype=EXCLUDED.fieldtype, label=EXCLUDED.label,
+                description=EXCLUDED.description, hidden=EXCLUDED.hidden
+            "#,
+            vec![now.clone().into(), now.clone().into()],
+        )
+        .await?;
+        info!("ensured User.home_page field in docfield metadata");
+    }
+
+    // Ensure the backing column exists in the user data table.
+    let column_exists = match pool.dialect() {
+        "postgres" => {
+            let rows = pool
+                .execute_sql(
+                    r#"SELECT 1 FROM information_schema.columns
+                       WHERE table_name = 'user' AND column_name = 'home_page'"#,
+                    vec![],
+                )
+                .await?;
+            !rows.is_empty()
+        }
+        _ => {
+            let rows = pool
+                .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
+                .await?;
+            rows.into_iter().any(|mut r| {
+                r.remove("name")
+                    .and_then(|v| v.as_str().map(String::from))
+                    .as_deref()
+                    == Some("home_page")
+            })
+        }
+    };
+
+    if !column_exists {
+        pool.execute_sql(
+            r#"ALTER TABLE "user" ADD COLUMN "home_page" TEXT"#,
+            vec![],
+        )
+        .await?;
+        info!("added User.home_page column to user data table");
+    }
+
+    Ok(())
+}
+
 /// Seed framework-wide Property Setters that should exist on every site.
 /// This runs during runtime startup for each site, before Rust app hooks.
 ///
@@ -610,6 +694,8 @@ pub async fn seed_framework_property_setters(
     pool: &orm::DatabasePool,
     home_page_default: Option<&str>,
 ) -> error::Result<()> {
+    ensure_user_home_page_field(pool).await?;
+
     let now = chrono::Utc::now().to_rfc3339();
 
     // Always unhide User.home_page.
@@ -655,6 +741,60 @@ pub async fn seed_framework_property_setters(
             default
         );
     }
+
+    Ok(())
+}
+
+/// Back-fill `User.home_page` for existing users when a custom default is
+/// configured.
+///
+/// New users automatically inherit the value via the Property Setter default,
+/// but records created before that setter existed (or on sites where the field
+/// was missing entirely) are updated on every startup so the setting "sticks".
+/// Only blank values are overwritten, preserving any user-specific choice.
+pub async fn seed_framework_user_home_page_defaults(
+    pool: &orm::DatabasePool,
+    default: Option<&str>,
+) -> error::Result<()> {
+    let Some(default) = default else {
+        return Ok(());
+    };
+    if default.is_empty() {
+        return Ok(());
+    }
+
+    // Only touch records that are actually blank so user-specific choices are
+    // preserved.
+    let blank_users = pool
+        .execute_sql(
+            r#"SELECT name FROM "user" WHERE COALESCE("home_page", '') = ''"#,
+            vec![],
+        )
+        .await?;
+
+    if blank_users.is_empty() {
+        return Ok(());
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    pool.execute_sql(
+        r#"
+        UPDATE "user"
+        SET "home_page" = ?, modified = ?, modified_by = 'Administrator'
+        WHERE COALESCE("home_page", '') = ''
+        "#,
+        vec![
+            serde_json::Value::String(default.to_string()),
+            serde_json::Value::String(now),
+        ],
+    )
+    .await?;
+
+    info!(
+        "back-filled {} existing User record(s) with home_page default={}",
+        blank_users.len(),
+        default
+    );
 
     Ok(())
 }

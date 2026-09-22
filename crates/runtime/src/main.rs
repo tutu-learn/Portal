@@ -108,6 +108,9 @@ async fn main() -> error::Result<()> {
                 if let Err(e) = rust_apps_core::seed_framework_property_setters(&p, home_page_default).await {
                     error!("failed to seed framework property setters for site {}: {}", name, e);
                 }
+                if let Err(e) = rust_apps_core::seed_framework_user_home_page_defaults(&p, home_page_default).await {
+                    error!("failed to seed framework user home_page defaults for site {}: {}", name, e);
+                }
                 if let Err(e) = rust_apps_core::seed_framework_user_permissions(&p).await {
                     error!("failed to seed framework user permissions for site {}: {}", name, e);
                 }
