@@ -5,6 +5,7 @@ pub mod oauth_login;
 pub mod router;
 pub mod site;
 pub mod social_login;
+pub mod user_home;
 pub mod websocket;
 
 pub use rust_apps_core::AppState;
