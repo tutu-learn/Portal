@@ -89,6 +89,10 @@ pub struct RuntimeSection {
     pub sites_path: String,
 }
 
+fn default_home_path() -> Option<String> {
+    Some("/desk/build".to_string())
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct AuthSection {
     /// When set, the framework login screen (`GET /login` and the guest
@@ -99,8 +103,8 @@ pub struct AuthSection {
     /// When set, a successful login that did not specify a `redirect_to`
     /// (e.g. a social login authorize URL built without one) lands here
     /// instead of the framework desk (`/app`) — e.g. an app-provided
-    /// dashboard/portal. Must start with '/'.
-    #[serde(default)]
+    /// dashboard/portal. Must start with '/'. Defaults to `/desk/build`.
+    #[serde(default = "default_home_path")]
     pub custom_home_path: Option<String>,
 }
 

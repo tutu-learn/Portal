@@ -714,6 +714,22 @@ pub async fn seed_framework_property_setters(
         .await?;
     info!("seeded framework property setter: User.home_page hidden=0");
 
+    // Also make it visible in the User list (table) view.
+    let in_list_view_sql = r#"
+        INSERT INTO "property_setter" (
+            name, creation, modified, modified_by, owner, docstatus,
+            doctype_or_field, doc_type, field_name, property, property_type, value
+        ) VALUES (
+            'User-home_page-in_list_view', ?, ?, 'Administrator', 'Administrator', 0,
+            'DocField', 'User', 'home_page', 'in_list_view', 'Check', '1'
+        )
+        ON CONFLICT(name) DO UPDATE SET
+            modified=EXCLUDED.modified, value=EXCLUDED.value
+    "#;
+    pool.execute_sql(in_list_view_sql, vec![now.clone().into(), now.clone().into()])
+        .await?;
+    info!("seeded framework property setter: User.home_page in_list_view=1");
+
     // Optionally seed a default value for User.home_page.
     if let Some(default) = home_page_default {
         let default_sql = r#"
@@ -745,13 +761,13 @@ pub async fn seed_framework_property_setters(
     Ok(())
 }
 
-/// Back-fill `User.home_page` for existing users when a custom default is
-/// configured.
+/// Back-fill `User.home_page` for existing users that have no value.
 ///
-/// New users automatically inherit the value via the Property Setter default,
-/// but records created before that setter existed (or on sites where the field
-/// was missing entirely) are updated on every startup so the setting "sticks".
-/// Only blank values are overwritten, preserving any user-specific choice.
+/// New users automatically inherit the value via the Property Setter default.
+/// Existing users are only touched when their value is blank, so any
+/// user-specific choice is preserved. The default is taken from the
+/// `CUSTOM_HOME_PATH` env var, then `runtime.toml`, then the hard-coded
+/// fallback `/desk/build`.
 pub async fn seed_framework_user_home_page_defaults(
     pool: &orm::DatabasePool,
     default: Option<&str>,
@@ -763,8 +779,7 @@ pub async fn seed_framework_user_home_page_defaults(
         return Ok(());
     }
 
-    // Only touch records that are actually blank so user-specific choices are
-    // preserved.
+    // Only update users that have no value so existing choices are preserved.
     let blank_users = pool
         .execute_sql(
             r#"SELECT name FROM "user" WHERE COALESCE("home_page", '') = ''"#,
@@ -772,29 +787,47 @@ pub async fn seed_framework_user_home_page_defaults(
         )
         .await?;
 
-    if blank_users.is_empty() {
-        return Ok(());
+    if !blank_users.is_empty() {
+        let now = chrono::Utc::now().to_rfc3339();
+        pool.execute_sql(
+            r#"
+            UPDATE "user"
+            SET "home_page" = ?, modified = ?, modified_by = 'Administrator'
+            WHERE COALESCE("home_page", '') = ''
+            "#,
+            vec![
+                serde_json::Value::String(default.to_string()),
+                serde_json::Value::String(now),
+            ],
+        )
+        .await?;
+
+        info!(
+            "back-filled {} existing User record(s) with home_page default={}",
+            blank_users.len(),
+            default
+        );
     }
 
-    let now = chrono::Utc::now().to_rfc3339();
-    pool.execute_sql(
-        r#"
-        UPDATE "user"
-        SET "home_page" = ?, modified = ?, modified_by = 'Administrator'
-        WHERE COALESCE("home_page", '') = ''
-        "#,
-        vec![
-            serde_json::Value::String(default.to_string()),
-            serde_json::Value::String(now),
-        ],
-    )
-    .await?;
-
-    info!(
-        "back-filled {} existing User record(s) with home_page default={}",
-        blank_users.len(),
-        default
-    );
+    // Log the current home_page values so operators can see the table state at
+    // a glance during startup.
+    let rows = pool
+        .execute_sql(
+            r#"SELECT name, "home_page" FROM "user" ORDER BY name"#,
+            vec![],
+        )
+        .await?;
+    for mut row in rows {
+        let name = row
+            .remove("name")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+        let home_page = row
+            .remove("home_page")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+        info!("User.home_page table state: name={} home_page={}", name, home_page);
+    }
 
     Ok(())
 }
