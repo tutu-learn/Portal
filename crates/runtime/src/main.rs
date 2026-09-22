@@ -101,6 +101,11 @@ async fn main() -> error::Result<()> {
                         name, e
                     );
                 }
+                // Seed framework-wide Property Setters (e.g. make User.home_page
+                // visible) for every site, independent of any Rust app.
+                if let Err(e) = rust_apps_core::seed_framework_property_setters(&p).await {
+                    error!("failed to seed framework property setters for site {}: {}", name, e);
+                }
                 // E2E runs restart the server with a fresh database. Make sure
                 // all doctype-sync writes are checkpointed into the main DB file
                 // before the pool watchdog can quarantine the WAL during a heal;

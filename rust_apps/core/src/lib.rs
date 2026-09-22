@@ -600,6 +600,26 @@ impl RustAppRegistry {
     }
 }
 
+/// Seed framework-wide Property Setters that should exist on every site.
+/// This runs during runtime startup for each site, before Rust app hooks.
+pub async fn seed_framework_property_setters(pool: &orm::DatabasePool) -> error::Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let sql = r#"
+        INSERT INTO "property_setter" (
+            name, creation, modified, modified_by, owner, docstatus,
+            doctype_or_field, doc_type, field_name, property, property_type, value
+        ) VALUES (
+            'User-home_page-hidden', ?, ?, 'Administrator', 'Administrator', 0,
+            'DocField', 'User', 'home_page', 'hidden', 'Check', '0'
+        )
+        ON CONFLICT(name) DO UPDATE SET
+            modified=EXCLUDED.modified, value=EXCLUDED.value
+    "#;
+    pool.execute_sql(sql, vec![now.clone().into(), now.into()])
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

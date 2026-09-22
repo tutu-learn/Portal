@@ -2626,6 +2626,88 @@ async fn merge_dynamic_fields_into_doctype(
     Ok(true)
 }
 
+/// Apply field-level Property Setters stored in the database to the static
+/// DocType JSON before it is returned to the Desk client.
+async fn apply_property_setters(
+    doc: &mut serde_json::Value,
+    doctype: &str,
+    pool: &orm::DatabasePool,
+) -> Result<bool, String> {
+    let rows = match pool
+        .execute_sql(
+            r#"SELECT field_name, property, value, property_type
+               FROM "property_setter"
+               WHERE doc_type = ? AND doctype_or_field = 'DocField'"#,
+            vec![serde_json::Value::String(doctype.into())],
+        )
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::warn!("failed to load property setters for {}: {}", doctype, e);
+            return Ok(false);
+        }
+    };
+
+    let mut changed = false;
+    for mut row in rows {
+        let field_name = row
+            .remove("field_name")
+            .and_then(|v| v.as_str().map(String::from));
+        let property = row
+            .remove("property")
+            .and_then(|v| v.as_str().map(String::from));
+        let value = row.remove("value").and_then(|v| v.as_str().map(String::from));
+        let property_type = row
+            .remove("property_type")
+            .and_then(|v| v.as_str().map(String::from));
+        let (Some(field_name), Some(property), Some(value)) = (field_name, property, value) else {
+            continue;
+        };
+
+        let Some(fields) = doc.get_mut("fields").and_then(|f| f.as_array_mut()) else {
+            continue;
+        };
+        for field in fields.iter_mut() {
+            if let serde_json::Value::Object(map) = field {
+                if map.get("fieldname").and_then(|v| v.as_str()) == Some(&field_name) {
+                    map.insert(
+                        property.clone(),
+                        parse_property_value(&value, property_type.as_deref()),
+                    );
+                    changed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(changed)
+}
+
+fn parse_property_value(value: &str, property_type: Option<&str>) -> serde_json::Value {
+    if property_type == Some("Check") {
+        return serde_json::Value::Number(
+            (if value == "1" || value.eq_ignore_ascii_case("true") {
+                1
+            } else {
+                0
+            })
+            .into(),
+        );
+    }
+    if let Ok(n) = value.parse::<i64>() {
+        return serde_json::Value::Number(n.into());
+    }
+    if value.eq_ignore_ascii_case("true") {
+        return serde_json::Value::Bool(true);
+    }
+    if value.eq_ignore_ascii_case("false") {
+        return serde_json::Value::Bool(false);
+    }
+    serde_json::Value::String(value.to_string())
+}
+
 async fn load_doctype_from_content(
     doctype: &str,
     content: &str,
@@ -2641,12 +2723,19 @@ async fn load_doctype_from_content(
     // tab on User) so they appear on Desk forms even though they are not part
     // of the static DocType JSON.
     let mut merged_dynamic = false;
+    let mut applied_setters = false;
     if let Some(pool) = pool {
         if merge_dynamic_fields_into_doctype(&mut doc, doctype, pool)
             .await
             .unwrap_or(false)
         {
             merged_dynamic = true;
+        }
+        if apply_property_setters(&mut doc, doctype, pool)
+            .await
+            .unwrap_or(false)
+        {
+            applied_setters = true;
         }
     }
 
@@ -2661,7 +2750,7 @@ async fn load_doctype_from_content(
                 injected_meta = true;
             }
         }
-        if injected_meta || merged_dynamic {
+        if injected_meta || merged_dynamic || applied_setters {
             map.insert(
                 "modified".to_string(),
                 serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
@@ -2672,7 +2761,8 @@ async fn load_doctype_from_content(
     // Check cache timestamp
     if !cached_timestamp.is_empty() {
         if let Some(modified) = doc.get("modified").and_then(|m| m.as_str()) {
-            if modified == cached_timestamp && !injected_meta && !merged_dynamic {
+            if modified == cached_timestamp && !injected_meta && !merged_dynamic && !applied_setters
+            {
                 return Err("use_cache".into());
             }
         }
