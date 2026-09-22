@@ -14,7 +14,7 @@ use std::collections::HashMap;
 ///
 /// Returns the authenticated username on success, or an error response
 /// (401 for guests, 403 for authenticated users without the role).
-async fn require_permission_manager(
+pub(crate) async fn require_permission_manager(
     state: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> Result<String, (StatusCode, Json<Value>)> {

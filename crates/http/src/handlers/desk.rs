@@ -2,7 +2,7 @@ use crate::extract::AnyBody;
 use crate::middleware::auth::authenticate_request;
 use crate::site::resolve_site_pool;
 use crate::social_login::{site_url_from_headers, social_login_urls, SocialLoginProvider};
-use crate::user_home::get_user_home_page;
+use crate::user_home::get_effective_home_page;
 use crate::AppState;
 use axum::{
     extract::{OriginalUri, Query, RawQuery, State},
@@ -77,8 +77,13 @@ pub async fn serve_desk(
     if uri.path() == "/desk" {
         if let Some(ref user_name) = user {
             if let Some((_, pool)) = resolve_site_pool(&state, &headers) {
-                if let Some(home_page) = get_user_home_page(&pool, user_name).await {
-                    let target = normalize_home_path(&home_page);
+                if let Some(target) = get_effective_home_page(
+                    &pool,
+                    user_name,
+                    state.config.auth.custom_home_path.as_deref(),
+                )
+                .await
+                {
                     if !target.is_empty() && target != "/desk" {
                         return Redirect::temporary(&target).into_response();
                     }
@@ -188,27 +193,6 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
         }
     }
     None
-}
-
-/// Normalize a home_page value stored on the User doc so it is a usable URL
-/// path. Adds a leading slash, converts the legacy /app prefix to /desk, and
-/// strips fragment-only routes so we don't redirect to an empty hash.
-fn normalize_home_path(home_page: &str) -> String {
-    let trimmed = home_page.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    let with_slash = if trimmed.starts_with('/') {
-        trimmed.to_string()
-    } else {
-        format!("/{trimmed}")
-    };
-    // The router redirects /app to /desk; do the same for stored home pages.
-    if let Some(rest) = with_slash.strip_prefix("/app") {
-        format!("/desk{rest}")
-    } else {
-        with_slash
-    }
 }
 
 /// Tables whose contents affect the rendered Desk bootinfo. When any of these

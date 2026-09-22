@@ -56,13 +56,20 @@ pub async fn login(
                 .await
             {
                 Ok(session) => {
+                    let home_page = crate::user_home::get_effective_home_page(
+                        &pool,
+                        &usr,
+                        state.config.auth.custom_home_path.as_deref(),
+                    )
+                    .await
+                    .unwrap_or_else(|| "/desk".to_string());
                     let cookie = format!(
                         "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
                         session.id
                     );
                     let mut res = Json(serde_json::json!({
                         "message": "Logged In",
-                        "home_page": "/desk",
+                        "home_page": home_page,
                         "full_name": usr,
                     }))
                     .into_response();

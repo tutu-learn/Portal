@@ -685,6 +685,98 @@ pub async fn ensure_user_home_page_field(pool: &orm::DatabasePool) -> error::Res
     Ok(())
 }
 
+/// The permlevel dedicated to `User.user_home_page`, isolated from the rest
+/// of the User doctype (permlevel 0) so granting self-write on this one
+/// field can't be mistaken for granting self-write on the whole record.
+pub const USER_HOME_PAGE_PERMLEVEL: i64 = 9;
+
+/// Ensure the `User.user_home_page` field and its backing data column exist.
+///
+/// This is the user's own override of their landing page (highest priority,
+/// above the admin-set `home_page` and the global `custom_home_path`
+/// setting). It lives at [`USER_HOME_PAGE_PERMLEVEL`] so a user can be
+/// granted write access to it without gaining write access to the rest of
+/// their `User` record.
+pub async fn ensure_user_user_home_page_field(pool: &orm::DatabasePool) -> error::Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    let existing_field = pool
+        .execute_sql(
+            r#"SELECT 1 FROM "docfield" WHERE parent = 'User' AND fieldname = 'user_home_page' LIMIT 1"#,
+            vec![],
+        )
+        .await?;
+
+    if existing_field.is_empty() {
+        pool.execute_sql(
+            &format!(
+                r#"
+                INSERT INTO "docfield" (
+                    name, creation, modified, modified_by, owner, docstatus,
+                    parent, parentfield, parenttype, idx, fieldname, fieldtype, label,
+                    options, description, permlevel, reqd, read_only, hidden, in_list_view,
+                    in_standard_filter, in_preview, in_global_search, in_filter,
+                    bold, italic, no_copy, allow_in_quick_entry, translatable,
+                    collapsible, "unique", set_only_once, remember_last_selected_value,
+                    ignore_user_permissions, allow_on_submit, report_hide, search_index,
+                    show_dashboard, "default", depends_on, fetch_from, fetch_if_empty,
+                    mandatory_depends_on, read_only_depends_on, placeholder, tooltip,
+                    is_system_generated
+                ) VALUES (
+                    'User-user_home_page', ?, ?, 'Administrator', 'Administrator', 0,
+                    'User', 'fields', 'DocType', 91, 'user_home_page', 'Data', 'My Home Page', '',
+                    'Your own landing page after login, overriding the admin/global default. Leave blank to use it.',
+                    {permlevel}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, '', '', 0, '', '', '', '', 0
+                )
+                ON CONFLICT(name) DO UPDATE SET
+                    modified=EXCLUDED.modified, fieldtype=EXCLUDED.fieldtype, label=EXCLUDED.label,
+                    description=EXCLUDED.description, hidden=EXCLUDED.hidden
+                "#,
+                permlevel = USER_HOME_PAGE_PERMLEVEL,
+            ),
+            vec![now.clone().into(), now.clone().into()],
+        )
+        .await?;
+        info!("ensured User.user_home_page field in docfield metadata");
+    }
+
+    let column_exists = match pool.dialect() {
+        "postgres" => {
+            let rows = pool
+                .execute_sql(
+                    r#"SELECT 1 FROM information_schema.columns
+                       WHERE table_name = 'user' AND column_name = 'user_home_page'"#,
+                    vec![],
+                )
+                .await?;
+            !rows.is_empty()
+        }
+        _ => {
+            let rows = pool
+                .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
+                .await?;
+            rows.into_iter().any(|mut r| {
+                r.remove("name")
+                    .and_then(|v| v.as_str().map(String::from))
+                    .as_deref()
+                    == Some("user_home_page")
+            })
+        }
+    };
+
+    if !column_exists {
+        pool.execute_sql(
+            r#"ALTER TABLE "user" ADD COLUMN "user_home_page" TEXT"#,
+            vec![],
+        )
+        .await?;
+        info!("added User.user_home_page column to user data table");
+    }
+
+    Ok(())
+}
+
 /// Seed framework-wide Property Setters that should exist on every site.
 /// This runs during runtime startup for each site, before Rust app hooks.
 ///
@@ -695,6 +787,7 @@ pub async fn seed_framework_property_setters(
     home_page_default: Option<&str>,
 ) -> error::Result<()> {
     ensure_user_home_page_field(pool).await?;
+    ensure_user_user_home_page_field(pool).await?;
 
     let now = chrono::Utc::now().to_rfc3339();
 
@@ -729,6 +822,46 @@ pub async fn seed_framework_property_setters(
     pool.execute_sql(in_list_view_sql, vec![now.clone().into(), now.clone().into()])
         .await?;
     info!("seeded framework property setter: User.home_page in_list_view=1");
+
+    // Rename User.home_page to "Default Route" so the Desk Settings section
+    // reads as a single landing-page setting rather than duplicating
+    // Frappe's own workspace-based `default_workspace` field.
+    let label_sql = r#"
+        INSERT INTO "property_setter" (
+            name, creation, modified, modified_by, owner, docstatus,
+            doctype_or_field, doc_type, field_name, property, property_type, value
+        ) VALUES (
+            'User-home_page-label', ?, ?, 'Administrator', 'Administrator', 0,
+            'DocField', 'User', 'home_page', 'label', 'Data', 'Default Route'
+        )
+        ON CONFLICT(name) DO UPDATE SET
+            modified=EXCLUDED.modified, value=EXCLUDED.value
+    "#;
+    pool.execute_sql(label_sql, vec![now.clone().into(), now.clone().into()])
+        .await?;
+    info!("seeded framework property setter: User.home_page label=Default Route");
+
+    // Hide User.default_workspace: this project drives the post-login
+    // landing page entirely through home_page/user_home_page/custom_home_path,
+    // so Frappe's own workspace-based default is redundant and confusing
+    // next to it in the Desk Settings section.
+    let hide_default_workspace_sql = r#"
+        INSERT INTO "property_setter" (
+            name, creation, modified, modified_by, owner, docstatus,
+            doctype_or_field, doc_type, field_name, property, property_type, value
+        ) VALUES (
+            'User-default_workspace-hidden', ?, ?, 'Administrator', 'Administrator', 0,
+            'DocField', 'User', 'default_workspace', 'hidden', 'Check', '1'
+        )
+        ON CONFLICT(name) DO UPDATE SET
+            modified=EXCLUDED.modified, value=EXCLUDED.value
+    "#;
+    pool.execute_sql(
+        hide_default_workspace_sql,
+        vec![now.clone().into(), now.clone().into()],
+    )
+    .await?;
+    info!("seeded framework property setter: User.default_workspace hidden=1");
 
     // Optionally seed a default value for User.home_page.
     if let Some(default) = home_page_default {
@@ -860,6 +993,40 @@ pub async fn seed_framework_user_permissions(pool: &orm::DatabasePool) -> error:
         )
         .await?;
         info!("seeded framework user permission: All can read own User record");
+    }
+
+    // Let every user write their own `user_home_page` (and nothing else at
+    // permlevel 0) — this is the self-service home-page override.
+    let existing_home_page_write = pool
+        .execute_sql(
+            &format!(
+                r#"SELECT 1 FROM __kiff_docperm
+                   WHERE parent = 'User' AND role = 'All' AND permlevel = {permlevel} AND if_owner = 1
+                   LIMIT 1"#,
+                permlevel = USER_HOME_PAGE_PERMLEVEL,
+            ),
+            vec![],
+        )
+        .await?;
+
+    if existing_home_page_write.is_empty() {
+        pool.execute_sql(
+            &format!(
+                r#"
+                INSERT INTO __kiff_docperm (
+                    parent, role, permlevel, "read", "write", "create", "delete",
+                    "submit", "cancel", if_owner, "select", "report", "export", "import",
+                    "share", "print", "email", "mask", "amend"
+                ) VALUES (
+                    'User', 'All', {permlevel}, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                )
+                "#,
+                permlevel = USER_HOME_PAGE_PERMLEVEL,
+            ),
+            vec![],
+        )
+        .await?;
+        info!("seeded framework user permission: All can write own User.user_home_page");
     }
 
     Ok(())

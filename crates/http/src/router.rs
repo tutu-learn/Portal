@@ -1,4 +1,4 @@
-use crate::handlers::{api, auth, desk, files, permissions, socketio};
+use crate::handlers::{api, auth, desk, files, home_page, permissions, socketio};
 use crate::websocket::ws_handler;
 use crate::AppState;
 use axum::{
@@ -26,6 +26,14 @@ pub fn create_router() -> Router<AppState> {
         )
         .route("/api/method/login", post(auth::login))
         .route("/api/method/logout", post(auth::logout))
+        .route(
+            "/api/method/set_my_home_page",
+            post(home_page::set_my_home_page),
+        )
+        .route(
+            "/api/method/set_user_home_page",
+            post(home_page::set_user_home_page_admin),
+        )
         .route("/logout", get(auth::logout_redirect))
         .route("/api/method/upload_file", post(files::upload_file))
         .route(
