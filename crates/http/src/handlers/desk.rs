@@ -72,9 +72,9 @@ pub async fn serve_desk(
         return Redirect::temporary(&target).into_response();
     }
 
-    // Per-user home page: an exact /desk request redirects to the user's
+    // Per-user home page: an exact / or /desk request redirects to the user's
     // configured home_page when one is set and is not /desk itself.
-    if uri.path() == "/desk" {
+    if uri.path() == "/desk" || uri.path() == "/" {
         if let Some(ref user_name) = user {
             if let Some((_, pool)) = resolve_site_pool(&state, &headers) {
                 if let Some(target) = get_effective_home_page(
