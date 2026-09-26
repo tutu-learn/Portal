@@ -77,7 +77,8 @@ pub async fn token_exchange(
         .await
         .map_err(|e| format!("failed to read OAuth token response body: {e}"))?;
 
-    parse_token_response(status, &text).map_err(|e| format!("{e} (requested from {access_token_url})"))
+    parse_token_response(status, &text)
+        .map_err(|e| format!("{e} (requested from {access_token_url})"))
 }
 
 /// Decode a JWT's payload (the middle base64url segment) into JSON, without
@@ -132,7 +133,9 @@ fn parse_token_response(
     text: &str,
 ) -> Result<serde_json::Value, String> {
     let parsed: serde_json::Value = serde_json::from_str(text).map_err(|e| {
-        format!("OAuth token response was not valid JSON (status {status}): {e}. Raw response: {text}")
+        format!(
+            "OAuth token response was not valid JSON (status {status}): {e}. Raw response: {text}"
+        )
     })?;
 
     if !status.is_success() || parsed.get("error").is_some() {

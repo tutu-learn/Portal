@@ -83,7 +83,10 @@ async fn test_save_encrypts_into_auth_and_stores_dummy() -> Result<()> {
     );
 
     pool.insert_doc(&doc).await?;
-    assert_eq!(column_value(&pool, "DOC-P1").await?.as_deref(), Some("******"));
+    assert_eq!(
+        column_value(&pool, "DOC-P1").await?.as_deref(),
+        Some("******")
+    );
 
     let stored = auth_secret(&pool, "DOC-P1").await?.expect("auth row");
     assert_ne!(stored, "s3cr3t");
@@ -103,8 +106,14 @@ async fn test_save_dummy_and_clear() -> Result<()> {
     async fn save(pool: &orm::DatabasePool, key: &str, value: &str) -> Result<()> {
         let mut fields = std::collections::HashMap::new();
         fields.insert("client_secret".to_string(), Value::String(value.into()));
-        orm::password::process_password_fields_for_save(pool, "TestDocType", "DOC-P2", key, &mut fields)
-            .await
+        orm::password::process_password_fields_for_save(
+            pool,
+            "TestDocType",
+            "DOC-P2",
+            key,
+            &mut fields,
+        )
+        .await
     }
 
     save(&pool, &key, "original").await?;
@@ -112,7 +121,10 @@ async fn test_save_dummy_and_clear() -> Result<()> {
 
     // A dummy placeholder must not overwrite the stored secret.
     save(&pool, &key, "********").await?;
-    assert_eq!(auth_secret(&pool, "DOC-P2").await?.as_deref(), Some(before.as_str()));
+    assert_eq!(
+        auth_secret(&pool, "DOC-P2").await?.as_deref(),
+        Some(before.as_str())
+    );
 
     // Clearing the field deletes the stored secret.
     save(&pool, &key, "").await?;

@@ -81,18 +81,13 @@ impl SyncStore for MemorySyncStore {
 
     async fn put_file(&self, _site_id: &str, hash: &str, bytes: Vec<u8>) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        inner
-            .files
-            .insert(("default".into(), hash.into()), bytes);
+        inner.files.insert(("default".into(), hash.into()), bytes);
         Ok(())
     }
 
     async fn get_file(&self, _site_id: &str, hash: &str) -> Result<Option<Vec<u8>>> {
         let inner = self.inner.lock().unwrap();
-        Ok(inner
-            .files
-            .get(&("default".into(), hash.into()))
-            .cloned())
+        Ok(inner.files.get(&("default".into(), hash.into())).cloned())
     }
 
     async fn head_lsn(&self, _site_id: &str) -> Result<u64> {
@@ -125,10 +120,10 @@ mod tests {
     async fn memory_store_assigns_lsns() {
         let store = MemorySyncStore::new();
         let lsns = store
-            .append("localhost", vec![
-                sample_op("C-001", "INSERT"),
-                sample_op("C-002", "INSERT"),
-            ])
+            .append(
+                "localhost",
+                vec![sample_op("C-001", "INSERT"), sample_op("C-002", "INSERT")],
+            )
             .await
             .unwrap();
         assert_eq!(lsns, vec![1, 2]);

@@ -11,7 +11,11 @@ use tracing::{error, info, warn};
 /// app methods and falls back to Python whitelisted methods.
 #[async_trait]
 pub trait JobExecutor: Send + Sync {
-    async fn execute(&self, method: &str, kwargs: &HashMap<String, serde_json::Value>) -> Result<()>;
+    async fn execute(
+        &self,
+        method: &str,
+        kwargs: &HashMap<String, serde_json::Value>,
+    ) -> Result<()>;
 }
 
 /// Executor that logs the call and succeeds. Used when no real executor is
@@ -20,7 +24,11 @@ pub struct NoopExecutor;
 
 #[async_trait]
 impl JobExecutor for NoopExecutor {
-    async fn execute(&self, method: &str, kwargs: &HashMap<String, serde_json::Value>) -> Result<()> {
+    async fn execute(
+        &self,
+        method: &str,
+        kwargs: &HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
         info!("noop execute {} {:?}", method, kwargs);
         Ok(())
     }
@@ -74,7 +82,9 @@ impl Worker {
                     let job_pool = get_pool(&job.site).unwrap_or_else(|| pool.clone());
                     if let Err(e) = self.execute(&job, &job_pool, executor).await {
                         error!("job {} failed: {}", job.id, e);
-                        let _ = self.mark_failed(&job_pool, &job.id, &format!("{}", e)).await;
+                        let _ = self
+                            .mark_failed(&job_pool, &job.id, &format!("{}", e))
+                            .await;
                     }
                 }
                 Ok(None) => {}

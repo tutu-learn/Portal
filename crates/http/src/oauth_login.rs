@@ -42,11 +42,23 @@ pub async fn handle_office365_callback(
 ) -> Response {
     let code = match params.get("code").and_then(|v| v.as_str()) {
         Some(c) if !c.is_empty() => c.to_string(),
-        _ => return error_page(StatusCode::BAD_REQUEST, "Invalid Request", "Missing 'code' parameter"),
+        _ => {
+            return error_page(
+                StatusCode::BAD_REQUEST,
+                "Invalid Request",
+                "Missing 'code' parameter",
+            )
+        }
     };
     let state_param = match params.get("state").and_then(|v| v.as_str()) {
         Some(s) if !s.is_empty() => s.to_string(),
-        _ => return error_page(StatusCode::BAD_REQUEST, "Invalid Request", "Missing 'state' parameter"),
+        _ => {
+            return error_page(
+                StatusCode::BAD_REQUEST,
+                "Invalid Request",
+                "Missing 'state' parameter",
+            )
+        }
     };
 
     let Some(oauth_state) = decode_state(&state_param) else {
@@ -68,7 +80,13 @@ pub async fn handle_office365_callback(
         }
     };
 
-    let provider = match load_provider_config(&pool, &site_url_from_headers(headers), &site.config.encryption_key).await {
+    let provider = match load_provider_config(
+        &pool,
+        &site_url_from_headers(headers),
+        &site.config.encryption_key,
+    )
+    .await
+    {
         Ok(Some(p)) => p,
         Ok(None) => {
             return error_page(
@@ -152,8 +170,11 @@ pub async fn handle_office365_callback(
         "data": claims,
         "provider": PROVIDER,
     });
-    let update_result =
-        kiff_core::call_trusted_method("frappe.utils.oauth.update_oauth_user", &update_args, Some(&email));
+    let update_result = kiff_core::call_trusted_method(
+        "frappe.utils.oauth.update_oauth_user",
+        &update_args,
+        Some(&email),
+    );
 
     if let Err(e) = pool.commit().await {
         warn!(error = %e, "failed to commit transaction after Office 365 login");
@@ -188,7 +209,10 @@ pub async fn handle_office365_callback(
     }
 
     let store = session::SessionStore::new();
-    let session = match store.create(&pool, email.clone(), "localhost".to_string()).await {
+    let session = match store
+        .create(&pool, email.clone(), "localhost".to_string())
+        .await
+    {
         Ok(s) => s,
         Err(e) => {
             warn!(error = %e, "failed to create session after Office 365 login");
@@ -359,19 +383,25 @@ async fn find_social_login_key(
                 .unwrap_or_default(),
             custom_base_url: r
                 .remove("custom_base_url")
-                .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .and_then(|v| {
+                    v.as_i64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
                 .unwrap_or(0)
                 == 1,
-            base_url: r.remove("base_url").and_then(|v| v.as_str().map(String::from)),
+            base_url: r
+                .remove("base_url")
+                .and_then(|v| v.as_str().map(String::from)),
         })
         .collect();
 
     let aliases = oauth_provider_aliases(provider_slug);
 
-    if let Some(row) = parsed
-        .iter()
-        .find(|r| r.social_login_provider.as_deref().is_some_and(|p| aliases.contains(&scrub(p).as_str())))
-    {
+    if let Some(row) = parsed.iter().find(|r| {
+        r.social_login_provider
+            .as_deref()
+            .is_some_and(|p| aliases.contains(&scrub(p).as_str()))
+    }) {
         return Ok(Some(clone_row(row)));
     }
 
@@ -429,11 +459,12 @@ async fn load_provider_config(
         row.access_token_url
     };
 
-    let redirect_uri = if row.redirect_url.starts_with("http://") || row.redirect_url.starts_with("https://") {
-        row.redirect_url
-    } else {
-        format!("{}{}", site_url.trim_end_matches('/'), row.redirect_url)
-    };
+    let redirect_uri =
+        if row.redirect_url.starts_with("http://") || row.redirect_url.starts_with("https://") {
+            row.redirect_url
+        } else {
+            format!("{}{}", site_url.trim_end_matches('/'), row.redirect_url)
+        };
 
     let client_secret = orm::password::get_decrypted_password(
         pool,
@@ -523,7 +554,8 @@ mod tests {
     /// a real callback that a stricter check once rejected with a 417.
     #[test]
     fn decode_state_accepts_bare_opaque_token() {
-        let state = decode_state("0cc7184fb6ab100b57d732a7e9c1a466").expect("opaque token should be accepted");
+        let state = decode_state("0cc7184fb6ab100b57d732a7e9c1a466")
+            .expect("opaque token should be accepted");
         assert_eq!(state.redirect_to, None);
     }
 

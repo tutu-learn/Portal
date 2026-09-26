@@ -2,8 +2,8 @@
 
 use crate::proto::sync_service_server::{SyncService, SyncServiceServer};
 use crate::proto::{
-    AppendRequest, AppendResponse, DownloadFileRequest, FileChunk, FileRef,
-    TailRequest, TailResponse, UploadFileResponse,
+    AppendRequest, AppendResponse, DownloadFileRequest, FileChunk, FileRef, TailRequest,
+    TailResponse, UploadFileResponse,
 };
 use crate::store::{SyncStore, TailPage};
 use std::collections::HashMap;
@@ -138,12 +138,13 @@ impl<S: SyncStore> SyncService for SyncServiceImpl<S> {
         }
     }
 
-    async fn tail(
-        &self,
-        request: Request<TailRequest>,
-    ) -> Result<Response<TailResponse>, Status> {
+    async fn tail(&self, request: Request<TailRequest>) -> Result<Response<TailResponse>, Status> {
         let req = request.into_inner();
-        match self.store.tail(&req.site_id, req.after_lsn, req.max_count).await {
+        match self
+            .store
+            .tail(&req.site_id, req.after_lsn, req.max_count)
+            .await
+        {
             Ok(TailPage { ops, head_lsn }) => Ok(Response::new(TailResponse { ops, head_lsn })),
             Err(e) => {
                 error!("tail failed: {}", e);
@@ -254,10 +255,7 @@ mod tests {
 
         let append_req = Request::new(AppendRequest {
             site_id: "localhost".into(),
-            ops: vec![
-                sample_op("C-001", "INSERT"),
-                sample_op("C-002", "INSERT"),
-            ],
+            ops: vec![sample_op("C-001", "INSERT"), sample_op("C-002", "INSERT")],
         });
         let resp = service.append(append_req).await.unwrap().into_inner();
         assert_eq!(resp.first_lsn, 1);
@@ -274,6 +272,4 @@ mod tests {
         assert_eq!(tail.ops[0].lsn, 1);
         assert_eq!(tail.ops[1].lsn, 2);
     }
-
-
 }

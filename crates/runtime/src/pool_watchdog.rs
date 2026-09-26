@@ -179,7 +179,10 @@ fn wal_identity(_db_path: &str) -> Option<(u64, u64, u64)> {
 fn retire_pool(pool: orm::DatabasePool) {
     static RETIRED: OnceLock<std::sync::Mutex<Vec<orm::DatabasePool>>> = OnceLock::new();
     let retired = RETIRED.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-    retired.lock().expect("retired pools lock poisoned").push(pool);
+    retired
+        .lock()
+        .expect("retired pools lock poisoned")
+        .push(pool);
 }
 
 /// Move a stale `-shm`/`-wal` sidecar out of the way so a reconnect can
@@ -311,7 +314,10 @@ async fn heal(
         return match orm::DatabasePool::connect_postgres(db_url).await {
             Ok(new_pool) => {
                 let _ = kiff_core::swap_pool(new_pool.clone());
-                if insert_with_timeout(pools, site_name, new_pool).await.is_err() {
+                if insert_with_timeout(pools, site_name, new_pool)
+                    .await
+                    .is_err()
+                {
                     // The bridge already serves the fresh pool; the next
                     // probe sees the missing map entry and re-heals.
                     return false;
@@ -321,7 +327,10 @@ async fn heal(
                 true
             }
             Err(e) => {
-                error!("failed to rebuild database pool for site {}: {}", site_name, e);
+                error!(
+                    "failed to rebuild database pool for site {}: {}",
+                    site_name, e
+                );
                 false
             }
         };
@@ -349,7 +358,10 @@ async fn heal(
                 .await
                 .is_err()
             {
-                warn!("timed out closing wedged pool for site {}; reconnect may fail", site_name);
+                warn!(
+                    "timed out closing wedged pool for site {}; reconnect may fail",
+                    site_name
+                );
             }
         }
     } else if let Some(p) = old_map_pool.clone() {
@@ -374,7 +386,10 @@ async fn heal(
     match orm::DatabasePool::connect_sqlite(db_url).await {
         Ok(new_pool) => {
             let _ = kiff_core::swap_pool(new_pool.clone());
-            if insert_with_timeout(pools, site_name, new_pool).await.is_err() {
+            if insert_with_timeout(pools, site_name, new_pool)
+                .await
+                .is_err()
+            {
                 // The bridge already serves the fresh pool; the next probe
                 // sees the missing map entry and re-heals.
                 return false;
@@ -388,7 +403,10 @@ async fn heal(
             true
         }
         Err(e) => {
-            error!("failed to rebuild database pool for site {}: {}", site_name, e);
+            error!(
+                "failed to rebuild database pool for site {}: {}",
+                site_name, e
+            );
             false
         }
     }
@@ -403,7 +421,10 @@ pub fn spawn(
         return;
     }
     tokio::spawn(async move {
-        info!("database pool watchdog started (probe every {:?})", PROBE_INTERVAL);
+        info!(
+            "database pool watchdog started (probe every {:?})",
+            PROBE_INTERVAL
+        );
         let mut last_attempt: HashMap<String, Instant> = HashMap::new();
         // Last seen WAL identity per site: (device, inode, size). Cleared
         // after each successful heal so the fresh pool's WAL is recorded

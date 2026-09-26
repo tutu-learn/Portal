@@ -24,10 +24,12 @@ pub struct RedbSyncStore {
 
 impl RedbSyncStore {
     pub fn open(path: &Path) -> Result<Self> {
-        let db = Database::create(path).map_err(|e| RuntimeError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("redb open failed: {}", e),
-        )))?;
+        let db = Database::create(path).map_err(|e| {
+            RuntimeError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("redb open failed: {}", e),
+            ))
+        })?;
         {
             let tx = db.begin_write().map_err(redb_err)?;
             {
@@ -68,7 +70,6 @@ impl RedbSyncStore {
         };
         Ok(meta)
     }
-
 }
 
 #[async_trait::async_trait]
@@ -149,7 +150,9 @@ impl SyncStore for RedbSyncStore {
         let db = self.db.lock().unwrap();
         let tx = db.begin_read().map_err(redb_err)?;
         let table = tx.open_table(FILES_TABLE).map_err(redb_err)?;
-        let guard = table.get(&*Self::file_key(site_id, hash)).map_err(redb_err)?;
+        let guard = table
+            .get(&*Self::file_key(site_id, hash))
+            .map_err(redb_err)?;
         let result = guard.map(|g| g.value().to_vec());
         Ok(result)
     }
@@ -196,10 +199,7 @@ mod tests {
             let lsns = store
                 .append(
                     "localhost",
-                    vec![
-                        sample_op("C-001", "INSERT"),
-                        sample_op("C-002", "UPDATE"),
-                    ],
+                    vec![sample_op("C-001", "INSERT"), sample_op("C-002", "UPDATE")],
                 )
                 .await
                 .unwrap();

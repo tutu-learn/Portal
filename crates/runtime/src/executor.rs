@@ -35,12 +35,8 @@ impl queue::JobExecutor for RuntimeExecutor {
         }
 
         // Fall back to Python whitelisted methods.
-        let kwargs_value = serde_json::Value::Object(
-            kwargs
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-        );
+        let kwargs_value =
+            serde_json::Value::Object(kwargs.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
         match tokio::task::spawn_blocking({
             let method = method.to_string();
             let kwargs_value = kwargs_value.clone();

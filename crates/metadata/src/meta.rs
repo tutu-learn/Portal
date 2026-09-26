@@ -83,8 +83,12 @@ impl Meta {
                         .remove("fieldtype")
                         .and_then(|v| v.as_str().map(String::from))
                         .unwrap_or_default(),
-                    label: row.remove("label").and_then(|v| v.as_str().map(String::from)),
-                    options: row.remove("options").and_then(|v| v.as_str().map(String::from)),
+                    label: row
+                        .remove("label")
+                        .and_then(|v| v.as_str().map(String::from)),
+                    options: row
+                        .remove("options")
+                        .and_then(|v| v.as_str().map(String::from)),
                     default: row
                         .remove("default")
                         .and_then(|v| v.as_str().map(String::from)),

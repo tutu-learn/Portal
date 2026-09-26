@@ -101,9 +101,7 @@ fn previous_scheduled_minute(
     schedule: &cron::Schedule,
     now: DateTime<Utc>,
 ) -> Option<DateTime<Utc>> {
-    let mut t = now
-        .with_second(0)?
-        .with_nanosecond(0)?;
+    let mut t = now.with_second(0)?.with_nanosecond(0)?;
     // Walk back up to 24 hours to find the previous scheduled minute.
     for _ in 0..1440 {
         if schedule.includes(t) {

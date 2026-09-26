@@ -65,12 +65,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Add logging for custom paths and framework property seeding&#10;&#10;Added `tracing::info` logs for `auth.custom_login_path` and `auth.custom_home_path` configurations in `config` crate. Included a log message for the `User.home_page` property seeding to enhance observability during runtime.">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="fixed desktop load">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,7 +74,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19680" />
+    <option name="cachedIndexableFilesCount" value="20368" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -105,12 +101,12 @@
     &quot;assignee&quot;: &quot;nefdtie101&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/tutu-learn/Portal.git",
-    "accountId": "e5c6b783-876f-427e-8950-125234752873"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
+    &quot;accountId&quot;: &quot;e5c6b783-876f-427e-8950-125234752873&quot;
   }
-}]]></component>
+}</component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="3pBfu8Y3" />
   </component>
@@ -120,23 +116,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0940786623392131" />
-      <entry key="MS500" value="1.7026225794851597" />
-      <entry key="S2" value="2.9134098518802656" />
-      <entry key="S5" value="3.8602746510269874" />
-      <entry key="S10" value="4.357660989092688" />
-      <entry key="S30" value="4.766932827123113" />
-      <entry key="S60" value="4.88089080828974" />
-      <entry key="M2" value="4.939784818680769" />
-      <entry key="M5" value="4.975774680363774" />
-      <entry key="M10" value="5.006427283079525" />
-      <entry key="M15" value="5.1707307982975514" />
-      <entry key="M30" value="6.820297079592713" />
-      <entry key="H1" value="11.31939358271839" />
-      <entry key="H2" value="17.30390022830315" />
-      <entry key="H4" value="22.44838560788189" />
-      <entry key="D1" value="46.30221090065719" />
-      <entry key="W1" value="166.582210831707" />
+      <entry key="MS100" value="1.6920695347769044" />
+      <entry key="MS500" value="3.1398808928624455" />
+      <entry key="S2" value="3.751068191106482" />
+      <entry key="S5" value="3.897335883918422" />
+      <entry key="S10" value="3.948137041918707" />
+      <entry key="S30" value="3.9825928782750006" />
+      <entry key="S60" value="3.99128141128759" />
+      <entry key="M2" value="3.995636941576201" />
+      <entry key="M5" value="3.998253872343181" />
+      <entry key="M10" value="3.999126785381049" />
+      <entry key="M15" value="3.9994178234060596" />
+      <entry key="M30" value="3.999708896323484" />
+      <entry key="H1" value="4.000030719654167" />
+      <entry key="H2" value="4.073230521457948" />
+      <entry key="H4" value="5.573539058352496" />
+      <entry key="D1" value="35.85646584344823" />
+      <entry key="W1" value="164.29117212785496" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -158,23 +154,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.0654383959607594" />
-      <entry key="MS500" value="1.6950377796610157" />
-      <entry key="S2" value="2.91034381583433" />
-      <entry key="S5" value="3.8586631622634258" />
-      <entry key="S10" value="4.356753319121811" />
-      <entry key="S30" value="4.7666022391905845" />
-      <entry key="S60" value="4.880721607150597" />
-      <entry key="M2" value="4.939699208141771" />
-      <entry key="M5" value="4.9757401891317645" />
-      <entry key="M10" value="5.0064098890615325" />
-      <entry key="M15" value="5.170718537672255" />
-      <entry key="M30" value="6.820286484613442" />
-      <entry key="H1" value="11.31937955743946" />
-      <entry key="H2" value="17.30388588127933" />
-      <entry key="H4" value="22.44837488813138" />
-      <entry key="D1" value="46.30220703355747" />
-      <entry key="W1" value="166.58220896723367" />
+      <entry key="MS100" value="1.6518267826147308" />
+      <entry key="MS500" value="3.1185676547750454" />
+      <entry key="S2" value="3.7441238516565494" />
+      <entry key="S5" value="3.894398808255262" />
+      <entry key="S10" value="3.9466406493839807" />
+      <entry key="S30" value="3.9820877658907348" />
+      <entry key="S60" value="3.9910280578074824" />
+      <entry key="M2" value="3.995510064914923" />
+      <entry key="M5" value="3.998203073620682" />
+      <entry key="M10" value="3.99910137800372" />
+      <entry key="M15" value="3.9994008833726795" />
+      <entry key="M30" value="3.999700425415759" />
+      <entry key="H1" value="4.000026483753241" />
+      <entry key="H2" value="4.073228345337857" />
+      <entry key="H4" value="5.573537288263041" />
+      <entry key="D1" value="35.856463091292746" />
+      <entry key="W1" value="164.29117032338746" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -196,7 +192,7 @@
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/AuditReadyComplicnce",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/SebrusApps",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",

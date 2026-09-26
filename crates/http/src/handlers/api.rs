@@ -258,7 +258,9 @@ pub async fn get_doc(
                             .allowed_permlevels(&pool, &user, &doctype, "read")
                             .await
                         {
-                            state.permissions.filter_readable_fields(&mut doc, &meta, &levels);
+                            state
+                                .permissions
+                                .filter_readable_fields(&mut doc, &meta, &levels);
                         }
                     }
                     (StatusCode::OK, Json(serde_json::json!({ "data": doc })))
@@ -830,9 +832,7 @@ async fn load_page_from_json(
 
     // 2. Project-specific Rust app pages.
     if page_path.is_none() {
-        let custom_bases: Vec<PathBuf> = vec![
-            PathBuf::from("crates/kiff_logger/src/pages"),
-        ];
+        let custom_bases: Vec<PathBuf> = vec![PathBuf::from("crates/kiff_logger/src/pages")];
         for base in custom_bases {
             let path = base.join(&scrubbed).join(format!("{}.json", scrubbed));
             if path.exists() {
@@ -987,7 +987,9 @@ async fn get_user_roles(
 
 fn is_privileged_log_user(user: &str, roles: &[String]) -> bool {
     user == "Administrator"
-        || roles.iter().any(|r| r == "Administrator" || r == "System Manager")
+        || roles
+            .iter()
+            .any(|r| r == "Administrator" || r == "System Manager")
 }
 
 async fn get_sebrus_log_viewer_services(
@@ -1171,10 +1173,9 @@ pub async fn getdoc_native(
                 (StatusCode::OK, Json(Value::Object(resp)))
             }
             Err(error::RuntimeError::NotFound(_)) => {
-                let (_status, body) = frappe_error_response(error::RuntimeError::NotFound(format!(
-                    "{} {} not found",
-                    doctype, name
-                )));
+                let (_status, body) = frappe_error_response(error::RuntimeError::NotFound(
+                    format!("{} {} not found", doctype, name),
+                ));
                 (StatusCode::NOT_FOUND, body)
             }
             Err(e) => frappe_error_response(e),
@@ -1504,10 +1505,7 @@ async fn get_link_title_impl(
                     .and_then(|mut row| row.remove(&t))
                     .and_then(|v| v.as_str().map(|s| s.to_string())),
                 Err(e) => {
-                    warn!(
-                        "get_link_title failed for {} {}: {}",
-                        doctype, docname, e
-                    );
+                    warn!("get_link_title failed for {} {}: {}", doctype, docname, e);
                     None
                 }
             }
@@ -1631,7 +1629,10 @@ async fn validate_link_and_fetch_impl(
                     msg.insert(c.clone(), v);
                 }
             }
-            (StatusCode::OK, Json(json!({ "message": Value::Object(msg) })))
+            (
+                StatusCode::OK,
+                Json(json!({ "message": Value::Object(msg) })),
+            )
         }
         Ok(_) => (StatusCode::OK, Json(json!({ "message": {} }))),
         Err(e) => {
@@ -1652,11 +1653,7 @@ fn parse_fields_to_fetch(raw: Option<&String>) -> Vec<String> {
     raw.and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
         .unwrap_or_default()
         .into_iter()
-        .filter(|f| {
-            !f.is_empty()
-                && f.chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
-        })
+        .filter(|f| !f.is_empty() && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
         .collect()
 }
 
@@ -2309,7 +2306,10 @@ async fn search_link_impl(
                 match pool.execute_sql(&sql, query_params).await {
                     Ok(rows) => rows,
                     Err(e) => {
-                        warn!("search_link retry without title failed for {}: {}", doctype, e);
+                        warn!(
+                            "search_link retry without title failed for {}: {}",
+                            doctype, e
+                        );
                         vec![]
                     }
                 }
@@ -2543,7 +2543,11 @@ async fn merge_dynamic_fields_into_doctype(
         .and_then(|f| f.as_array())
         .map(|arr| {
             arr.iter()
-                .filter_map(|f| f.get("fieldname").and_then(|v| v.as_str()).map(String::from))
+                .filter_map(|f| {
+                    f.get("fieldname")
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                })
                 .collect()
         })
         .unwrap_or_default();
@@ -2658,7 +2662,9 @@ async fn apply_property_setters(
         let property = row
             .remove("property")
             .and_then(|v| v.as_str().map(String::from));
-        let value = row.remove("value").and_then(|v| v.as_str().map(String::from));
+        let value = row
+            .remove("value")
+            .and_then(|v| v.as_str().map(String::from));
         let property_type = row
             .remove("property_type")
             .and_then(|v| v.as_str().map(String::from));
@@ -3178,9 +3184,10 @@ async fn desk_form_save(
             .allowed_permlevels(&pool, &user, &doctype, "write")
             .await
         {
-            if let Some(field) = state
-                .permissions
-                .check_writable_fields(&meta, &levels, &doc.fields)
+            if let Some(field) =
+                state
+                    .permissions
+                    .check_writable_fields(&meta, &levels, &doc.fields)
             {
                 return (
                     StatusCode::FORBIDDEN,
@@ -3704,15 +3711,24 @@ mod tests {
 
     #[test]
     fn title_or_name_prefers_non_empty_title() {
-        assert_eq!(title_or_name(Some("Web Server 01"), "uuid-1234"), "Web Server 01");
+        assert_eq!(
+            title_or_name(Some("Web Server 01"), "uuid-1234"),
+            "Web Server 01"
+        );
         assert_eq!(title_or_name(Some(""), "uuid-1234"), "uuid-1234");
         assert_eq!(title_or_name(None, "uuid-1234"), "uuid-1234");
     }
 
     #[test]
     fn doctype_table_name_matches_existing_derivation() {
-        assert_eq!(doctype_table_name("Infrastructure Server"), "infrastructure_server");
-        assert_eq!(doctype_table_name("Kubernetes-Cluster"), "kubernetes_cluster");
+        assert_eq!(
+            doctype_table_name("Infrastructure Server"),
+            "infrastructure_server"
+        );
+        assert_eq!(
+            doctype_table_name("Kubernetes-Cluster"),
+            "kubernetes_cluster"
+        );
         assert_eq!(doctype_table_name("tabUser"), "user");
     }
 
@@ -3836,10 +3852,7 @@ mod tests {
         assert!(field_names.contains(&"sebrus_log_viewer_service"));
 
         let field_order = meta.get("field_order").unwrap().as_array().unwrap();
-        let order_names: Vec<&str> = field_order
-            .iter()
-            .filter_map(|v| v.as_str())
-            .collect();
+        let order_names: Vec<&str> = field_order.iter().filter_map(|v| v.as_str()).collect();
         assert!(order_names.contains(&"logger_tab"));
         assert!(order_names.contains(&"sebrus_log_viewer_service"));
 

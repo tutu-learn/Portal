@@ -711,8 +711,16 @@ fn staged_matches_range(rec: &LogRecord, field: &str, range: &str) -> bool {
     };
     let lo = lo.trim();
     let hi = hi.trim();
-    let lo_ok = lo == "*" || lo.parse::<i64>().map(|v| rec.timestamp >= v).unwrap_or(false);
-    let hi_ok = hi == "*" || hi.parse::<i64>().map(|v| rec.timestamp <= v).unwrap_or(false);
+    let lo_ok = lo == "*"
+        || lo
+            .parse::<i64>()
+            .map(|v| rec.timestamp >= v)
+            .unwrap_or(false);
+    let hi_ok = hi == "*"
+        || hi
+            .parse::<i64>()
+            .map(|v| rec.timestamp <= v)
+            .unwrap_or(false);
     lo_ok && hi_ok
 }
 
@@ -1001,9 +1009,15 @@ mod tests {
         let day2 = day1 + DAY_MS; // window end (exclusive)
 
         // Day 1, committed: web/INFO x2, web/ERROR x1, auth/INFO x1.
-        engine.ingest(record_at("INFO", "web", day1 + 1_000)).unwrap();
-        engine.ingest(record_at("INFO", "web", day1 + 2_000)).unwrap();
-        engine.ingest(record_at("ERROR", "web", day1 + 3_000)).unwrap();
+        engine
+            .ingest(record_at("INFO", "web", day1 + 1_000))
+            .unwrap();
+        engine
+            .ingest(record_at("INFO", "web", day1 + 2_000))
+            .unwrap();
+        engine
+            .ingest(record_at("ERROR", "web", day1 + 3_000))
+            .unwrap();
         engine
             .ingest(record_at("INFO", "auth", day1 + 4_000))
             .unwrap();
@@ -1014,7 +1028,9 @@ mod tests {
         engine.commit().unwrap();
 
         // Day 1, staged (uncommitted): web/INFO x1, auth/ERROR x1.
-        engine.ingest(record_at("INFO", "web", day1 + 5_000)).unwrap();
+        engine
+            .ingest(record_at("INFO", "web", day1 + 5_000))
+            .unwrap();
         engine
             .ingest(record_at("ERROR", "auth", day1 + 6_000))
             .unwrap();
@@ -1055,7 +1071,9 @@ mod tests {
         let day1 = 1_700_000_000_000i64;
         let day2 = day1 + DAY_MS;
 
-        engine.ingest(record_at("INFO", "web", day1 + 1_000)).unwrap();
+        engine
+            .ingest(record_at("INFO", "web", day1 + 1_000))
+            .unwrap();
         engine.commit().unwrap();
 
         // Querying day 2 sees nothing from day 1.

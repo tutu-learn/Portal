@@ -190,7 +190,9 @@ async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
         .and_then(|v| v.as_array())
         .expect("kiff_logger workspaces should be an array");
     assert!(
-        kiff_logger_workspaces.iter().any(|w| w == "kiff-logger-extra"),
+        kiff_logger_workspaces
+            .iter()
+            .any(|w| w == "kiff-logger-extra"),
         "kiff-logger-extra workspace should belong to kiff_logger"
     );
 

@@ -366,7 +366,9 @@ pub(crate) async fn migrate_legacy_log_viewer_service(pool: &DatabasePool) -> Re
     let mut migrated = 0usize;
     for row in legacy_rows {
         let user = row_str(&row, "name");
-        let service = row_str(&row, "sebrus_log_viewer_service").trim().to_string();
+        let service = row_str(&row, "sebrus_log_viewer_service")
+            .trim()
+            .to_string();
         if user.is_empty() || service.is_empty() {
             continue;
         }

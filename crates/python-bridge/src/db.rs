@@ -342,5 +342,3 @@ fn parse_order_by(raw: &str) -> Result<Option<(String, bool)>, String> {
     }
     Ok(Some((field, desc)))
 }
-
-

@@ -54,9 +54,11 @@ async fn main() -> error::Result<()> {
                 }
                 // Move any legacy plaintext Password values into __auth,
                 // leaving only dummy placeholders in the data tables.
-                if let Err(e) =
-                    orm::password::migrate_plaintext_password_values(&p, &site.config.encryption_key)
-                        .await
+                if let Err(e) = orm::password::migrate_plaintext_password_values(
+                    &p,
+                    &site.config.encryption_key,
+                )
+                .await
                 {
                     error!(
                         "plaintext password migration failed for site {}: {}",
@@ -105,21 +107,38 @@ async fn main() -> error::Result<()> {
                 // visible and default it to the configured custom home path) for
                 // every site, independent of any Rust app.
                 let home_page_default = config.auth.custom_home_path.as_deref();
-                if let Err(e) = rust_apps_core::seed_framework_property_setters(&p, home_page_default).await {
-                    error!("failed to seed framework property setters for site {}: {}", name, e);
+                if let Err(e) =
+                    rust_apps_core::seed_framework_property_setters(&p, home_page_default).await
+                {
+                    error!(
+                        "failed to seed framework property setters for site {}: {}",
+                        name, e
+                    );
                 }
-                if let Err(e) = rust_apps_core::seed_framework_user_home_page_defaults(&p, home_page_default).await {
-                    error!("failed to seed framework user home_page defaults for site {}: {}", name, e);
+                if let Err(e) =
+                    rust_apps_core::seed_framework_user_home_page_defaults(&p, home_page_default)
+                        .await
+                {
+                    error!(
+                        "failed to seed framework user home_page defaults for site {}: {}",
+                        name, e
+                    );
                 }
                 if let Err(e) = rust_apps_core::seed_framework_user_permissions(&p).await {
-                    error!("failed to seed framework user permissions for site {}: {}", name, e);
+                    error!(
+                        "failed to seed framework user permissions for site {}: {}",
+                        name, e
+                    );
                 }
                 // E2E runs restart the server with a fresh database. Make sure
                 // all doctype-sync writes are checkpointed into the main DB file
                 // before the pool watchdog can quarantine the WAL during a heal;
                 // otherwise tables that only exist in the WAL can disappear.
                 if site.config.db_driver != "postgres" {
-                    if let Err(e) = p.execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![]).await {
+                    if let Err(e) = p
+                        .execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![])
+                        .await
+                    {
                         warn!("WAL checkpoint failed for site {}: {}", name, e);
                     }
                 }

@@ -28,8 +28,14 @@ pub struct AssetCache {
 impl Default for AssetCache {
     fn default() -> Self {
         Self {
-            bundle_map: Arc::new(std::sync::RwLock::new((HashMap::new(), SystemTime::UNIX_EPOCH))),
-            icon_sprites: Arc::new(std::sync::RwLock::new((String::new(), SystemTime::UNIX_EPOCH))),
+            bundle_map: Arc::new(std::sync::RwLock::new((
+                HashMap::new(),
+                SystemTime::UNIX_EPOCH,
+            ))),
+            icon_sprites: Arc::new(std::sync::RwLock::new((
+                String::new(),
+                SystemTime::UNIX_EPOCH,
+            ))),
         }
     }
 }
@@ -674,11 +680,8 @@ pub async fn ensure_user_home_page_field(pool: &orm::DatabasePool) -> error::Res
     };
 
     if !column_exists {
-        pool.execute_sql(
-            r#"ALTER TABLE "user" ADD COLUMN "home_page" TEXT"#,
-            vec![],
-        )
-        .await?;
+        pool.execute_sql(r#"ALTER TABLE "user" ADD COLUMN "home_page" TEXT"#, vec![])
+            .await?;
         info!("added User.home_page column to user data table");
     }
 
@@ -819,8 +822,11 @@ pub async fn seed_framework_property_setters(
         ON CONFLICT(name) DO UPDATE SET
             modified=EXCLUDED.modified, value=EXCLUDED.value
     "#;
-    pool.execute_sql(in_list_view_sql, vec![now.clone().into(), now.clone().into()])
-        .await?;
+    pool.execute_sql(
+        in_list_view_sql,
+        vec![now.clone().into(), now.clone().into()],
+    )
+    .await?;
     info!("seeded framework property setter: User.home_page in_list_view=1");
 
     // Rename User.home_page to "Default Route" so the Desk Settings section
@@ -959,7 +965,10 @@ pub async fn seed_framework_user_home_page_defaults(
             .remove("home_page")
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
-        info!("User.home_page table state: name={} home_page={}", name, home_page);
+        info!(
+            "User.home_page table state: name={} home_page={}",
+            name, home_page
+        );
     }
 
     Ok(())

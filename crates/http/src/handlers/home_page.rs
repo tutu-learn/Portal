@@ -35,10 +35,7 @@ pub async fn set_my_home_page(
         }
     };
 
-    let raw = body
-        .get("home_page")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let raw = body.get("home_page").and_then(|v| v.as_str()).unwrap_or("");
     let home_page = normalize_stored_home_path(raw);
     if !raw.trim().is_empty() && home_page.is_empty() {
         return (
@@ -60,7 +57,9 @@ pub async fn set_my_home_page(
     };
 
     match set_user_home_page(&pool, &session.user, &home_page).await {
-        Ok(()) => Json(serde_json::json!({ "message": "ok", "home_page": home_page })).into_response(),
+        Ok(()) => {
+            Json(serde_json::json!({ "message": "ok", "home_page": home_page })).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("{}", e) })),
@@ -90,10 +89,7 @@ pub async fn set_user_home_page_admin(
             .into_response();
     }
 
-    let raw = body
-        .get("home_page")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let raw = body.get("home_page").and_then(|v| v.as_str()).unwrap_or("");
     let home_page = normalize_stored_home_path(raw);
     if !raw.trim().is_empty() && home_page.is_empty() {
         return (
@@ -115,7 +111,9 @@ pub async fn set_user_home_page_admin(
     };
 
     match set_admin_home_page(&pool, target_user, &home_page).await {
-        Ok(()) => Json(serde_json::json!({ "message": "ok", "home_page": home_page })).into_response(),
+        Ok(()) => {
+            Json(serde_json::json!({ "message": "ok", "home_page": home_page })).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("{}", e) })),

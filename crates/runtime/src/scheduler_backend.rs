@@ -76,7 +76,10 @@ impl SchedulerBackend for RuntimeSchedulerBackend {
             if hooks.is_empty() {
                 return Ok(());
             }
-            return self.hook_registry.run_hook("scheduler_events", Some(freq), None).await;
+            return self
+                .hook_registry
+                .run_hook("scheduler_events", Some(freq), None)
+                .await;
         }
 
         // Rust scheduled job.

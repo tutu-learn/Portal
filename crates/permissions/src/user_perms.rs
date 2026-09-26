@@ -42,7 +42,9 @@ impl PermissionEngine {
                     user: row.remove("user")?.as_str()?.to_string(),
                     allow: row.remove("allow")?.as_str()?.to_string(),
                     for_value: row.remove("for_value")?.as_str()?.to_string(),
-                    applicable_for: row.remove("applicable_for").and_then(|v| v.as_str().map(String::from)),
+                    applicable_for: row
+                        .remove("applicable_for")
+                        .and_then(|v| v.as_str().map(String::from)),
                 })
             })
             .collect())
@@ -76,10 +78,7 @@ impl PermissionEngine {
                     continue;
                 }
             }
-            by_allow
-                .entry(rule.allow)
-                .or_default()
-                .push(rule.for_value);
+            by_allow.entry(rule.allow).or_default().push(rule.for_value);
         }
 
         let mut conditions = Vec::new();
@@ -102,18 +101,23 @@ impl PermissionEngine {
                 .await?;
 
             for mut row in field_rows {
-                if let Some(fieldname) = row.remove("fieldname").and_then(|v| v.as_str().map(String::from)) {
-                    let escaped: Vec<String> = values
-                        .iter()
-                        .map(|v| v.replace('\'', "''"))
-                        .collect();
+                if let Some(fieldname) = row
+                    .remove("fieldname")
+                    .and_then(|v| v.as_str().map(String::from))
+                {
+                    let escaped: Vec<String> =
+                        values.iter().map(|v| v.replace('\'', "''")).collect();
                     let cond = if escaped.len() == 1 {
                         format!("\"{}\" = '{}'", fieldname, escaped[0])
                     } else {
                         format!(
                             "\"{}\" IN ({})",
                             fieldname,
-                            escaped.iter().map(|v| format!("'{}'", v)).collect::<Vec<_>>().join(", ")
+                            escaped
+                                .iter()
+                                .map(|v| format!("'{}'", v))
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         )
                     };
                     conditions.push(cond);

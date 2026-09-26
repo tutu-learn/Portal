@@ -115,7 +115,10 @@ pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl I
 }
 
 /// GET /logout — clear the session cookie and redirect to the login page.
-pub async fn logout_redirect(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+pub async fn logout_redirect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
     let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     if let Some(pool) = pool {
         if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {

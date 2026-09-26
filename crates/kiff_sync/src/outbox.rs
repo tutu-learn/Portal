@@ -31,7 +31,11 @@ pub struct SyncOutboxHook {
 }
 
 impl SyncOutboxHook {
-    pub fn new(site_id: impl Into<String>, node_id: impl Into<String>, pool: orm::DatabasePool) -> Self {
+    pub fn new(
+        site_id: impl Into<String>,
+        node_id: impl Into<String>,
+        pool: orm::DatabasePool,
+    ) -> Self {
         Self {
             site_id: site_id.into(),
             node_id: node_id.into(),

@@ -247,11 +247,7 @@ async fn compute_boot_cache_key(
             Err(e) => {
                 // Tables may not exist on a fresh/empty site; treat them as
                 // empty so the cache key still computes.
-                tracing::debug!(
-                    "boot cache key table {} not available: {}",
-                    table,
-                    e
-                );
+                tracing::debug!("boot cache key table {} not available: {}", table, e);
                 (String::new(), 0)
             }
         };
@@ -298,9 +294,10 @@ async fn load_workspace_children(
             .remove("parent")
             .and_then(|v| v.as_str().map(String::from))
         {
-            grouped.entry(parent).or_default().push(Value::Object(
-                row.into_iter().collect(),
-            ));
+            grouped
+                .entry(parent)
+                .or_default()
+                .push(Value::Object(row.into_iter().collect()));
         }
     }
     Ok(grouped)
@@ -1594,7 +1591,6 @@ async fn build_boot_info(
                     );
                     allowed_pages.push("kiff-logger-token-ui");
                 }
-
             }
         }
     }
@@ -1686,7 +1682,9 @@ async fn augment_boot_info(
     );
     boot.insert(
         "frequently_visited_links".to_string(),
-        json!(load_frequently_visited_links(pool, user_name).await.unwrap_or_default()),
+        json!(load_frequently_visited_links(pool, user_name)
+            .await
+            .unwrap_or_default()),
     );
     boot.insert(
         "letter_heads".to_string(),
@@ -1876,7 +1874,9 @@ async fn load_frequently_visited_links(
         ORDER BY MAX(creation) DESC
         LIMIT 10
     "#;
-    let rows = pool.execute_sql(sql, vec![Value::String(user.into())]).await?;
+    let rows = pool
+        .execute_sql(sql, vec![Value::String(user.into())])
+        .await?;
     Ok(rows
         .into_iter()
         .map(|row| {
@@ -1934,22 +1934,27 @@ async fn load_notification_settings(
     user: &str,
 ) -> error::Result<Option<Value>> {
     let sql = r#"SELECT * FROM "notification_settings" WHERE name = ?"#;
-    let rows = pool.execute_sql(sql, vec![Value::String(user.into())]).await?;
-    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+    let rows = pool
+        .execute_sql(sql, vec![Value::String(user.into())])
+        .await?;
+    Ok(rows
+        .into_iter()
+        .next()
+        .map(|row| Value::Object(row.into_iter().collect())))
 }
 
 /// Load Navbar Settings.
 async fn load_navbar_settings(pool: &orm::DatabasePool) -> error::Result<Option<Value>> {
     let sql = r#"SELECT * FROM "navbar_settings" LIMIT 1"#;
     let rows = pool.execute_sql(sql, vec![]).await?;
-    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+    Ok(rows
+        .into_iter()
+        .next()
+        .map(|row| Value::Object(row.into_iter().collect())))
 }
 
 /// Load the current user's desk properties from `tabUser`.
-async fn load_desk_settings(
-    pool: &orm::DatabasePool,
-    user: &str,
-) -> error::Result<Option<Value>> {
+async fn load_desk_settings(pool: &orm::DatabasePool, user: &str) -> error::Result<Option<Value>> {
     let cols = [
         "list_sidebar",
         "form_sidebar",
@@ -1959,12 +1964,14 @@ async fn load_desk_settings(
         "notifications",
         "view_switcher",
     ];
-    let sql = format!(
-        r#"SELECT {} FROM "user" WHERE name = ?"#,
-        cols.join(", ")
-    );
-    let rows = pool.execute_sql(&sql, vec![Value::String(user.into())]).await?;
-    Ok(rows.into_iter().next().map(|row| Value::Object(row.into_iter().collect())))
+    let sql = format!(r#"SELECT {} FROM "user" WHERE name = ?"#, cols.join(", "));
+    let rows = pool
+        .execute_sql(&sql, vec![Value::String(user.into())])
+        .await?;
+    Ok(rows
+        .into_iter()
+        .next()
+        .map(|row| Value::Object(row.into_iter().collect())))
 }
 
 /// Load DocTypes configured to show a preview popup.
@@ -2061,7 +2068,10 @@ async fn load_nested_set_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec
 /// Load DocTypes whose default view is Tree.
 async fn load_tree_view_doctypes(pool: &orm::DatabasePool) -> error::Result<Vec<String>> {
     let rows = pool
-        .execute_sql(r#"SELECT name FROM "doctype" WHERE default_view = 'Tree'"#, vec![])
+        .execute_sql(
+            r#"SELECT name FROM "doctype" WHERE default_view = 'Tree'"#,
+            vec![],
+        )
         .await?;
     Ok(rows
         .into_iter()
@@ -2086,10 +2096,7 @@ async fn load_home_folder(pool: &orm::DatabasePool) -> error::Result<Option<Stri
 /// Load the app logo URL from Navbar Settings.
 async fn load_app_logo_url(pool: &orm::DatabasePool) -> error::Result<Option<String>> {
     let rows = pool
-        .execute_sql(
-            r#"SELECT app_logo FROM "navbar_settings" LIMIT 1"#,
-            vec![],
-        )
+        .execute_sql(r#"SELECT app_logo FROM "navbar_settings" LIMIT 1"#, vec![])
         .await?;
     Ok(rows
         .into_iter()
@@ -2111,7 +2118,10 @@ async fn append_country_currency_docs(boot: &mut Map<String, Value>, pool: &orm:
 
     if let Some(country) = country {
         if let Ok(rows) = pool
-            .execute_sql(r#"SELECT * FROM "country" WHERE name = ?"#, vec![Value::String(country)])
+            .execute_sql(
+                r#"SELECT * FROM "country" WHERE name = ?"#,
+                vec![Value::String(country)],
+            )
             .await
         {
             if let Some(obj) = rows.into_iter().next() {
@@ -2125,10 +2135,7 @@ async fn append_country_currency_docs(boot: &mut Map<String, Value>, pool: &orm:
     }
 
     match pool
-        .execute_sql(
-            r#"SELECT * FROM "currency" WHERE enabled = 1"#,
-            vec![],
-        )
+        .execute_sql(r#"SELECT * FROM "currency" WHERE enabled = 1"#, vec![])
         .await
     {
         Ok(rows) => {
@@ -2296,7 +2303,10 @@ fn render_social_login_buttons(providers: &[(SocialLoginProvider, String)]) -> S
 /// `redirect-to`). Returns `None` when the feature is off or the configured
 /// path is unsafe: it must be a local absolute path and not `/login` itself
 /// (which would redirect in a loop).
-pub(crate) fn custom_login_target(config: &config::RuntimeConfig, raw_query: Option<&str>) -> Option<String> {
+pub(crate) fn custom_login_target(
+    config: &config::RuntimeConfig,
+    raw_query: Option<&str>,
+) -> Option<String> {
     let path = config.auth.custom_login_path.as_deref()?.trim();
     if path.is_empty() || !path.starts_with('/') || path.starts_with("//") || path == "/login" {
         tracing::warn!(custom_login_path = %path, "ignoring invalid custom login path");
@@ -2399,11 +2409,7 @@ fn parse_desktop_page_query(raw: &str) -> HashMap<String, String> {
     serde_urlencoded::from_str(&escaped).unwrap_or_default()
 }
 
-async fn handle_desktop_page(
-    state: &AppState,
-    headers: &HeaderMap,
-    page_json: &str,
-) -> Response {
+async fn handle_desktop_page(state: &AppState, headers: &HeaderMap, page_json: &str) -> Response {
     let page: Value = match serde_json::from_str(page_json) {
         Ok(v) => v,
         Err(e) => {
@@ -2443,13 +2449,14 @@ async fn handle_desktop_page(
     };
 
     // Check cache.
-    let cache_key = match compute_desktop_page_cache_key(&pool, &state.permissions, &user, &page_name).await {
-        Ok(k) => k,
-        Err(e) => {
-            tracing::warn!("desktop page cache key failed: {}", e);
-            String::new()
-        }
-    };
+    let cache_key =
+        match compute_desktop_page_cache_key(&pool, &state.permissions, &user, &page_name).await {
+            Ok(k) => k,
+            Err(e) => {
+                tracing::warn!("desktop page cache key failed: {}", e);
+                String::new()
+            }
+        };
 
     if !cache_key.is_empty() {
         if let Some(cached) = state.boot_cache.get(&user, &cache_key) {
@@ -2463,11 +2470,7 @@ async fn handle_desktop_page(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!("build_desktop_page failed for {}: {}", page_name, e);
-            return (
-                StatusCode::OK,
-                Json(json!({ "message": {} })),
-            )
-                .into_response();
+            return (StatusCode::OK, Json(json!({ "message": {} }))).into_response();
         }
     };
 
@@ -2588,13 +2591,12 @@ async fn load_workspace_row(pool: &orm::DatabasePool, name: &str) -> error::Resu
         )
         .await?;
 
-    let mut row = rows
-        .into_iter()
-        .next()
-        .ok_or_else(|| error::RuntimeError::Io(std::io::Error::new(
+    let mut row = rows.into_iter().next().ok_or_else(|| {
+        error::RuntimeError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("Workspace {} not found", name),
-        )))?;
+        ))
+    })?;
 
     // Normalize numeric-ish fields.
     normalize_workspace_row(&mut row);
@@ -2639,9 +2641,24 @@ async fn attach_workspace_children_for_page(
             "workspace_link",
             "links",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent", "type",
-                "label", "icon", "hidden", "link_type", "link_to", "dependencies",
-                "only_for", "onboard", "is_query_report", "link_count", "description",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "type",
+                "label",
+                "icon",
+                "hidden",
+                "link_type",
+                "link_to",
+                "dependencies",
+                "only_for",
+                "onboard",
+                "is_query_report",
+                "link_count",
+                "description",
                 "report_ref_doctype",
             ],
         ),
@@ -2649,38 +2666,81 @@ async fn attach_workspace_children_for_page(
             "workspace_shortcut",
             "shortcuts",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent", "type",
-                "link_to", "doc_view", "label", "icon", "restrict_to_domain",
-                "stats_filter", "color", "format", "url", "kanban_board", "report_ref_doctype",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "type",
+                "link_to",
+                "doc_view",
+                "label",
+                "icon",
+                "restrict_to_domain",
+                "stats_filter",
+                "color",
+                "format",
+                "url",
+                "kanban_board",
+                "report_ref_doctype",
             ],
         ),
         (
             "workspace_chart",
             "charts",
-            vec!["name", "creation", "modified", "owner", "idx", "parent", "chart_name", "label"],
+            vec![
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "chart_name",
+                "label",
+            ],
         ),
         (
             "workspace_number_card",
             "number_cards",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "number_card_name", "label",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "number_card_name",
+                "label",
             ],
         ),
         (
             "workspace_quick_list",
             "quick_lists",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "document_type", "label", "quick_list_filter",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "document_type",
+                "label",
+                "quick_list_filter",
             ],
         ),
         (
             "workspace_custom_block",
             "custom_blocks",
             vec![
-                "name", "creation", "modified", "owner", "idx", "parent",
-                "custom_block_name", "label",
+                "name",
+                "creation",
+                "modified",
+                "owner",
+                "idx",
+                "parent",
+                "custom_block_name",
+                "label",
             ],
         ),
     ];
@@ -2694,7 +2754,10 @@ async fn attach_workspace_children_for_page(
             field,
             pool.placeholder(1)
         );
-        let rows = match pool.execute_sql(&sql, vec![Value::String(name.clone())]).await {
+        let rows = match pool
+            .execute_sql(&sql, vec![Value::String(name.clone())])
+            .await
+        {
             Ok(rows) => rows,
             Err(e) => {
                 tracing::debug!("workspace child table {} not available: {}", table, e);
@@ -2715,11 +2778,7 @@ async fn attach_workspace_children_for_page(
     Ok(())
 }
 
-async fn is_workspace_manager(
-    state: &AppState,
-    pool: &orm::DatabasePool,
-    user: &str,
-) -> bool {
+async fn is_workspace_manager(state: &AppState, pool: &orm::DatabasePool, user: &str) -> bool {
     if user == "Administrator" {
         return true;
     }
@@ -2828,8 +2887,9 @@ async fn load_allowed_reports(
     let role_rows = if user_roles.is_empty() {
         vec![]
     } else {
-        let placeholders: Vec<String> =
-            (1..=user_roles.len()).map(|i| pool.placeholder(i)).collect();
+        let placeholders: Vec<String> = (1..=user_roles.len())
+            .map(|i| pool.placeholder(i))
+            .collect();
         let sql = format!(
             r#"SELECT DISTINCT r.name, r.report_type, r.ref_doctype
                FROM "report" r
@@ -2837,7 +2897,10 @@ async fn load_allowed_reports(
                WHERE r.disabled = 0 AND hr.role IN ({})"#,
             placeholders.join(", ")
         );
-        let params: Vec<Value> = user_roles.iter().map(|s| Value::String(s.clone())).collect();
+        let params: Vec<Value> = user_roles
+            .iter()
+            .map(|s| Value::String(s.clone()))
+            .collect();
         pool.execute_sql(&sql, params).await.unwrap_or_default()
     };
 
@@ -2866,7 +2929,9 @@ async fn load_allowed_reports(
 }
 
 fn report_meta_from_row(mut row: HashMap<String, Value>) -> Option<(String, ReportMeta)> {
-    let name = row.remove("name").and_then(|v| v.as_str().map(String::from))?;
+    let name = row
+        .remove("name")
+        .and_then(|v| v.as_str().map(String::from))?;
     let report_type = row
         .remove("report_type")
         .and_then(|v| v.as_str().map(String::from))
@@ -2875,7 +2940,13 @@ fn report_meta_from_row(mut row: HashMap<String, Value>) -> Option<(String, Repo
         .remove("ref_doctype")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    Some((name, ReportMeta { report_type, ref_doctype }))
+    Some((
+        name,
+        ReportMeta {
+            report_type,
+            ref_doctype,
+        },
+    ))
 }
 
 #[derive(Debug, Clone)]
@@ -2884,14 +2955,18 @@ struct ReportMeta {
     ref_doctype: String,
 }
 
-async fn load_doctype_descriptions(pool: &orm::DatabasePool) -> error::Result<HashMap<String, String>> {
+async fn load_doctype_descriptions(
+    pool: &orm::DatabasePool,
+) -> error::Result<HashMap<String, String>> {
     let rows = pool
         .execute_sql(r#"SELECT name, description FROM "doctype""#, vec![])
         .await?;
     Ok(rows
         .into_iter()
         .filter_map(|mut r| {
-            let name = r.remove("name").and_then(|v| v.as_str().map(String::from))?;
+            let name = r
+                .remove("name")
+                .and_then(|v| v.as_str().map(String::from))?;
             let desc = r
                 .remove("description")
                 .and_then(|v| v.as_str().map(String::from))
@@ -2908,16 +2983,19 @@ async fn get_table_counts(pool: &orm::DatabasePool) -> error::Result<HashMap<Str
     let mut counts: HashMap<String, bool> = HashMap::new();
 
     let cache_rows = pool
-        .execute_sql(r#"SELECT doctype, count FROM "__kiff_table_count_cache""#, vec![])
+        .execute_sql(
+            r#"SELECT doctype, count FROM "__kiff_table_count_cache""#,
+            vec![],
+        )
         .await
         .unwrap_or_default();
 
     for mut row in cache_rows {
-        if let Some(name) = row.remove("doctype").and_then(|v| v.as_str().map(String::from)) {
-            let count = row
-                .get("count")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
+        if let Some(name) = row
+            .remove("doctype")
+            .and_then(|v| v.as_str().map(String::from))
+        {
+            let count = row.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
             counts.insert(name, count > 0);
         }
     }
@@ -2935,10 +3013,7 @@ async fn doctype_contains_record(
 
     let table = doctype.to_lowercase().replace(' ', "_");
     let exists = pool
-        .execute_sql(
-            &format!(r#"SELECT 1 FROM "{}" LIMIT 1"#, table),
-            vec![],
-        )
+        .execute_sql(&format!(r#"SELECT 1 FROM "{}" LIMIT 1"#, table), vec![])
         .await
         .map(|rows| !rows.is_empty())
         .unwrap_or(false);
@@ -3039,13 +3114,7 @@ async fn build_link_groups(
             && is_item_allowed(&lto, &ltype, state, pool, user, allowed_reports).await?
         {
             let mut prepared = link.clone();
-            prepare_link_item(
-                &mut prepared,
-                doctype_descriptions,
-                table_counts,
-                pool,
-            )
-            .await?;
+            prepare_link_item(&mut prepared, doctype_descriptions, table_counts, pool).await?;
 
             if let Some(arr) = current_card
                 .as_object_mut()
@@ -3083,7 +3152,11 @@ async fn prepare_link_item(
     let mut counts = table_counts.clone();
 
     if let Some(deps) = item.get("dependencies").and_then(|v| v.as_str()) {
-        let deps: Vec<String> = deps.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let deps: Vec<String> = deps
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
         let incomplete: Vec<String> = Vec::new();
         for dep in deps {
             if !doctype_contains_record(pool, &mut counts, &dep).await {
@@ -3656,7 +3729,10 @@ mod tests {
         let cache = rust_apps_core::AssetCache::default();
         let (map1, _) = load_bundle_map(&cache, &tmp_dir).await;
         let (map2, _) = load_bundle_map(&cache, &tmp_dir).await;
-        assert_eq!(map1.get("desk.bundle.js"), Some(&"desk.bundle.js".to_string()));
+        assert_eq!(
+            map1.get("desk.bundle.js"),
+            Some(&"desk.bundle.js".to_string())
+        );
         assert_eq!(map1, map2);
 
         let _ = std::fs::remove_dir_all(&tmp_dir);

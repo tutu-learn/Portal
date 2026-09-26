@@ -94,8 +94,7 @@ pub async fn sync_all(
     data_tables::sync_data_tables(pool).await?;
     dynamic_fields::migrate_legacy_log_viewer_service(pool).await?;
     permissions::ensure_docperm_defaults(pool).await?;
-    seed_data::insert_seed_data(pool, workspace_fixtures, page_fixtures)
-        .await?;
+    seed_data::insert_seed_data(pool, workspace_fixtures, page_fixtures).await?;
     seed_data::insert_client_script_fixtures(pool, client_script_fixtures).await?;
     info!("doctype sync complete");
     Ok(())

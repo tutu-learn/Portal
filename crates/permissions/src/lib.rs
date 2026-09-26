@@ -305,9 +305,7 @@ impl PermissionEngine {
         // Apply User Permission link-field restrictions on top of row-level
         // conditions. This lets administrators restrict users to documents that
         // belong to a specific office, practice area, client, etc.
-        let user_perm_conditions = self
-            .user_permission_conditions(pool, user, doctype)
-            .await?;
+        let user_perm_conditions = self.user_permission_conditions(pool, user, doctype).await?;
         conditions.extend(user_perm_conditions);
 
         if !full_read && conditions.is_empty() {
@@ -551,7 +549,13 @@ impl PermissionEngine {
         allowed_levels: &std::collections::HashSet<i32>,
     ) {
         let standard: std::collections::HashSet<&str> = [
-            "name", "owner", "creation", "modified", "modified_by", "docstatus", "doctype",
+            "name",
+            "owner",
+            "creation",
+            "modified",
+            "modified_by",
+            "docstatus",
+            "doctype",
         ]
         .into_iter()
         .collect();
@@ -559,13 +563,14 @@ impl PermissionEngine {
         let allowed_fields: std::collections::HashSet<&str> = meta
             .fields
             .iter()
-            .filter(|f| standard.contains(f.fieldname.as_str()) || allowed_levels.contains(&f.permlevel))
+            .filter(|f| {
+                standard.contains(f.fieldname.as_str()) || allowed_levels.contains(&f.permlevel)
+            })
             .map(|f| f.fieldname.as_str())
             .collect();
 
-        doc.fields.retain(|k, _| {
-            standard.contains(k.as_str()) || allowed_fields.contains(k.as_str())
-        });
+        doc.fields
+            .retain(|k, _| standard.contains(k.as_str()) || allowed_fields.contains(k.as_str()));
     }
 
     /// Return the field names the user is allowed to read/write for `doctype`.

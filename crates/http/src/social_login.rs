@@ -319,7 +319,10 @@ mod tests {
             url.contains("prompt=consent"),
             "auth_url_data stored as a string must still reach the authorize URL: {url}"
         );
-        assert!(url.contains("scope=openid+profile+email") || url.contains("scope=openid%20profile%20email"));
+        assert!(
+            url.contains("scope=openid+profile+email")
+                || url.contains("scope=openid%20profile%20email")
+        );
     }
 
     #[test]

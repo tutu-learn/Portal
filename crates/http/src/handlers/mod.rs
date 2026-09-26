@@ -5,3 +5,4 @@ pub mod files;
 pub mod home_page;
 pub mod permissions;
 pub mod socketio;
+pub mod thruster;

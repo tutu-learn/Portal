@@ -1,4 +1,4 @@
-use crate::handlers::{api, auth, desk, files, home_page, permissions, socketio};
+use crate::handlers::{api, auth, desk, files, home_page, permissions, socketio, thruster};
 use crate::websocket::ws_handler;
 use crate::AppState;
 use axum::{
@@ -123,5 +123,7 @@ pub fn create_router() -> Router<AppState> {
         )
         .route("/desk", get(desk::serve_desk))
         .route("/desk/*path", get(desk::serve_desk))
+        .route("/thruster/:platform/:filename", get(thruster::serve_binary))
+        .route("/api/method/thruster.upload", post(thruster::upload_binary))
         .fallback(desk::serve_desk)
 }

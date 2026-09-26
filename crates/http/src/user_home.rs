@@ -153,9 +153,6 @@ mod tests {
         assert_eq!(valid_configured_home_path(None), None);
         assert_eq!(valid_configured_home_path(Some("")), None);
         assert_eq!(valid_configured_home_path(Some("not-a-path")), None);
-        assert_eq!(
-            valid_configured_home_path(Some("//evil.example.com")),
-            None
-        );
+        assert_eq!(valid_configured_home_path(Some("//evil.example.com")), None);
     }
 }
