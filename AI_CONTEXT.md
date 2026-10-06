@@ -313,6 +313,36 @@ The Frappe SQLite migration scripts may create tables with `tab` prefix — veri
 
 ---
 
+## Audit Ready Action — Button Callbacks
+
+Action-plan buttons can trigger a server-side REST callback when the client
+reports a result. The client must include `{ "command": "<button-command>" }`
+in `result`. The server then matches the button by `command` and invokes the
+configured URL.
+
+Button fields:
+
+| Field | Purpose |
+|---|---|
+| `callback_url` | REST endpoint to call |
+| `callback_method` | HTTP method (default `POST`) |
+| `callback_params` | JSON object merged into the request |
+| `callback_token` | Secret token to send |
+| `callback_token_kind` | `bearer`, `query`, or `header` (default `bearer`) |
+| `callback_token_name` | Query/header name when `kind` is `query` or `header` |
+
+The callback request body always includes `action_name`, `command`, and `status`.
+Callback failures are logged but do not fail the action.
+
+Relevant files:
+
+- `rust_apps/audit_ready/src/actions/callback.rs` — callback execution
+- `rust_apps/audit_ready/src/actions/store.rs` — invokes callback from `record_result`
+- `rust_apps/audit_ready/src/doctypes/actions/audit_ready_action.json`
+- `rust_apps/audit_ready/src/doctypes/actions/recurring_action.json`
+
+---
+
 ## What's Working
 
 - HTTP server starts, serves desk assets, handles sessions

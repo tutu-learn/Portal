@@ -23,8 +23,10 @@ use crate::trigger::{Alert, Trigger};
 /// Maximum number of committed segments before we force a synchronous merge.
 /// With background merges disabled, each commit creates a new segment; merging
 /// when we cross this bound keeps query performance sane without risking the
-/// mmap/file-deletion race that SIGBUSes on shared PVCs.
-const MAX_SEGMENTS_BEFORE_MERGE: usize = 20;
+/// mmap/file-deletion race that SIGBUSes on shared PVCs. 10 keeps each merge
+/// small enough to finish on a 4-6 GiB node; larger values create memory spikes
+/// when 20+ 36 M-doc segments are merged at once.
+const MAX_SEGMENTS_BEFORE_MERGE: usize = 10;
 
 /// Aggregate count of log records for a single (service, level) pair over a
 /// time window, along with the first and last record timestamps seen in that
@@ -133,10 +135,12 @@ impl LogEngine {
         // In-process memory ceiling. When set, the engine refuses expensive
         // operations (commits/merges) if RSS is already close to the limit.
         // This keeps the pod alive on small nodes instead of relying on k8s
-        // OOM-killing it after a SIGBUS.
+        // OOM-killing it after a SIGBUS. Default to 4 GiB so out-of-the-box
+        // deployments do not let a 21-segment Tantivy merge consume all RAM.
         let memory_limit_bytes = std::env::var("KIFF_LOG_MEMORY_LIMIT_MB")
             .ok()
             .and_then(|s| s.parse().ok())
+            .or(Some(4096usize))
             .map(|mb: usize| mb * 1_000_000);
 
         // Read pending (un-committed) WAL entries before we reopen for append.

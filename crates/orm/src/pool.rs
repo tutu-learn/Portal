@@ -23,17 +23,21 @@ impl DatabasePool {
             // greatly improves concurrency when multiple agents hit SQLite.
             .journal_mode(SqliteJournalMode::Wal)
             .synchronous(SqliteSynchronous::Normal)
-            // Wait up to 5 seconds instead of failing immediately when the
+            // Wait up to 10 seconds instead of failing immediately when the
             // single SQLite writer lock is held by another request.
-            .busy_timeout(std::time::Duration::from_secs(5))
-            // Larger cache helps metadata-heavy doctype sync and queries.
-            .pragma("cache_size", "-64000");
-        // SQLite only allows one writer at a time; a large pool mainly creates
-        // lock contention. Cap it low by default, but allow override via env.
+            .busy_timeout(std::time::Duration::from_secs(10))
+            // Per-connection page cache. 16 MB per connection keeps the
+            // aggregate cache bounded (8 connections ~= 128 MB) while still
+            // helping metadata-heavy doctype sync and queries.
+            .pragma("cache_size", "-16000");
+        // SQLite only allows one writer at a time, but WAL mode lets multiple
+        // readers coexist. A tiny pool (3) starves the HTTP layer when a Desk
+        // workspace opens and fires many concurrent API calls. Default to 8
+        // and allow override via env for memory-constrained deployments.
         let max_connections = std::env::var("KIFF_SQLITE_MAX_CONNECTIONS")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(3u32);
+            .unwrap_or(8u32);
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             // Always keep one connection open: while the pool holds the DB
             // file, its WAL file cannot legitimately be deleted/recreated,
@@ -41,7 +45,10 @@ impl DatabasePool {
             // change as proof of external interference.
             .min_connections(1)
             .max_connections(max_connections)
-            .acquire_timeout(std::time::Duration::from_secs(10))
+            // Give requests a generous window to acquire a connection when the
+            // pool is temporarily saturated (e.g. workspace bootinfo + card
+            // count queries all arrive together).
+            .acquire_timeout(std::time::Duration::from_secs(30))
             // Connections must never be recycled: every close-time WAL
             // checkpoint of a sibling connection can delete the shared -wal
             // out from under the rest of the pool (POSIX fcntl locks are
