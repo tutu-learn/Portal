@@ -1107,4 +1107,60 @@ mod tests {
 
         std::env::remove_var("KIFF_SQLITE_SHARDED");
     }
+
+    #[tokio::test]
+    async fn k8s_domain_includes_cluster_and_node_tables() {
+        std::env::set_var("KIFF_SQLITE_SHARDED", "1");
+
+        let dir = tempfile::tempdir().unwrap();
+        let pools = Arc::new(DomainPools::connect(dir.path()).await.unwrap());
+        let core = pools.core();
+
+        // Tables that back the Kubernetes Cluster DocType route to the k8s
+        // domain so node projection does not hold the site.db writer lock.
+        let k8s_handle = core.for_doctype("Kubernetes Cluster");
+        k8s_handle
+            .execute_sql(
+                "CREATE TABLE kubernetes_cluster (name TEXT)",
+                vec![],
+            )
+            .await
+            .unwrap();
+        k8s_handle
+            .execute_sql(
+                "CREATE TABLE kubernetes_control_plane_node (name TEXT)",
+                vec![],
+            )
+            .await
+            .unwrap();
+        k8s_handle
+            .execute_sql(
+                "CREATE TABLE kubernetes_worker_node (name TEXT)",
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        let k8s_rows = k8s_handle
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('kubernetes_cluster', 'kubernetes_control_plane_node', 'kubernetes_worker_node')",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(k8s_rows.len(), 3);
+
+        // They should NOT exist in the core DB.
+        let core_pool = pools.pool_for(DbDomain::Core);
+        let core_rows = core_pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('kubernetes_cluster', 'kubernetes_control_plane_node', 'kubernetes_worker_node')",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(core_rows.is_empty());
+
+        std::env::remove_var("KIFF_SQLITE_SHARDED");
+    }
 }

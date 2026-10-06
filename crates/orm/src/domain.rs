@@ -32,7 +32,11 @@ impl DbDomain {
     /// which SQLite file when sharding is enabled.
     pub fn for_table(name: &str) -> Self {
         let lower = name.to_lowercase();
-        if lower.starts_with("k8s_") {
+        if lower.starts_with("k8s_")
+            || lower == "kubernetes_cluster"
+            || lower.starts_with("kubernetes_control_plane_node")
+            || lower.starts_with("kubernetes_worker_node")
+        {
             DbDomain::K8s
         } else if lower.starts_with("audit_ready_dns_")
             || lower.starts_with("infrastructure_server")

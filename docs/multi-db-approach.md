@@ -9,7 +9,7 @@ Previously every site stored all its data in a single `site.db` file. The runtim
 | Domain      | File name        | Typical contents                                            |
 |-------------|------------------|-------------------------------------------------------------|
 | `Core`      | `site.db`        | Frappe metadata (`DocType`, `DocField`, `User`, `__kiff_*`) |
-| `K8s`       | `k8s.db`         | Tables whose names start with `k8s_`                        |
+| `K8s`       | `k8s.db`         | `k8s_*`, `kubernetes_cluster`, `kubernetes_control_plane_node`, `kubernetes_worker_node` |
 | `Telemetry` | `telemetry.db`   | `audit_ready_dns_*`, `infrastructure_server*`, `client_machine` |
 | `State`     | `state.db`       | `patch_job*`, `agent_state*`                                |
 
@@ -31,7 +31,7 @@ On the first startup the runtime will create `k8s.db`, `telemetry.db`, and `stat
 
 The single source of truth for routing is `DbDomain::for_table` in `crates/orm/src/domain.rs`:
 
-- `k8s_*` → `K8s`
+- `k8s_*`, `kubernetes_cluster`, `kubernetes_control_plane_node`, `kubernetes_worker_node` → `K8s`
 - `audit_ready_dns_*`, `infrastructure_server*`, `client_machine` → `Telemetry`
 - `patch_job*`, `agent_state*` → `State`
 - everything else → `Core`
