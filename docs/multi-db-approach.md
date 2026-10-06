@@ -119,6 +119,60 @@ The pool watchdog (`crates/runtime/src/pool_watchdog.rs`) now probes every domai
 | `KIFF_SQLITE_MAX_CONNECTIONS_TELEMETRY` | `8` | Max connections for `telemetry.db`           |
 | `KIFF_SQLITE_MAX_CONNECTIONS_STATE` | `6`     | Max connections for `state.db`               |
 
+## Cross-domain operations
+
+Each domain has its own connection pool and its own SQLite writer lock. When a single logical operation touches more than one domain, you must open **separate transactions** and keep each one as short as possible.
+
+```rust
+// k8s_inventory lives in k8s.db; kubernetes_cluster lives in site.db.
+let k8s_pool = pool.for_table("k8s_inventory");
+let mut k8s_tx = k8s_pool.begin().await?;
+
+// do all k8s work, then commit immediately
+let node_jsons = apply_k8s_changes(&mut k8s_tx).await?;
+k8s_tx.commit().await?;
+
+// only then touch the core domain
+if !node_jsons.is_empty() {
+    let core_pool = pool.for_table("kubernetes_cluster");
+    let mut core_tx = core_pool.begin().await?;
+    project_nodes(&mut core_tx, &node_jsons).await?;
+    core_tx.commit().await?;
+}
+```
+
+Rules:
+
+- Do **not** nest or interleave transactions across domains.
+- Do **not** hold a transaction open while doing I/O, parsing, or work that could be done before/after.
+- If both domains must stay consistent, treat the second commit as an idempotent projection that can be retried rather than a two-phase commit.
+
+## Lock contention and performance
+
+SQLite allows only **one writer per database file at a time**. With sharding enabled each domain (`site.db`, `k8s.db`, `telemetry.db`, `state.db`) has its own writer lock, but every writer still queues inside its own file.
+
+A long-running transaction in one domain blocks every other writer in that same domain. Typical symptoms are:
+
+- `database is locked` (SQLITE_BUSY, code 5)
+- `database is locked` with code 517 (SQLITE_BUSY_SNAPSHOT under WAL mode)
+- Slow statements logged by `sqlx::query` while waiting for the writer lock
+
+Patterns to avoid:
+
+| Bad pattern | Why it hurts |
+|-------------|--------------|
+| One transaction for an entire large batch | Holds the writer lock across hundreds of upserts/deletes |
+| Pruning with huge `AND NOT (namespace=? AND object_name=?)` clauses | Builds queries with hundreds of parameter pairs and keeps the lock for the whole scan |
+| Opening a write transaction before all data is ready | Other writers wait while you parse, serialize, or wait on network |
+
+Recommended fixes:
+
+1. **Chunk large batches.** Commit every N events (for example 100) instead of holding one transaction for the whole batch.
+2. **Use `BEGIN IMMEDIATE` for write transactions.** This fails fast if the writer lock is unavailable instead of waiting inside the transaction and later failing on the first write.
+3. **Retry on `SQLITE_BUSY` / `SQLITE_BUSY_SNAPSHOT`.** Exponential backoff keeps the system healthy when load spikes.
+4. **Replace giant `AND NOT` prune clauses with a temp table.** Insert the keys you want to keep into a temporary table, then `DELETE FROM inventory WHERE (namespace, name) NOT IN (SELECT namespace, name FROM keep)`.
+5. **Keep read-only work outside the transaction.** Build the prune scope and node projections before opening the writer.
+
 ## Known limitations
 
 1. **Embedded Python `.so` bridge uses a single pool.** The `kiff_core` shared object loaded by the embedded Python runtime is initialized from a plain DB URL (`site.db`) and therefore does not participate in domain sharding. Doctype-based calls that go through the Rust binary's Python bridge are routed correctly, but raw SQL executed inside the `.so` instance only sees `site.db`. Keep domain-specific logic in Rust apps or HTTP handlers when sharding is enabled.
@@ -126,6 +180,8 @@ The pool watchdog (`crates/runtime/src/pool_watchdog.rs`) now probes every domai
 2. **Raw SQL must quote table names.** Unquoted table names are not scanned by the router.
 
 3. **Cross-domain joins are not supported.** The router picks the first non-core domain and warns.
+
+4. **Cross-domain transactions are not atomic.** If the first commit succeeds and the second fails, the caller must retry or reconcile the second domain idempotently.
 
 ## Checklist for app authors
 
