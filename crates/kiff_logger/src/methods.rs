@@ -93,7 +93,7 @@ pub async fn create_token_method(
         .pools
         .iter()
         .next()
-        .map(|e| e.value().clone())
+        .map(|e| e.value().core().clone())
         .ok_or_else(|| error::RuntimeError::Config("no database pool available".into()))?;
 
     let caller = ctx.user.as_deref().unwrap_or("Guest");
@@ -138,7 +138,7 @@ pub async fn revoke_token_method(
         .pools
         .iter()
         .next()
-        .map(|e| e.value().clone())
+        .map(|e| e.value().core().clone())
         .ok_or_else(|| error::RuntimeError::Config("no database pool available".into()))?;
 
     let caller = ctx.user.as_deref().unwrap_or("Guest");

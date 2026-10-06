@@ -649,8 +649,10 @@ mod tests {
         let n = DB_COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = format!("/tmp/kiff_perm_test_{}.db", n);
         let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path));
+        let _ = std::fs::remove_file(format!("{}-shm", path));
         let pool = orm::DatabasePool::connect_sqlite(&path).await?;
-        orm::migrations::Migrator::run(&pool).await?;
+        orm::migrations::Migrator::run(&pool.domain_pools()).await?;
         Ok(pool)
     }
 

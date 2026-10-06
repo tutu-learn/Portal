@@ -38,7 +38,7 @@ async fn template_db() -> error::Result<String> {
             let path = format!("/tmp/kiff_test_template_{}.db", std::process::id());
             remove_db_files(&path);
             let pool = orm::DatabasePool::connect_sqlite(&path).await?;
-            orm::migrations::Migrator::run(&pool).await?;
+            orm::migrations::Migrator::run(&pool.domain_pools()).await?;
             orm::doctype_sync::sync_all(&pool, vec![], vec![], vec![], vec![], vec![]).await?;
             set_admin_password(&pool).await?;
             pool.execute_sql("PRAGMA wal_checkpoint(TRUNCATE)", vec![])
@@ -163,7 +163,7 @@ fn build_state_with_apps(
     use std::sync::Arc;
 
     let pools = Arc::new(DashMap::new());
-    pools.insert("test_site".into(), pool);
+    pools.insert("test_site".into(), Arc::new(orm::DomainPools::from_core_pool(pool)));
 
     let site = config::site::Site::new(
         "test_site".into(),

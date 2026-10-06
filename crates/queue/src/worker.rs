@@ -99,27 +99,13 @@ impl Worker {
         // Use a transaction to atomically claim a job
         let mut tx = pool.begin().await?;
 
-        let sql = match pool.dialect() {
-            "postgres" => {
-                r#"
-                SELECT id, method, queue, kwargs, status, site, created_at, updated_at
-                FROM __kiff_queue
-                WHERE queue = $1 AND status = 'queued'
-                ORDER BY created_at
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED
-            "#
-            }
-            _ => {
-                r#"
-                SELECT id, method, queue, kwargs, status, site, created_at, updated_at
-                FROM __kiff_queue
-                WHERE queue = ? AND status = 'queued'
-                ORDER BY created_at
-                LIMIT 1
-            "#
-            }
-        };
+        let sql = r#"
+            SELECT id, method, queue, kwargs, status, site, created_at, updated_at
+            FROM __kiff_queue
+            WHERE queue = ? AND status = 'queued'
+            ORDER BY created_at
+            LIMIT 1
+        "#;
 
         let rows = tx
             .execute_sql(sql, vec![serde_json::Value::String(self.queue.clone())])
@@ -136,22 +122,11 @@ impl Worker {
         let job = row_to_job(row)?;
 
         // Mark as running
-        let update_sql = match pool.dialect() {
-            "postgres" => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'running', updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1
-            "#
-            }
-            _ => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'running', updated_at = datetime('now')
-                WHERE id = ?
-            "#
-            }
-        };
+        let update_sql = r#"
+            UPDATE __kiff_queue
+            SET status = 'running', updated_at = datetime('now')
+            WHERE id = ?
+        "#;
         tx.execute_sql(update_sql, vec![serde_json::Value::String(job.id.clone())])
             .await?;
 
@@ -174,55 +149,26 @@ impl Worker {
     }
 
     async fn mark_completed(&self, pool: &DatabasePool, job_id: &str) -> Result<()> {
-        let sql = match pool.dialect() {
-            "postgres" => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1
-            "#
-            }
-            _ => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'completed', updated_at = datetime('now')
-                WHERE id = ?
-            "#
-            }
-        };
+        let sql = r#"
+            UPDATE __kiff_queue
+            SET status = 'completed', updated_at = datetime('now')
+            WHERE id = ?
+        "#;
         pool.execute_sql(sql, vec![serde_json::Value::String(job_id.into())])
             .await?;
         Ok(())
     }
 
     async fn mark_failed(&self, pool: &DatabasePool, job_id: &str, error_msg: &str) -> Result<()> {
-        let sql = match pool.dialect() {
-            "postgres" => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'failed', updated_at = CURRENT_TIMESTAMP, error = $2
-                WHERE id = $1
-            "#
-            }
-            _ => {
-                r#"
-                UPDATE __kiff_queue
-                SET status = 'failed', updated_at = datetime('now'), error = ?
-                WHERE id = ?
-            "#
-            }
-        };
-        let params = if pool.dialect() == "postgres" {
-            vec![
-                serde_json::Value::String(job_id.into()),
-                serde_json::Value::String(error_msg.into()),
-            ]
-        } else {
-            vec![
-                serde_json::Value::String(error_msg.into()),
-                serde_json::Value::String(job_id.into()),
-            ]
-        };
+        let sql = r#"
+            UPDATE __kiff_queue
+            SET status = 'failed', updated_at = datetime('now'), error = ?
+            WHERE id = ?
+        "#;
+        let params = vec![
+            serde_json::Value::String(error_msg.into()),
+            serde_json::Value::String(job_id.into()),
+        ];
         pool.execute_sql(sql, params).await?;
         Ok(())
     }

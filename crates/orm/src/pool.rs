@@ -1,20 +1,136 @@
 use crate::document::Document;
+use crate::domain::DbDomain;
+use crate::domain_pools::DomainPools;
 use crate::filters::FilterCondition;
 use chrono::Utc;
 use error::{Result, RuntimeError};
 use serde_json::{json, Value};
 use sqlx::{Column, Row, TypeInfo};
 use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
 use tracing::{debug, warn};
 
+/// A database handle that resolves to the correct SQLite pool for the
+/// requested table/doctype.
+///
+/// There are two ways to obtain one:
+/// * `DatabasePool::connect_sqlite(url)` creates a single-pool handle for
+///   tests, CLI tools, and the Python bridge fallback.
+/// * `DomainPools::pool_for(domain)` returns a handle backed by a site's full
+///   domain bundle, which is what the runtime and HTTP layer use.
+///
+/// When the handle comes from a single-pool connection, every domain aliases
+/// that one pool. When it comes from a sharded `DomainPools`, doctype-based
+/// operations automatically route to `k8s.db`, `telemetry.db`, `state.db`, or
+/// `site.db` based on the table name.
 #[derive(Debug, Clone)]
-pub enum DatabasePool {
-    Postgres(sqlx::PgPool),
-    Sqlite(sqlx::SqlitePool),
+pub struct DatabasePool {
+    pools: Arc<DomainPools>,
+    domain: DbDomain,
+}
+
+struct ConnectionOptions {
+    max_connections: u32,
+    busy_timeout: std::time::Duration,
+    acquire_timeout: std::time::Duration,
+}
+
+impl Default for ConnectionOptions {
+    fn default() -> Self {
+        let max_connections = std::env::var("KIFF_SQLITE_MAX_CONNECTIONS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(8u32);
+        Self {
+            max_connections,
+            busy_timeout: std::time::Duration::from_secs(10),
+            acquire_timeout: std::time::Duration::from_secs(30),
+        }
+    }
+}
+
+impl ConnectionOptions {
+    fn for_domain(domain: DbDomain) -> Self {
+        let suffix = match domain {
+            DbDomain::Core => "CORE",
+            DbDomain::K8s => "K8S",
+            DbDomain::Telemetry => "TELEMETRY",
+            DbDomain::State => "STATE",
+        };
+
+        let max_connections = std::env::var(format!("KIFF_SQLITE_MAX_CONNECTIONS_{}", suffix))
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .or_else(|| {
+                std::env::var("KIFF_SQLITE_MAX_CONNECTIONS")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+            })
+            .unwrap_or_else(|| match domain {
+                DbDomain::Core => 8,
+                DbDomain::K8s => 12,
+                DbDomain::Telemetry => 8,
+                DbDomain::State => 6,
+            });
+
+        let (busy_secs, acquire_secs) = match domain {
+            DbDomain::Core => (10, 30),
+            DbDomain::K8s => (30, 60),
+            DbDomain::Telemetry => (15, 45),
+            DbDomain::State => (10, 30),
+        };
+
+        Self {
+            max_connections,
+            busy_timeout: std::time::Duration::from_secs(busy_secs),
+            acquire_timeout: std::time::Duration::from_secs(acquire_secs),
+        }
+    }
 }
 
 impl DatabasePool {
+    /// Build a handle backed by `pools` with the supplied default domain.
+    pub fn new(pools: Arc<DomainPools>, domain: DbDomain) -> Self {
+        Self { pools, domain }
+    }
+
+    /// Connect a single SQLite file. Every domain aliases this one pool, so the
+    /// handle behaves like the original single-database architecture.
     pub async fn connect_sqlite(url: &str) -> Result<Self> {
+        let pool = Self::connect_sqlite_with_options(url, ConnectionOptions::default()).await?;
+        Ok(Arc::new(DomainPools::from_core_pool(Self::from_raw(
+            pool,
+            DbDomain::Core,
+        )))
+        .core())
+    }
+
+    /// Connect to a domain-specific SQLite file inside a site directory.
+    pub async fn connect_sqlite_domain(
+        site_path: &Path,
+        domain: DbDomain,
+    ) -> Result<sqlx::SqlitePool> {
+        let path = domain.file_path(site_path);
+        let path_str = path.to_str().ok_or_else(|| {
+            RuntimeError::Config(format!("invalid database path: {:?}", path))
+        })?;
+        let opts = ConnectionOptions::for_domain(domain);
+        Self::connect_sqlite_with_options(path_str, opts).await
+    }
+
+    /// Construct a single-pool handle directly from a raw `SqlitePool`.
+    ///
+    /// This is mostly useful for tests and the `from_core_pool` helper; it does
+    /// not create domain files and is not watchdog-aware.
+    pub(crate) fn from_raw(pool: sqlx::SqlitePool, domain: DbDomain) -> Self {
+        Self {
+            pools: Arc::new(DomainPools::from_core_pool_inner(pool)),
+            domain,
+        }
+    }
+
+    async fn connect_sqlite_with_options(url: &str, options: ConnectionOptions) -> Result<sqlx::SqlitePool> {
         use sqlx::sqlite::{SqliteJournalMode, SqliteSynchronous};
         let opts = sqlx::sqlite::SqliteConnectOptions::new()
             .filename(url)
@@ -23,32 +139,24 @@ impl DatabasePool {
             // greatly improves concurrency when multiple agents hit SQLite.
             .journal_mode(SqliteJournalMode::Wal)
             .synchronous(SqliteSynchronous::Normal)
-            // Wait up to 10 seconds instead of failing immediately when the
-            // single SQLite writer lock is held by another request.
-            .busy_timeout(std::time::Duration::from_secs(10))
+            // Wait instead of failing immediately when the single SQLite writer
+            // lock is held by another request.
+            .busy_timeout(options.busy_timeout)
             // Per-connection page cache. 16 MB per connection keeps the
-            // aggregate cache bounded (8 connections ~= 128 MB) while still
-            // helping metadata-heavy doctype sync and queries.
+            // aggregate cache bounded while still helping metadata-heavy
+            // doctype sync and queries.
             .pragma("cache_size", "-16000");
-        // SQLite only allows one writer at a time, but WAL mode lets multiple
-        // readers coexist. A tiny pool (3) starves the HTTP layer when a Desk
-        // workspace opens and fires many concurrent API calls. Default to 8
-        // and allow override via env for memory-constrained deployments.
-        let max_connections = std::env::var("KIFF_SQLITE_MAX_CONNECTIONS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8u32);
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             // Always keep one connection open: while the pool holds the DB
             // file, its WAL file cannot legitimately be deleted/recreated,
             // which is what lets the runtime watchdog treat a WAL-inode
             // change as proof of external interference.
             .min_connections(1)
-            .max_connections(max_connections)
+            .max_connections(options.max_connections)
             // Give requests a generous window to acquire a connection when the
             // pool is temporarily saturated (e.g. workspace bootinfo + card
             // count queries all arrive together).
-            .acquire_timeout(std::time::Duration::from_secs(30))
+            .acquire_timeout(options.acquire_timeout)
             // Connections must never be recycled: every close-time WAL
             // checkpoint of a sibling connection can delete the shared -wal
             // out from under the rest of the pool (POSIX fcntl locks are
@@ -67,56 +175,84 @@ impl DatabasePool {
             // WAL would bake garbage pages into the main DB.
             .connect_with(opts)
             .await?;
-        Ok(DatabasePool::Sqlite(pool))
+        Ok(pool)
     }
 
-    pub async fn connect_postgres(url: &str) -> Result<Self> {
-        let pool = sqlx::PgPool::connect(url).await?;
-        Ok(DatabasePool::Postgres(pool))
-    }
-
-    /// Close every connection in the pool and wait for outstanding ones to
-    /// be returned. Clones of this pool share the same inner pool, so this
-    /// closes it for all of them. The runtime watchdog relies on this before
-    /// reconnecting: on macOS the POSIX fcntl locks and WAL-index state are
-    /// per-process, so while a wedged pool's file descriptors stay open every
-    /// new connection from the same process fails with the same corruption
-    /// error.
-    pub async fn close(&self) {
-        match self {
-            DatabasePool::Postgres(pool) => pool.close().await,
-            DatabasePool::Sqlite(pool) => pool.close().await,
+    /// Return a handle whose default domain is `domain`. Doctype-based
+    /// operations on the returned handle will use that domain's pool.
+    pub fn with_domain(&self, domain: DbDomain) -> Self {
+        Self {
+            pools: Arc::clone(&self.pools),
+            domain,
         }
+    }
+
+    /// Return a handle routed to the domain that owns `doctype`.
+    pub fn for_doctype(&self, doctype: &str) -> Self {
+        self.with_domain(DbDomain::for_table(&table_name(doctype)))
+    }
+
+    /// Return a handle routed to the domain that owns table `name`.
+    pub fn for_table(&self, name: &str) -> Self {
+        self.with_domain(DbDomain::for_table(name))
+    }
+
+    /// Return a handle routed to the core (metadata) domain.
+    pub fn core(&self) -> Self {
+        self.with_domain(DbDomain::Core)
+    }
+
+    /// Return the raw `SqlitePool` for the current default domain.
+    ///
+    /// Callers should prefer the high-level methods that route by doctype; this
+    /// is exposed for places that need to hand a raw pool to sqlx (e.g. the
+    /// watchdog and `DomainPools::from_core_pool`).
+    pub fn into_inner(self) -> sqlx::SqlitePool {
+        self.pools.raw_pool_for(self.domain)
+    }
+
+    /// Return the underlying `DomainPools` bundle. Useful for the migrator and
+    /// other code that needs to operate on every domain.
+    pub fn domain_pools(&self) -> Arc<DomainPools> {
+        Arc::clone(&self.pools)
+    }
+
+    fn pool(&self) -> sqlx::SqlitePool {
+        self.pools.raw_pool_for(self.domain)
+    }
+
+    /// Close every connection in the current default domain's pool and wait
+    /// for outstanding ones to be returned. Clones of this handle share the
+    /// same inner pool, so this closes it for all of them. The runtime
+    /// watchdog relies on this before reconnecting.
+    pub async fn close(&self) {
+        self.pool().close().await;
     }
 
     pub fn dialect(&self) -> &'static str {
-        match self {
-            DatabasePool::Postgres(_) => "postgres",
-            DatabasePool::Sqlite(_) => "sqlite",
-        }
+        "sqlite"
     }
 
-    pub fn placeholder(&self, idx: usize) -> String {
-        match self {
-            DatabasePool::Postgres(_) => format!("${}", idx),
-            DatabasePool::Sqlite(_) => "?".to_string(),
-        }
+    pub fn placeholder(&self, _idx: usize) -> String {
+        "?".to_string()
     }
 
     fn table_name(&self, doctype: &str) -> String {
-        let name = doctype.to_lowercase().replace(" ", "_");
-        name.strip_prefix("tab").unwrap_or(&name).to_string()
+        table_name(doctype)
     }
 
     /// Return child-table fields for a DocType as (fieldname, child_doctype).
+    ///
+    /// DocField metadata always lives in the core domain, so this queries the
+    /// core pool regardless of which domain owns `doctype`.
     async fn get_table_fields(&self, doctype: &str) -> Result<Vec<(String, String)>> {
-        let meta_table = self.table_name("DocField");
+        let meta = self.core();
+        let meta_table = meta.table_name("DocField");
         let sql = format!(
-            r#"SELECT fieldname, options FROM "{}" WHERE parent = {} AND fieldtype IN ('Table', 'Table MultiSelect')"#,
+            r#"SELECT fieldname, options FROM "{}" WHERE parent = ? AND fieldtype IN ('Table', 'Table MultiSelect')"#,
             meta_table,
-            self.placeholder(1)
         );
-        let rows = self
+        let rows = meta
             .query_raw(&sql, vec![Value::String(doctype.into())])
             .await?;
         Ok(rows
@@ -152,13 +288,13 @@ impl DatabasePool {
             "parenttype".into(),
         ]);
 
-        let meta_table = self.table_name("DocField");
+        let meta = self.core();
+        let meta_table = meta.table_name("DocField");
         let sql = format!(
-            r#"SELECT fieldname FROM "{}" WHERE parent = {} AND fieldname IS NOT NULL AND fieldname != ''"#,
+            r#"SELECT fieldname FROM "{}" WHERE parent = ? AND fieldname IS NOT NULL AND fieldname != ''"#,
             meta_table,
-            self.placeholder(1)
         );
-        match self
+        match meta
             .query_raw(&sql, vec![Value::String(doctype.into())])
             .await
         {
@@ -192,10 +328,13 @@ impl DatabasePool {
 
         // Virtual child DocTypes (e.g. Frappe's User Session Display) have no
         // physical table, so trying to delete/insert rows fails. Skip them.
+        // DocType metadata lives in the core domain regardless of where the
+        // parent document is stored.
         let virtual_doctypes: std::collections::HashSet<String> = {
-            let meta_table = self.table_name("DocType");
+            let meta = self.core();
+            let meta_table = meta.table_name("DocType");
             let sql = format!(r#"SELECT name FROM "{}" WHERE is_virtual = 1"#, meta_table);
-            let rows = self.query_raw(&sql, vec![]).await.unwrap_or_default();
+            let rows = meta.query_raw(&sql, vec![]).await.unwrap_or_default();
             rows.into_iter()
                 .filter_map(|mut r| r.remove("name").and_then(|v| v.as_str().map(String::from)))
                 .collect()
@@ -218,11 +357,8 @@ impl DatabasePool {
 
             let child_table = self.table_name(&child_doctype);
             let delete_sql = format!(
-                r#"DELETE FROM "{}" WHERE parent = {} AND parentfield = {} AND parenttype = {}"#,
+                r#"DELETE FROM "{}" WHERE parent = ? AND parentfield = ? AND parenttype = ?"#,
                 child_table,
-                self.placeholder(1),
-                self.placeholder(2),
-                self.placeholder(3)
             );
             self.execute_raw(
                 &delete_sql,
@@ -276,7 +412,7 @@ impl DatabasePool {
                 }
 
                 let placeholders: Vec<String> =
-                    (1..=params.len()).map(|i| self.placeholder(i)).collect();
+                    (1..=params.len()).map(|_| "?".to_string()).collect();
                 let insert_sql = format!(
                     r#"INSERT INTO "{}" ({}) VALUES ({})"#,
                     child_table,
@@ -291,15 +427,12 @@ impl DatabasePool {
     }
 
     pub async fn get_doc(&self, doctype: &str, name: &str) -> Result<Document> {
-        let table = self.table_name(doctype);
-        let sql = format!(
-            "SELECT * FROM \"{}\" WHERE name = {}",
-            table,
-            self.placeholder(1)
-        );
+        let pool = self.for_doctype(doctype);
+        let table = pool.table_name(doctype);
+        let sql = format!("SELECT * FROM \"{}\" WHERE name = ?", table);
         debug!("get_doc sql: {}", sql);
 
-        let rows = match self.query_raw(&sql, vec![Value::String(name.into())]).await {
+        let rows = match pool.query_raw(&sql, vec![Value::String(name.into())]).await {
             Ok(r) => r,
             Err(e) => {
                 let msg = e.to_string();
@@ -317,8 +450,8 @@ impl DatabasePool {
         m.insert("name".into(), Value::String(name.into()));
 
         let mut doc = Document::from_map(m)?;
-        self.load_child_tables(&mut doc, doctype).await?;
-        self.add_onload_data(&mut doc, doctype).await?;
+        pool.load_child_tables(&mut doc, doctype).await?;
+        pool.add_onload_data(&mut doc, doctype).await?;
         Ok(doc)
     }
 
@@ -331,6 +464,7 @@ impl DatabasePool {
         }
 
         let rows = match self
+            .core()
             .execute_sql(
                 r#"SELECT module_name FROM "module_def" ORDER BY module_name"#,
                 vec![],
@@ -368,11 +502,8 @@ impl DatabasePool {
         for (fieldname, child_doctype) in table_fields {
             let child_table = self.table_name(&child_doctype);
             let sql = format!(
-                r#"SELECT * FROM "{}" WHERE parent = {} AND parentfield = {} AND parenttype = {} ORDER BY idx"#,
+                r#"SELECT * FROM "{}" WHERE parent = ? AND parentfield = ? AND parenttype = ? ORDER BY idx"#,
                 child_table,
-                self.placeholder(1),
-                self.placeholder(2),
-                self.placeholder(3)
             );
             let params = vec![
                 Value::String(doc.name.clone()),
@@ -419,7 +550,8 @@ impl DatabasePool {
         permission_conditions: Option<Vec<String>>,
         limit: Option<usize>,
     ) -> Result<Vec<Document>> {
-        let table = self.table_name(doctype);
+        let pool = self.for_doctype(doctype);
+        let table = pool.table_name(doctype);
         let cols = match fields {
             Some(f) if !f.is_empty() => f
                 .iter()
@@ -436,18 +568,7 @@ impl DatabasePool {
         if let Some(filts) = filters {
             if !filts.is_empty() {
                 for (k, cond) in filts {
-                    let dialect = self.dialect();
-                    let base = params.len();
-                    let mut offset = 0usize;
-                    let (frag, vals) = cond.to_sql(&k, move || {
-                        let ph = if dialect == "postgres" {
-                            format!("${}", base + offset + 1)
-                        } else {
-                            "?".to_string()
-                        };
-                        offset += 1;
-                        ph
-                    });
+                    let (frag, vals) = cond.to_sql(&k, || "?".to_string());
                     all_conditions.push(frag);
                     params.extend(vals);
                 }
@@ -475,7 +596,7 @@ impl DatabasePool {
         }
 
         debug!("get_list sql: {}", sql);
-        let rows = match self.query_raw(&sql, params).await {
+        let rows = match pool.query_raw(&sql, params).await {
             Ok(r) => r,
             Err(e) => {
                 let msg = e.to_string();
@@ -506,7 +627,8 @@ impl DatabasePool {
         if doctype.is_empty() {
             return Ok(0);
         }
-        let table = self.table_name(doctype);
+        let pool = self.for_doctype(doctype);
+        let table = pool.table_name(doctype);
         let mut sql = format!("SELECT COUNT(*) FROM \"{}\"", table);
         let mut params: Vec<Value> = Vec::new();
         let mut all_conditions: Vec<String> = Vec::new();
@@ -514,18 +636,7 @@ impl DatabasePool {
         if let Some(filts) = filters {
             if !filts.is_empty() {
                 for (k, cond) in filts {
-                    let dialect = self.dialect();
-                    let base = params.len();
-                    let mut offset = 0usize;
-                    let (frag, vals) = cond.to_sql(&k, move || {
-                        let ph = if dialect == "postgres" {
-                            format!("${}", base + offset + 1)
-                        } else {
-                            "?".to_string()
-                        };
-                        offset += 1;
-                        ph
-                    });
+                    let (frag, vals) = cond.to_sql(&k, || "?".to_string());
                     all_conditions.push(frag);
                     params.extend(vals);
                 }
@@ -543,7 +654,7 @@ impl DatabasePool {
         }
 
         debug!("count sql: {}", sql);
-        let rows = match self.query_raw(&sql, params).await {
+        let rows = match pool.query_raw(&sql, params).await {
             Ok(r) => r,
             Err(e) => {
                 let msg = e.to_string();
@@ -569,8 +680,9 @@ impl DatabasePool {
     pub async fn save_doc(&self, doc: &Document) -> Result<()> {
         crate::hooks::run_hook("before_save", &doc.doctype, doc).await?;
 
-        let table = self.table_name(&doc.doctype);
-        let table_fields = self.get_table_fields(&doc.doctype).await?;
+        let pool = self.for_doctype(&doc.doctype);
+        let table = pool.table_name(&doc.doctype);
+        let table_fields = pool.get_table_fields(&doc.doctype).await?;
         let table_field_names: std::collections::HashSet<String> =
             table_fields.iter().map(|(k, _)| k.clone()).collect();
 
@@ -586,23 +698,22 @@ impl DatabasePool {
             if k.starts_with("__") {
                 continue;
             }
-            sets.push(format!("{} = {}", k, self.placeholder(params.len() + 1)));
+            sets.push(format!("{} = ?", k));
             params.push(v.clone());
         }
-        sets.push(format!("modified = {}", self.placeholder(params.len() + 1)));
+        sets.push("modified = ?".to_string());
         params.push(Value::String(doc.modified.to_rfc3339()));
 
         let sql = format!(
-            "UPDATE \"{}\" SET {} WHERE name = {}",
+            "UPDATE \"{}\" SET {} WHERE name = ?",
             table,
             sets.join(", "),
-            self.placeholder(params.len() + 1)
         );
         params.push(Value::String(doc.name.clone()));
 
         debug!("save_doc sql: {}", sql);
-        self.execute_raw(&sql, params).await?;
-        self.save_child_tables(doc).await?;
+        pool.execute_raw(&sql, params).await?;
+        pool.save_child_tables(doc).await?;
 
         crate::hooks::run_hook("on_update", &doc.doctype, doc).await?;
         crate::hooks::run_hook("after_save", &doc.doctype, doc).await?;
@@ -612,8 +723,9 @@ impl DatabasePool {
     pub async fn insert_doc(&self, doc: &Document) -> Result<String> {
         crate::hooks::run_hook("before_insert", &doc.doctype, doc).await?;
 
-        let table = self.table_name(&doc.doctype);
-        let table_fields = self.get_table_fields(&doc.doctype).await?;
+        let pool = self.for_doctype(&doc.doctype);
+        let table = pool.table_name(&doc.doctype);
+        let table_fields = pool.get_table_fields(&doc.doctype).await?;
         let table_field_names: std::collections::HashSet<String> =
             table_fields.iter().map(|(k, _)| k.clone()).collect();
 
@@ -645,7 +757,7 @@ impl DatabasePool {
             params.push(v.clone());
         }
 
-        let placeholders: Vec<String> = (1..=params.len()).map(|i| self.placeholder(i)).collect();
+        let placeholders: Vec<String> = (1..=params.len()).map(|_| "?".to_string()).collect();
 
         let sql = format!(
             "INSERT INTO \"{}\" ({}) VALUES ({})",
@@ -655,8 +767,8 @@ impl DatabasePool {
         );
 
         debug!("insert_doc sql: {}", sql);
-        self.execute_raw(&sql, params).await?;
-        self.save_child_tables(doc).await?;
+        pool.execute_raw(&sql, params).await?;
+        pool.save_child_tables(doc).await?;
 
         crate::hooks::run_hook("after_insert", &doc.doctype, doc).await?;
         Ok(doc.name.clone())
@@ -666,13 +778,10 @@ impl DatabasePool {
         let stub_doc = Document::new(doctype, name);
         crate::hooks::run_hook("before_trash", doctype, &stub_doc).await?;
 
-        let table = self.table_name(doctype);
-        let sql = format!(
-            "DELETE FROM \"{}\" WHERE name = {}",
-            table,
-            self.placeholder(1)
-        );
-        self.execute_raw(&sql, vec![Value::String(name.into())])
+        let pool = self.for_doctype(doctype);
+        let table = pool.table_name(doctype);
+        let sql = format!("DELETE FROM \"{}\" WHERE name = ?", table);
+        pool.execute_raw(&sql, vec![Value::String(name.into())])
             .await?;
 
         crate::hooks::run_hook("after_trash", doctype, &stub_doc).await?;
@@ -680,13 +789,10 @@ impl DatabasePool {
     }
 
     pub async fn exists(&self, doctype: &str, name: &str) -> Result<bool> {
-        let table = self.table_name(doctype);
-        let sql = format!(
-            "SELECT 1 FROM \"{}\" WHERE name = {} LIMIT 1",
-            table,
-            self.placeholder(1)
-        );
-        let rows = self
+        let pool = self.for_doctype(doctype);
+        let table = pool.table_name(doctype);
+        let sql = format!("SELECT 1 FROM \"{}\" WHERE name = ? LIMIT 1", table);
+        let rows = pool
             .query_raw(&sql, vec![Value::String(name.into())])
             .await?;
         Ok(!rows.is_empty())
@@ -702,37 +808,63 @@ impl DatabasePool {
 
     pub async fn commit(&self) -> Result<()> {
         // SQLite operates in auto-commit mode unless an explicit transaction
-        // was begun via DatabasePool::begin().  Issuing COMMIT without BEGIN
-        // raises "cannot commit - no transaction is active", so ignore it for
-        // SQLite; writes through execute_sql are already persisted.
-        match self {
-            DatabasePool::Sqlite(_) => Ok(()),
-            DatabasePool::Postgres(_) => {
-                self.execute_raw("COMMIT", vec![]).await?;
-                Ok(())
-            }
-        }
+        // was begun via DatabasePool::begin(). Issuing COMMIT without BEGIN
+        // raises "cannot commit - no transaction is active", so ignore it.
+        Ok(())
     }
 
     pub async fn rollback(&self) -> Result<()> {
-        match self {
-            DatabasePool::Sqlite(_) => Ok(()),
-            DatabasePool::Postgres(_) => {
-                self.execute_raw("ROLLBACK", vec![]).await?;
-                Ok(())
-            }
-        }
+        Ok(())
     }
 
     pub async fn begin(&self) -> Result<Transaction<'_>> {
-        match self {
-            DatabasePool::Postgres(pool) => {
-                let tx = pool.begin().await?;
-                Ok(Transaction::Postgres(tx))
+        let tx = self.pool().begin().await?;
+        Ok(Transaction(tx))
+    }
+
+    /// Scan raw SQL for quoted table names and return a handle routed to the
+    /// domain that owns the first non-core table found.
+    ///
+    /// This lets existing raw-SQL callers (e.g. audit_ready's patch_job and
+    /// k8s_inventory queries) work transparently when sharding is enabled,
+    /// without forcing every call site to call `for_table` explicitly.
+    fn routed_for_sql(&self, sql: &str) -> Self {
+        let mut domains: Vec<DbDomain> = Vec::new();
+        let mut chars = sql.char_indices().peekable();
+        while let Some((start, ch)) = chars.next() {
+            if ch != '"' {
+                continue;
             }
-            DatabasePool::Sqlite(pool) => {
-                let tx = pool.begin().await?;
-                Ok(Transaction::Sqlite(tx))
+            let mut end = None;
+            while let Some((i, c)) = chars.next() {
+                if c == '"' {
+                    end = Some(i);
+                    break;
+                }
+            }
+            let Some(end) = end else { continue };
+            let name = &sql[start + 1..end];
+            if name.is_empty() || name.starts_with("sqlite_") {
+                continue;
+            }
+            let domain = DbDomain::for_table(name);
+            if domain != DbDomain::Core && !domains.contains(&domain) {
+                domains.push(domain);
+            }
+        }
+
+        match domains.as_slice() {
+            [] => self.clone(),
+            [domain] => self.with_domain(*domain),
+            [domain, ..] => {
+                // Multiple non-core domains referenced; route to the first one
+                // and warn so the caller can be made explicit if needed.
+                warn!(
+                    sql = %sql,
+                    domains = ?domains,
+                    "raw SQL references multiple non-core domains; routing to first"
+                );
+                self.with_domain(*domain)
             }
         }
     }
@@ -742,52 +874,32 @@ impl DatabasePool {
         sql: &str,
         params: Vec<Value>,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        match self {
-            DatabasePool::Postgres(pool) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_postgres(query, p);
-                }
-                let rows = query.fetch_all(pool).await?;
-                Ok(rows.into_iter().map(row_to_map_postgres).collect())
-            }
-            DatabasePool::Sqlite(pool) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_sqlite(query, p);
-                }
-                let rows = query.fetch_all(pool).await?;
-                Ok(rows.into_iter().map(row_to_map_sqlite).collect())
-            }
+        let pool = self.routed_for_sql(sql);
+        let mut query = sqlx::query(sql);
+        for p in &params {
+            query = bind_sqlite(query, p);
         }
+        let rows = query.fetch_all(&pool.pool()).await?;
+        Ok(rows.into_iter().map(row_to_map_sqlite).collect())
     }
 
     async fn execute_raw(&self, sql: &str, params: Vec<Value>) -> Result<()> {
-        match self {
-            DatabasePool::Postgres(pool) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_postgres(query, p);
-                }
-                query.execute(pool).await?;
-                Ok(())
-            }
-            DatabasePool::Sqlite(pool) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_sqlite(query, p);
-                }
-                query.execute(pool).await?;
-                Ok(())
-            }
+        let pool = self.routed_for_sql(sql);
+        let mut query = sqlx::query(sql);
+        for p in &params {
+            query = bind_sqlite(query, p);
         }
+        query.execute(&pool.pool()).await?;
+        Ok(())
     }
 }
 
-pub enum Transaction<'a> {
-    Postgres(sqlx::Transaction<'a, sqlx::Postgres>),
-    Sqlite(sqlx::Transaction<'a, sqlx::Sqlite>),
+fn table_name(doctype: &str) -> String {
+    let name = doctype.to_lowercase().replace(" ", "_");
+    name.strip_prefix("tab").unwrap_or(&name).to_string()
 }
+
+pub struct Transaction<'a>(sqlx::Transaction<'a, sqlx::Sqlite>);
 
 impl<'a> Transaction<'a> {
     pub async fn execute_sql(
@@ -795,66 +907,22 @@ impl<'a> Transaction<'a> {
         sql: &str,
         params: Vec<Value>,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        match self {
-            Transaction::Postgres(tx) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_postgres(query, p);
-                }
-                let rows = query.fetch_all(&mut **tx).await?;
-                Ok(rows.into_iter().map(row_to_map_postgres).collect())
-            }
-            Transaction::Sqlite(tx) => {
-                let mut query = sqlx::query(sql);
-                for p in &params {
-                    query = bind_sqlite(query, p);
-                }
-                let rows = query.fetch_all(&mut **tx).await?;
-                Ok(rows.into_iter().map(row_to_map_sqlite).collect())
-            }
+        let mut query = sqlx::query(sql);
+        for p in &params {
+            query = bind_sqlite(query, p);
         }
+        let rows = query.fetch_all(&mut *self.0).await?;
+        Ok(rows.into_iter().map(row_to_map_sqlite).collect())
     }
 
     pub async fn commit(self) -> Result<()> {
-        match self {
-            Transaction::Postgres(tx) => {
-                tx.commit().await?;
-                Ok(())
-            }
-            Transaction::Sqlite(tx) => {
-                tx.commit().await?;
-                Ok(())
-            }
-        }
+        self.0.commit().await?;
+        Ok(())
     }
 
     pub async fn rollback(self) -> Result<()> {
-        match self {
-            Transaction::Postgres(tx) => {
-                tx.rollback().await?;
-                Ok(())
-            }
-            Transaction::Sqlite(tx) => {
-                tx.rollback().await?;
-                Ok(())
-            }
-        }
-    }
-}
-
-fn bind_postgres<'a>(
-    query: sqlx::query::Query<'a, sqlx::Postgres, sqlx::postgres::PgArguments>,
-    value: &Value,
-) -> sqlx::query::Query<'a, sqlx::Postgres, sqlx::postgres::PgArguments> {
-    match value {
-        Value::Null => query.bind(None::<String>),
-        Value::Bool(b) => query.bind(*b),
-        Value::Number(n) if n.is_i64() => query.bind(n.as_i64().unwrap()),
-        Value::Number(n) if n.is_f64() => query.bind(n.as_f64().unwrap()),
-        Value::Number(n) => query.bind(n.as_u64().unwrap() as i64),
-        Value::String(s) => query.bind(s.clone()),
-        Value::Array(a) => query.bind(serde_json::to_string(a).unwrap_or_default()),
-        Value::Object(o) => query.bind(serde_json::to_string(o).unwrap_or_default()),
+        self.0.rollback().await?;
+        Ok(())
     }
 }
 
@@ -872,42 +940,6 @@ fn bind_sqlite<'a>(
         Value::Array(a) => query.bind(serde_json::to_string(a).unwrap_or_default()),
         Value::Object(o) => query.bind(serde_json::to_string(o).unwrap_or_default()),
     }
-}
-
-fn row_to_map_postgres(row: sqlx::postgres::PgRow) -> HashMap<String, Value> {
-    let mut map = HashMap::new();
-    for col in row.columns() {
-        let name = col.name().to_string();
-        let info = col.type_info().name();
-        let val: Value = match info {
-            "BOOL" => row
-                .try_get::<bool, _>(name.as_str())
-                .map(Value::Bool)
-                .unwrap_or(Value::Null),
-            "INT2" | "INT4" | "INT8" => row
-                .try_get::<i64, _>(name.as_str())
-                .map(|v| Value::Number(v.into()))
-                .unwrap_or(Value::Null),
-            "FLOAT4" | "FLOAT8" => row
-                .try_get::<f64, _>(name.as_str())
-                .map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into())))
-                .unwrap_or(Value::Null),
-            "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "UNKNOWN" => row
-                .try_get::<String, _>(name.as_str())
-                .map(Value::String)
-                .unwrap_or(Value::Null),
-            "TIMESTAMPTZ" | "TIMESTAMP" => row
-                .try_get::<chrono::DateTime<chrono::Utc>, _>(name.as_str())
-                .map(|v| Value::String(v.to_rfc3339()))
-                .unwrap_or(Value::Null),
-            _ => row
-                .try_get::<String, _>(name.as_str())
-                .map(Value::String)
-                .unwrap_or(Value::Null),
-        };
-        map.insert(name, val);
-    }
-    map
 }
 
 fn row_to_map_sqlite(row: sqlx::sqlite::SqliteRow) -> HashMap<String, Value> {
@@ -982,5 +1014,97 @@ impl Document {
             docstatus,
             fields: map,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::DbDomain;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn sharded_pools_route_tables_to_separate_files() {
+        // Enable sharding for this test only.
+        std::env::set_var("KIFF_SQLITE_SHARDED", "1");
+
+        let dir = tempfile::tempdir().unwrap();
+        let pools = Arc::new(DomainPools::connect(dir.path()).await.unwrap());
+
+        // Create a "k8s" table through the routed k8s handle.
+        let k8s_pool = pools.pool_for(DbDomain::K8s);
+        k8s_pool
+            .execute_sql("CREATE TABLE k8s_cluster (name TEXT)", vec![])
+            .await
+            .unwrap();
+        k8s_pool
+            .execute_sql("INSERT INTO k8s_cluster VALUES ('c1')", vec![])
+            .await
+            .unwrap();
+
+        // The k8s table should exist in k8s.db.
+        let k8s_rows = k8s_pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'k8s_cluster'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(k8s_rows.len(), 1);
+
+        // The k8s table should NOT exist in the core DB.
+        let core_pool = pools.pool_for(DbDomain::Core);
+        let core_rows = core_pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'k8s_cluster'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(core_rows.is_empty());
+
+        // A core table should live in site.db.
+        core_pool
+            .execute_sql("CREATE TABLE core_user (name TEXT)", vec![])
+            .await
+            .unwrap();
+        let core_rows = core_pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'core_user'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(core_rows.len(), 1);
+
+        // Clean up the env var so later tests use the default non-sharded mode.
+        std::env::remove_var("KIFF_SQLITE_SHARDED");
+    }
+
+    #[tokio::test]
+    async fn for_doctype_routes_by_table_name() {
+        std::env::set_var("KIFF_SQLITE_SHARDED", "1");
+
+        let dir = tempfile::tempdir().unwrap();
+        let pools = Arc::new(DomainPools::connect(dir.path()).await.unwrap());
+        let core = pools.core();
+
+        // Getting a handle for a k8s DocType should resolve to the k8s pool.
+        let k8s_handle = core.for_doctype("K8s Cluster");
+        k8s_handle
+            .execute_sql("CREATE TABLE k8s_cluster (name TEXT)", vec![])
+            .await
+            .unwrap();
+
+        let k8s_rows = k8s_handle
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'k8s_cluster'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(k8s_rows.len(), 1);
+
+        std::env::remove_var("KIFF_SQLITE_SHARDED");
     }
 }

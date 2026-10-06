@@ -8,7 +8,6 @@ use error::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TargetDialect {
-    Postgres,
     Sqlite,
 }
 
@@ -30,7 +29,7 @@ impl SqlTranslator {
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
             .join("; ");
-        let output = placeholders::rewrite(&output, self.target)?;
+        let output = placeholders::rewrite(&output)?;
         Ok(output)
     }
 }

@@ -1,14 +1,19 @@
 pub mod backends;
 pub mod doctype_sync;
 pub mod document;
+pub mod domain;
+pub mod domain_pools;
 pub mod filters;
 pub mod hooks;
 pub mod migrations;
 pub mod password;
 pub mod pool;
 pub mod query;
+pub mod shard_migration;
 
 pub use document::Document;
+pub use domain::{DbDomain, sharding_enabled};
+pub use domain_pools::DomainPools;
 pub use filters::FilterCondition;
 pub use hooks::{add_hook_runner, clear_hook_runners, set_hook_runner, DocHookRunner};
 pub use pool::DatabasePool;

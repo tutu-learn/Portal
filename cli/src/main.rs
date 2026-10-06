@@ -17,6 +17,7 @@ enum Commands {
     NewSite { name: String },
     NewRustApp { name: String },
     Migrate,
+    MigrateShard { site: String },
     Shell,
     Backup,
 }
@@ -31,6 +32,7 @@ async fn main() -> error::Result<()> {
         Commands::NewSite { name } => commands::new_site::run(&name).await,
         Commands::NewRustApp { name } => commands::new_rust_app::run(&name).await,
         Commands::Migrate => commands::migrate::run().await,
+        Commands::MigrateShard { site } => commands::migrate_shard::run(&site).await,
         Commands::Shell => commands::shell::run().await,
         Commands::Backup => commands::backup::run().await,
     }

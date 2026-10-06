@@ -33,7 +33,9 @@ pub(crate) async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
         if is_virtual {
             let table = data_table_name(doctype_name);
             // Drop any stale physical table left over from a previous sync.
+            // The stale table, if any, lives in this DocType's domain.
             let _ = pool
+                .for_doctype(doctype_name)
                 .execute_sql(&format!("DROP TABLE IF EXISTS \"{}\"", table), vec![])
                 .await;
             continue;
@@ -77,6 +79,8 @@ async fn create_data_table(
     istable: bool,
     fields: &[(String, String)],
 ) -> Result<()> {
+    // Data tables live in the domain determined by the DocType name.
+    let domain_pool = pool.for_doctype(doctype_name);
     let table = data_table_name(doctype_name);
 
     let name_col = "name TEXT PRIMARY KEY".to_string();
@@ -122,7 +126,7 @@ async fn create_data_table(
 
     // Check if table already exists
     let check_sql = format!("PRAGMA table_info(\"{}\")", table);
-    let existing = pool.execute_sql(&check_sql, vec![]).await?;
+    let existing = domain_pool.execute_sql(&check_sql, vec![]).await?;
 
     if existing.is_empty() {
         // Table doesn't exist — create it
@@ -132,7 +136,7 @@ async fn create_data_table(
             table,
             col_defs.join(",\n    ")
         );
-        pool.execute_sql(&sql, vec![]).await?;
+        domain_pool.execute_sql(&sql, vec![]).await?;
         return Ok(());
     }
 
@@ -162,7 +166,7 @@ async fn create_data_table(
             col_def.as_str()
         };
         let alter_sql = format!("ALTER TABLE \"{}\" ADD COLUMN {}", table, alter_def);
-        match pool.execute_sql(&alter_sql, vec![]).await {
+        match domain_pool.execute_sql(&alter_sql, vec![]).await {
             Ok(_) => info!("added column {} to {}", col_name, table),
             Err(e) => {
                 warn!(
@@ -176,7 +180,7 @@ async fn create_data_table(
     }
 
     if needs_recreate {
-        recreate_table_with_migration(pool, &table, &expected_cols).await?;
+        recreate_table_with_migration(&domain_pool, &table, &expected_cols).await?;
     }
 
     Ok(())
@@ -189,6 +193,8 @@ async fn recreate_table_with_migration(
 ) -> Result<()> {
     warn!("recreating table {} with migration", table);
 
+    // The table lives in the domain determined by its name.
+    let domain_pool = pool.for_table(table);
     let temp_table = format!("{}__tmp", table);
 
     // Create temp table with new schema
@@ -198,11 +204,11 @@ async fn recreate_table_with_migration(
         temp_table,
         col_defs.join(",\n    ")
     );
-    pool.execute_sql(&create_sql, vec![]).await?;
+    domain_pool.execute_sql(&create_sql, vec![]).await?;
 
     // Copy data from old table, matching columns that exist in both
     let pragma_sql = format!("PRAGMA table_info(\"{}\")", table);
-    let old_cols = pool.execute_sql(&pragma_sql, vec![]).await?;
+    let old_cols = domain_pool.execute_sql(&pragma_sql, vec![]).await?;
     let old_names: Vec<String> = old_cols
         .iter()
         .filter_map(|c| c.get("name").and_then(|v| v.as_str()).map(String::from))
@@ -220,13 +226,13 @@ async fn recreate_table_with_migration(
             "INSERT INTO \"{}\" ({}) SELECT {} FROM \"{}\"",
             temp_table, cols, cols, table
         );
-        let _ = pool.execute_sql(&copy_sql, vec![]).await;
+        let _ = domain_pool.execute_sql(&copy_sql, vec![]).await;
     }
 
     // Drop old and rename temp
-    pool.execute_sql(&format!("DROP TABLE \"{}\"", table), vec![])
+    domain_pool.execute_sql(&format!("DROP TABLE \"{}\"", table), vec![])
         .await?;
-    pool.execute_sql(
+    domain_pool.execute_sql(
         &format!("ALTER TABLE \"{}\" RENAME TO \"{}\"", temp_table, table),
         vec![],
     )
@@ -254,8 +260,10 @@ pub async fn add_column_if_missing(
     column: &str,
     column_def: &str,
 ) -> Result<bool> {
+    // Route to the domain that owns this table.
+    let domain_pool = pool.for_table(table);
     let pragma = format!(r#"PRAGMA table_info("{}")"#, table);
-    let rows = pool.execute_sql(&pragma, vec![]).await?;
+    let rows = domain_pool.execute_sql(&pragma, vec![]).await?;
     let exists = rows.iter().any(|r| {
         r.get("name")
             .and_then(|v| v.as_str())
@@ -266,7 +274,7 @@ pub async fn add_column_if_missing(
         return Ok(false);
     }
     let alter_sql = format!(r#"ALTER TABLE "{}" ADD COLUMN {}"#, table, column_def);
-    match pool.execute_sql(&alter_sql, vec![]).await {
+    match domain_pool.execute_sql(&alter_sql, vec![]).await {
         Ok(_) => {
             info!("added column {} to {}", column, table);
             Ok(true)

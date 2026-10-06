@@ -341,7 +341,6 @@ impl SiteManager {
         std::fs::create_dir_all(site_path.join("public/files"))?;
 
         let config = SiteConfig {
-            db_driver: "sqlite".into(),
             db_url: format!("./sites/{}/site.db", name),
             encryption_key: generate_fernet_key(),
             secret_key: uuid::Uuid::new_v4().to_string().replace("-", ""),

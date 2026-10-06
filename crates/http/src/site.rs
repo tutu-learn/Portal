@@ -1,12 +1,13 @@
 //! Site resolution helpers for HTTP requests.
 //!
 //! These helpers map incoming requests to a Frappe site and its cached database
-//! pool. Pools are created once at runtime startup; the HTTP layer only looks
-//! them up by site name.
+//! pool bundle. Pool bundles are created once at runtime startup; the HTTP
+//! layer only looks them up by site name.
 
 use axum::http::HeaderMap;
 use config::site::Site;
 use rust_apps_core::AppState;
+use std::sync::Arc;
 
 /// Resolve the site name for a request.
 ///
@@ -44,16 +45,29 @@ pub fn resolve_site_name(state: &AppState, headers: &HeaderMap) -> Option<String
     None
 }
 
-/// Resolve the site and its cached database pool for a request.
+/// Resolve the site and its full domain pool bundle for a request.
 ///
 /// Returns `None` when no site can be resolved or no pool has been connected
 /// for it (pools are established during runtime startup).
+pub fn resolve_site_pools(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Option<(Site, Arc<orm::DomainPools>)> {
+    let name = resolve_site_name(state, headers)?;
+    let site = state.site_manager.get(&name)?.clone();
+    let pools = state.pools.get(&name)?.clone();
+    Some((site, pools))
+}
+
+/// Resolve the site and the core database pool for a request.
+///
+/// Most handlers continue to operate against the core pool (metadata, users,
+/// doctypes, queue, sessions). Domain-specific handlers should use
+/// [`resolve_site_pools`] and select the appropriate domain.
 pub fn resolve_site_pool(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Option<(Site, orm::DatabasePool)> {
-    let name = resolve_site_name(state, headers)?;
-    let site = state.site_manager.get(&name)?.clone();
-    let pool = state.pools.get(&name)?.clone();
-    Some((site, pool))
+    let (site, pools) = resolve_site_pools(state, headers)?;
+    Some((site, pools.core().clone()))
 }

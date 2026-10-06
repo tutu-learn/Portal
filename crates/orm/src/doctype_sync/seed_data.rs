@@ -35,10 +35,7 @@ pub(crate) async fn insert_client_script_fixtures(
         return Ok(());
     }
 
-    let now_fn = match pool.dialect() {
-        "postgres" => "NOW()",
-        _ => "datetime('now')",
-    };
+    let now_fn = "datetime('now')";
 
     for (name, json) in fixtures {
         let doc: serde_json::Value = match serde_json::from_str(&json) {
@@ -156,10 +153,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     )
     .await?;
 
-    let now_fn = match pool.dialect() {
-        "postgres" => "NOW()",
-        _ => "datetime('now')",
-    };
+    let now_fn = "datetime('now')";
 
     // Users
     for (name, first_name, email, enabled, user_type) in [
@@ -327,6 +321,26 @@ pub(crate) async fn insert_module_defs(
     workspace_fixtures: Vec<(String, String, String)>,
     module_fixtures: Vec<ModuleFixture>,
 ) -> Result<()> {
+    // module_def is a data table created by sync_data_tables from the Module
+    // Def DocType fixture, but insert_module_defs runs before sync_data_tables.
+    // Create the table here so module rows can be inserted on fresh sites.
+    pool.execute_sql(
+        r#"
+        CREATE TABLE IF NOT EXISTS "module_def" (
+            name TEXT PRIMARY KEY,
+            creation TEXT,
+            modified TEXT,
+            modified_by TEXT,
+            owner TEXT,
+            docstatus INTEGER DEFAULT 0,
+            module_name TEXT,
+            app_name TEXT
+        )
+        "#,
+        vec![],
+    )
+    .await?;
+
     // Ensure the module_def data table has the app_name column.
     // This handles upgrades from databases created before Rust apps contributed modules.
     add_column_if_missing(pool, "module_def", "app_name", "app_name TEXT").await?;

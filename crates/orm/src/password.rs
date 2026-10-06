@@ -127,20 +127,11 @@ async fn upsert_auth_with_encrypted_flag(
     encrypted: bool,
 ) -> Result<()> {
     let encrypted_flag = if encrypted { 1 } else { 0 };
-    let sql = match pool.dialect() {
-        "postgres" => format!(
-            r#"INSERT INTO "__auth" (doctype, name, fieldname, password, encrypted)
-               VALUES ($1, $2, $3, $4, {})
-               ON CONFLICT (doctype, name, fieldname)
-               DO UPDATE SET password = EXCLUDED.password, encrypted = EXCLUDED.encrypted"#,
-            encrypted_flag
-        ),
-        _ => format!(
-            r#"INSERT OR REPLACE INTO "__auth" (doctype, name, fieldname, password, encrypted)
-               VALUES (?, ?, ?, ?, {})"#,
-            encrypted_flag
-        ),
-    };
+    let sql = format!(
+        r#"INSERT OR REPLACE INTO "__auth" (doctype, name, fieldname, password, encrypted)
+           VALUES (?, ?, ?, ?, {})"#,
+        encrypted_flag
+    );
     pool.execute_sql(
         &sql,
         vec![
@@ -341,29 +332,13 @@ pub async fn migrate_plaintext_password_values(
 }
 
 async fn column_exists(pool: &DatabasePool, table: &str, column: &str) -> Result<bool> {
-    match pool.dialect() {
-        "postgres" => {
-            let rows = pool
-                .execute_sql(
-                    "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2",
-                    vec![
-                        Value::String(table.into()),
-                        Value::String(column.into()),
-                    ],
-                )
-                .await?;
-            Ok(!rows.is_empty())
-        }
-        _ => {
-            let rows = pool
-                .execute_sql(&format!(r#"PRAGMA table_info("{}")"#, table), vec![])
-                .await?;
-            Ok(rows.into_iter().any(|mut r| {
-                r.remove("name")
-                    .and_then(|v| v.as_str().map(String::from))
-                    .as_deref()
-                    == Some(column)
-            }))
-        }
-    }
+    let rows = pool
+        .execute_sql(&format!(r#"PRAGMA table_info("{}")"#, table), vec![])
+        .await?;
+    Ok(rows.into_iter().any(|mut r| {
+        r.remove("name")
+            .and_then(|v| v.as_str().map(String::from))
+            .as_deref()
+            == Some(column)
+    }))
 }

@@ -3,8 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SiteConfig {
-    #[serde(default = "default_db_driver")]
-    pub db_driver: String,
     #[serde(default = "default_db_url")]
     pub db_url: String,
     #[serde(default)]
@@ -25,9 +23,6 @@ pub struct SiteConfig {
     pub file_size_limit: u64,
 }
 
-fn default_db_driver() -> String {
-    "sqlite".into()
-}
 fn default_db_url() -> String {
     "./sites/{site}/site.db".into()
 }
@@ -41,7 +36,6 @@ fn default_file_size_limit() -> u64 {
 impl Default for SiteConfig {
     fn default() -> Self {
         Self {
-            db_driver: default_db_driver(),
             db_url: default_db_url(),
             encryption_key: String::new(),
             secret_key: String::new(),

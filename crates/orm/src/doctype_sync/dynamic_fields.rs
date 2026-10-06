@@ -211,10 +211,7 @@ async fn seed_dynamic_field_rules(pool: &DatabasePool) -> Result<()> {
 /// `target_field` so it appears on the Desk form even when it is not part of
 /// the static `field_order` in `user.json`.
 async fn ensure_dynamic_field_client_scripts(pool: &DatabasePool) -> Result<()> {
-    let now_fn = match pool.dialect() {
-        "postgres" => "NOW()",
-        _ => "datetime('now')",
-    };
+    let now_fn = "datetime('now')";
 
     let rows = pool
         .execute_sql(

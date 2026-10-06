@@ -61,15 +61,15 @@ fn install_kiff_core_symlink(site_packages: &str) {
     }
 }
 
+#[allow(dead_code)]
 pub fn setup_python_path(shim_path: &str, frappe_path: &str, erpnext_path: &str) -> Result<()> {
-    setup_python_path_with_db(shim_path, frappe_path, erpnext_path, None, None)
+    setup_python_path_with_db(shim_path, frappe_path, erpnext_path, None)
 }
 
 pub fn setup_python_path_with_db(
     shim_path: &str,
     frappe_path: &str,
     erpnext_path: &str,
-    db_driver: Option<&str>,
     db_url: Option<&str>,
 ) -> Result<()> {
     let shim = std::path::Path::new(shim_path)
@@ -164,9 +164,9 @@ pub fn setup_python_path_with_db(
         }
 
         // Initialize kiff_core .so instance with DB connection so Python can use it.
-        if let (Some(driver), Some(url)) = (db_driver, db_url) {
+        if let Some(url) = db_url {
             match py.import("kiff_core") {
-                Ok(kc) => match kc.call_method1("init_from_url", (driver, url)) {
+                Ok(kc) => match kc.call_method1("init_from_url", ("sqlite", url)) {
                     Ok(_) => info!("kiff_core .so instance initialized"),
                     Err(e) => info!("kiff_core init_from_url failed: {}", e),
                 },

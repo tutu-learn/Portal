@@ -28,16 +28,10 @@ pub fn enqueue(
     let job_id_clone = job_id.clone();
     rt().block_on(async {
         let pool = pool();
-        let sql = match pool.dialect() {
-            "postgres" => r#"
-                INSERT INTO __kiff_queue (id, method, queue, kwargs, status, site, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, 'queued', 'localhost', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            "#,
-            _ => r#"
-                INSERT INTO __kiff_queue (id, method, queue, kwargs, status, site, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'queued', 'localhost', datetime('now'), datetime('now'))
-            "#,
-        };
+        let sql = r#"
+            INSERT INTO __kiff_queue (id, method, queue, kwargs, status, site, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'queued', 'localhost', datetime('now'), datetime('now'))
+        "#;
         pool.execute_sql(sql, vec![
             serde_json::Value::String(job_id_clone.clone()),
             serde_json::Value::String(method),

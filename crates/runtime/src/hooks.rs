@@ -157,7 +157,7 @@ impl HookRegistry {
             }
             let func_name = parts[0].to_string();
             let module_name = parts[1].to_string();
-            let hook_clone = hook.clone();
+            let _hook_clone = hook.clone();
 
             info!("running hook {} for {}:{:?}", hook, event, doctype);
 

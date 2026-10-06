@@ -1329,7 +1329,7 @@ pub async fn getdoctype_native(
 
     let pool = crate::site::resolve_site_pool(&state, &headers)
         .map(|(_, p)| p)
-        .or_else(|| state.pools.iter().next().map(|e| e.value().clone()));
+        .or_else(|| state.pools.iter().next().map(|e| e.value().core().clone()));
 
     match load_doctype_metadata(&state, &doctype, &cached_timestamp, pool.as_ref()).await {
         Ok(docs) => {

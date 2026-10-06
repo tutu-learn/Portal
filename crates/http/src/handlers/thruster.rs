@@ -43,7 +43,12 @@ async fn require_thruster_uploader(
         .map(|u| u.user)
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "authentication required").into_response())?;
 
-    let Some(pool) = state.pools.iter().next().map(|e| e.value().clone()) else {
+    let Some(pool) = state
+        .pools
+        .iter()
+        .next()
+        .map(|e| e.value().core().clone())
+    else {
         return Err((StatusCode::SERVICE_UNAVAILABLE, "no database pool").into_response());
     };
 

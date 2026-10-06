@@ -277,6 +277,28 @@ pub(crate) async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
     )
     .await?;
 
+    // Client Script is a metadata table used by dynamic field injection and
+    // the Desk UI; ensure it exists before anything tries to write to it.
+    pool.execute_sql(
+        r#"
+        CREATE TABLE IF NOT EXISTS "client_script" (
+            name TEXT PRIMARY KEY,
+            creation TEXT,
+            modified TEXT,
+            modified_by TEXT,
+            owner TEXT,
+            docstatus INTEGER DEFAULT 0,
+            dt TEXT,
+            script TEXT,
+            view TEXT,
+            module TEXT,
+            enabled INTEGER DEFAULT 1
+        )
+        "#,
+        vec![],
+    )
+    .await?;
+
     Ok(())
 }
 

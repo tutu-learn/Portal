@@ -36,17 +36,20 @@ async fn main() -> error::Result<()> {
     let rust_app_registry = rust_apps::load_registry();
     info!("loaded {} rust app(s)", rust_app_registry.apps().len());
 
-    // Connect DB pools for all sites
+    // Connect DB pools for all sites. Each site gets a DomainPools bundle:
+    // core (site.db) plus optional sharded domains (k8s.db, telemetry.db,
+    // state.db) when KIFF_SQLITE_SHARDED=1.
     let pools = Arc::new(dashmap::DashMap::new());
     for (name, site) in site_manager.sites() {
-        let pool = match site.config.db_driver.as_str() {
-            "postgres" => orm::DatabasePool::connect_postgres(&site.db_url()).await,
-            _ => orm::DatabasePool::connect_sqlite(&site.db_url()).await,
-        };
-        match pool {
+        let domain_pools = orm::DomainPools::connect(&site.path).await;
+        match domain_pools {
             Ok(p) => {
-                info!("connected pool for site {}", name);
-                // Run migrations for each site
+                let p = Arc::new(p);
+                info!("connected domain pools for site {}", name);
+                let core = p.core();
+
+                // Run migrations for each site (core tables only for now;
+                // domain-aware migrations come in Phase 3).
                 if let Err(e) = orm::migrations::Migrator::run(&p).await {
                     error!("migrations failed for site {}: {}", name, e);
                 } else {
@@ -55,7 +58,7 @@ async fn main() -> error::Result<()> {
                 // Move any legacy plaintext Password values into __auth,
                 // leaving only dummy placeholders in the data tables.
                 if let Err(e) = orm::password::migrate_plaintext_password_values(
-                    &p,
+                    &core,
                     &site.config.encryption_key,
                 )
                 .await
@@ -84,7 +87,7 @@ async fn main() -> error::Result<()> {
                     .map(|p| (p.name.to_string(), p.json.to_string()))
                     .collect();
                 if let Err(e) = orm::doctype_sync::sync_all(
-                    &p,
+                    &core,
                     fixtures,
                     workspace_fixtures,
                     module_fixtures,
@@ -97,7 +100,7 @@ async fn main() -> error::Result<()> {
                 }
                 // Always ensure the core users and default roles exist, even if
                 // the broader doctype sync failed or roles were deleted.
-                if let Err(e) = orm::doctype_sync::ensure_core_users_and_roles(&p).await {
+                if let Err(e) = orm::doctype_sync::ensure_core_users_and_roles(&core).await {
                     error!(
                         "failed to ensure core users and roles for site {}: {}",
                         name, e
@@ -108,7 +111,7 @@ async fn main() -> error::Result<()> {
                 // every site, independent of any Rust app.
                 let home_page_default = config.auth.custom_home_path.as_deref();
                 if let Err(e) =
-                    rust_apps_core::seed_framework_property_setters(&p, home_page_default).await
+                    rust_apps_core::seed_framework_property_setters(&core, home_page_default).await
                 {
                     error!(
                         "failed to seed framework property setters for site {}: {}",
@@ -116,7 +119,7 @@ async fn main() -> error::Result<()> {
                     );
                 }
                 if let Err(e) =
-                    rust_apps_core::seed_framework_user_home_page_defaults(&p, home_page_default)
+                    rust_apps_core::seed_framework_user_home_page_defaults(&core, home_page_default)
                         .await
                 {
                     error!(
@@ -124,7 +127,7 @@ async fn main() -> error::Result<()> {
                         name, e
                     );
                 }
-                if let Err(e) = rust_apps_core::seed_framework_user_permissions(&p).await {
+                if let Err(e) = rust_apps_core::seed_framework_user_permissions(&core).await {
                     error!(
                         "failed to seed framework user permissions for site {}: {}",
                         name, e
@@ -134,34 +137,31 @@ async fn main() -> error::Result<()> {
                 // all doctype-sync writes are checkpointed into the main DB file
                 // before the pool watchdog can quarantine the WAL during a heal;
                 // otherwise tables that only exist in the WAL can disappear.
-                if site.config.db_driver != "postgres" {
-                    if let Err(e) = p
-                        .execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![])
-                        .await
-                    {
-                        warn!("WAL checkpoint failed for site {}: {}", name, e);
-                    }
+                if let Err(e) = core
+                    .execute_sql("PRAGMA wal_checkpoint(RESTART)", vec![])
+                    .await
+                {
+                    warn!("WAL checkpoint failed for site {}: {}", name, e);
                 }
                 pools.insert(name.clone(), p);
             }
             Err(e) => {
-                error!("failed to connect pool for site {}: {}", name, e);
+                error!("failed to connect domain pools for site {}: {}", name, e);
             }
         }
     }
 
-    // Setup Python path — pass the default site's DB info so kiff_core .so can init
-    let (default_db_driver, default_db_url) = site_manager
+    // Setup Python path — pass the default site's DB URL so kiff_core .so can init
+    let default_db_url = site_manager
         .sites()
         .iter()
         .next()
-        .map(|(_, site)| (site.config.db_driver.clone(), site.db_url()))
-        .unwrap_or_else(|| ("sqlite".into(), "".into()));
+        .map(|(_, site)| site.db_url())
+        .unwrap_or_default();
     startup::setup_python_path_with_db(
         &config.runtime.shim_path,
         &config.runtime.frappe_path,
         &config.runtime.erpnext_path,
-        Some(&default_db_driver),
         Some(&default_db_url),
     )?;
 
@@ -175,12 +175,12 @@ async fn main() -> error::Result<()> {
     }
     let hook_registry = Arc::new(hook_registry);
 
-    // Initialize python-bridge with a default pool and pubsub
+    // Initialize python-bridge with the default site's core pool and pubsub
     let pubsub = Arc::new(queue::PubSub::new());
     // Bind before the `if let`: temporaries in an `if let` scrutinee live
     // for the whole block, and `DashMap::iter()` holds a shard read guard
     // internally — see the note at the `pool_site` binding below.
-    let default_pool = pools.iter().next().map(|e| e.value().clone());
+    let default_pool = pools.iter().next().map(|e| e.value().core().clone());
     if let Some(pool) = default_pool {
         let py_rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -225,7 +225,7 @@ async fn main() -> error::Result<()> {
     if config.sync.enabled {
         if let Some(entry) = pools.iter().next() {
             let site_name = entry.key().clone();
-            let pool = entry.value().clone();
+            let pool = entry.value().core().clone();
             let node_id = config.sync.effective_node_id();
             kiff_sync::outbox::register(&site_name, &node_id, &pool).await;
             info!(
@@ -280,8 +280,8 @@ async fn main() -> error::Result<()> {
     // below, i.e. until shutdown — and every `pools.remove`/`insert` in the
     // pool watchdog's heal then blocks forever (observed as a heal deadlock
     // that wedged the whole server).
-    let pool_site = pools.iter().next().map(|e| e.key().clone());
-    if let Some(pool_site) = pool_site {
+    let _pool_site = pools.iter().next().map(|e| e.key().clone());
+    if let Some(_pool_site) = _pool_site {
         // Watchdog: heals wedged SQLite pools in place (e.g. after external
         // writes to the live site.db), so the portal/API recover without a
         // restart. Runs for every site, not just the worker site.
@@ -297,20 +297,20 @@ async fn main() -> error::Result<()> {
         );
         let job_executor = executor::RuntimeExecutor::new(app_state.clone());
 
-        // Workers re-read the pool from the map on every loop so they follow
-        // the watchdog's pool swaps instead of holding a wedged pool forever.
-        // `None` while a wedged pool is closed and not yet replaced. No
-        // fallback to a startup pool: any long-lived clone of a wedged pool
-        // keeps its fds open, which on macOS poisons every new connection
-        // from this process and would make the watchdog's heal fail.
+        // Workers re-read the domain pool bundle from the map on every loop
+        // so they follow the watchdog's pool swaps instead of holding a wedged
+        // pool forever. `None` while a wedged pool is closed and not yet
+        // replaced. No fallback to a startup pool: any long-lived clone of a
+        // wedged pool keeps its fds open, which on macOS poisons every new
+        // connection from this process and would make the watchdog's heal fail.
         let pool_source = {
             let pools = pools.clone();
             move |site: &str| {
                 if site.is_empty() {
                     // Default/fallback site used when the job has no site.
-                    pools.iter().next().map(|e| e.value().clone())
+                    pools.iter().next().map(|e| e.value().core().clone())
                 } else {
-                    pools.get(site).map(|e| e.value().clone())
+                    pools.get(site).map(|e| e.value().core().clone())
                 }
             }
         };

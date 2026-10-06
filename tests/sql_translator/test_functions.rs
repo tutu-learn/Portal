@@ -2,7 +2,7 @@ use sql_translator::{SqlTranslator, TargetDialect};
 
 #[test]
 fn test_ifnull_to_coalesce() {
-    let t = SqlTranslator::new(TargetDialect::Postgres);
+    let t = SqlTranslator::new(TargetDialect::Sqlite);
     let out = t
         .translate("SELECT IFNULL(amount, 0) FROM tabInvoice")
         .unwrap();

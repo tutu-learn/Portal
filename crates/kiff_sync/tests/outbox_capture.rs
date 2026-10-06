@@ -13,7 +13,7 @@ async fn insert_doc_creates_sync_outbox_row() {
     let _ = std::fs::remove_file(format!("{path}-shm"));
 
     let pool = orm::DatabasePool::connect_sqlite(&path).await.unwrap();
-    orm::migrations::Migrator::run(&pool).await.unwrap();
+    orm::migrations::Migrator::run(&pool.domain_pools()).await.unwrap();
 
     // insert_doc/save_doc query docfield metadata; create minimal tables.
     pool.execute_sql(
@@ -115,7 +115,7 @@ async fn update_doc_creates_sync_outbox_row() {
     let _ = std::fs::remove_file(format!("{path}-shm"));
 
     let pool = orm::DatabasePool::connect_sqlite(&path).await.unwrap();
-    orm::migrations::Migrator::run(&pool).await.unwrap();
+    orm::migrations::Migrator::run(&pool.domain_pools()).await.unwrap();
 
     pool.execute_sql(
         r#"CREATE TABLE IF NOT EXISTS "doctype" (

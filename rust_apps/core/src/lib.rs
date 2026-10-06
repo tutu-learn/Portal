@@ -99,7 +99,7 @@ pub use logging::{log_app_event, log_document_event};
 pub struct AppState {
     pub config: Arc<config::RuntimeConfig>,
     pub site_manager: Arc<config::SiteManager>,
-    pub pools: Arc<DashMap<String, orm::DatabasePool>>,
+    pub pools: Arc<DashMap<String, Arc<orm::DomainPools>>>,
     pub sessions: Arc<session::SessionStore>,
     pub permissions: Arc<permissions::PermissionEngine>,
     pub metadata: Arc<metadata::Meta>,
@@ -655,29 +655,15 @@ pub async fn ensure_user_home_page_field(pool: &orm::DatabasePool) -> error::Res
     }
 
     // Ensure the backing column exists in the user data table.
-    let column_exists = match pool.dialect() {
-        "postgres" => {
-            let rows = pool
-                .execute_sql(
-                    r#"SELECT 1 FROM information_schema.columns
-                       WHERE table_name = 'user' AND column_name = 'home_page'"#,
-                    vec![],
-                )
-                .await?;
-            !rows.is_empty()
-        }
-        _ => {
-            let rows = pool
-                .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
-                .await?;
-            rows.into_iter().any(|mut r| {
-                r.remove("name")
-                    .and_then(|v| v.as_str().map(String::from))
-                    .as_deref()
-                    == Some("home_page")
-            })
-        }
-    };
+    let rows = pool
+        .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
+        .await?;
+    let column_exists = rows.into_iter().any(|mut r| {
+        r.remove("name")
+            .and_then(|v| v.as_str().map(String::from))
+            .as_deref()
+            == Some("home_page")
+    });
 
     if !column_exists {
         pool.execute_sql(r#"ALTER TABLE "user" ADD COLUMN "home_page" TEXT"#, vec![])
@@ -744,29 +730,15 @@ pub async fn ensure_user_user_home_page_field(pool: &orm::DatabasePool) -> error
         info!("ensured User.user_home_page field in docfield metadata");
     }
 
-    let column_exists = match pool.dialect() {
-        "postgres" => {
-            let rows = pool
-                .execute_sql(
-                    r#"SELECT 1 FROM information_schema.columns
-                       WHERE table_name = 'user' AND column_name = 'user_home_page'"#,
-                    vec![],
-                )
-                .await?;
-            !rows.is_empty()
-        }
-        _ => {
-            let rows = pool
-                .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
-                .await?;
-            rows.into_iter().any(|mut r| {
-                r.remove("name")
-                    .and_then(|v| v.as_str().map(String::from))
-                    .as_deref()
-                    == Some("user_home_page")
-            })
-        }
-    };
+    let rows = pool
+        .execute_sql(r#"PRAGMA table_info("user")"#, vec![])
+        .await?;
+    let column_exists = rows.into_iter().any(|mut r| {
+        r.remove("name")
+            .and_then(|v| v.as_str().map(String::from))
+            .as_deref()
+            == Some("user_home_page")
+    });
 
     if !column_exists {
         pool.execute_sql(

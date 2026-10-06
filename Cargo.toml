@@ -27,7 +27,7 @@ axum         = { version = "0.7",  features = ["ws", "multipart"] }
 
 # database
 sqlx         = { version = "0.7",  features = [
-                    "postgres", "sqlite",
+                    "sqlite",
                     "runtime-tokio", "migrate", "json",
                     "chrono", "uuid",
                 ]}

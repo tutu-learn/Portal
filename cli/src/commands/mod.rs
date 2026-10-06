@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod init;
 pub mod migrate;
+pub mod migrate_shard;
 pub mod new_rust_app;
 pub mod new_site;
 pub mod shell;

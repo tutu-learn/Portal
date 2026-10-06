@@ -22,7 +22,11 @@ fn extract_cookie_value(header: &str, name: &str) -> Option<String> {
 async fn session_user_from_cookie(state: &AppState, headers: &HeaderMap) -> Option<String> {
     let cookie_header = headers.get("cookie").and_then(|h| h.to_str().ok())?;
     let sid = extract_cookie_value(cookie_header, "sid")?;
-    let pool = state.pools.iter().next().map(|e| e.value().clone())?;
+    let pool = state
+        .pools
+        .iter()
+        .next()
+        .map(|e| e.value().core().clone())?;
     let store = session::SessionStore::new();
     match store.get(&pool, &sid).await {
         Ok(Some(session)) if !session.is_expired() => Some(session.user),
@@ -41,7 +45,7 @@ async fn require_kiff_logs_admin(
         .pools
         .iter()
         .next()
-        .map(|e| e.value().clone())
+        .map(|e| e.value().core().clone())
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let pm = permissions::PermissionEngine::new();

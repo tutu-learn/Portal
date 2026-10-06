@@ -44,7 +44,11 @@ pub async fn ingest_handler(
     headers: HeaderMap,
     Json(req): Json<IngestRequest>,
 ) -> Result<Json<IngestResponse>, StatusCode> {
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = state
+        .pools
+        .iter()
+        .next()
+        .map(|e| e.value().core().clone());
     let pool = pool.ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let token_info = authenticate_bearer(&pool, &headers).await?;
@@ -98,7 +102,11 @@ pub async fn query_handler(
     headers: HeaderMap,
     Query(params): Query<QueryParams>,
 ) -> Result<Json<QueryResponse>, StatusCode> {
-    let pool = state.pools.iter().next().map(|e| e.value().clone());
+    let pool = state
+        .pools
+        .iter()
+        .next()
+        .map(|e| e.value().core().clone());
     let pool = pool.ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
     let _token_info = authenticate_bearer(&pool, &headers).await?;
 

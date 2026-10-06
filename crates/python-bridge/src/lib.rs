@@ -735,7 +735,7 @@ fn log_query(q: &str, limit: usize) -> PyResult<PyObject> {
 /// This is used by the embedded Python (.so) instance to initialize itself
 /// independently of the binary's statically-linked instance.
 #[pyfunction]
-fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
+fn init_from_url(_db_driver: &str, db_url: &str) -> PyResult<()> {
     use pyo3::exceptions::PyRuntimeError;
     if RUNTIME.get().is_some() {
         return Ok(()); // already initialized
@@ -747,12 +747,7 @@ fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
         .map_err(|e| PyRuntimeError::new_err(format!("tokio: {}", e)))?;
 
     let pool = rt
-        .block_on(async {
-            match db_driver {
-                "postgres" => orm::DatabasePool::connect_postgres(db_url).await,
-                _ => orm::DatabasePool::connect_sqlite(db_url).await,
-            }
-        })
+        .block_on(async { orm::DatabasePool::connect_sqlite(db_url).await })
         .map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
 
     let _ = RUNTIME.set(rt);
@@ -771,7 +766,7 @@ fn init_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
 /// checkpoint could copy garbage pages into the freshly restored main DB.
 /// Costs a few file descriptors per heal; reclaimed on process exit.
 #[pyfunction]
-fn reset_pool_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
+fn reset_pool_from_url(_db_driver: &str, db_url: &str) -> PyResult<()> {
     use pyo3::exceptions::PyRuntimeError;
 
     // Take the current pool out of service immediately so in-flight Python
@@ -784,17 +779,12 @@ fn reset_pool_from_url(db_driver: &str, db_url: &str) -> PyResult<()> {
     if RUNTIME.get().is_none() {
         // Never initialized (startup init failed): a fresh init creates both
         // the runtime and the pool.
-        return init_from_url(db_driver, db_url);
+        return init_from_url("sqlite", db_url);
     }
 
     let rt = RUNTIME.get().expect("RUNTIME checked above");
     let pool = rt
-        .block_on(async {
-            match db_driver {
-                "postgres" => orm::DatabasePool::connect_postgres(db_url).await,
-                _ => orm::DatabasePool::connect_sqlite(db_url).await,
-            }
-        })
+        .block_on(async { orm::DatabasePool::connect_sqlite(db_url).await })
         .map_err(|e| PyRuntimeError::new_err(format!("db: {}", e)))?;
 
     let _ = swap_pool(pool);
