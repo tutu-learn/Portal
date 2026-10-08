@@ -35,7 +35,7 @@ dashmap        = { workspace = true }
 chrono         = { workspace = true }
 pyo3           = { workspace = true }
 tower-http     = { workspace = true }
-audit_ready = { path = "../../rust_apps/audit_ready" }
+strongroom = { path = "../../rust_apps/strongroom" }
 
 [build-dependencies]
 serde          = { workspace = true, features = ["derive"] }

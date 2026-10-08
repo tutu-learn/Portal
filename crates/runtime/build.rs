@@ -25,16 +25,35 @@ fn main() {
     // `kiff_logger` is appended unconditionally by `rust_apps::load_registry`,
     // so the runtime still has its core logging app available.
     let apps = read_apps(&apps_json).unwrap_or_default();
-    let generated = generate_registered_apps(&apps);
+
+    // Keep Cargo.toml manifests in sync with apps.json so adding/removing an
+    // app only requires editing the JSON config. Directory names may use mixed
+    // case on case-insensitive filesystems, so resolve the real name.
+    // Apps listed in apps.json but not present under rust_apps/ are skipped so
+    // the main repo can build independently of any specific app checkout.
+    let app_dirs = resolve_app_dirs(&workspace_root, &apps);
+    for app in apps.iter().filter(|a| !app_dirs.iter().any(|(name, _)| name == *a)) {
+        println!(
+            "cargo:warning=rust_apps/{} is configured but not checked out; skipping",
+            app
+        );
+    }
+
+    // Only register apps whose path dependency is already present in the
+    // runtime manifest for the current cargo invocation. Missing dependencies
+    // are added below, but cargo will not pick them up until the next build.
+    // This lets a fresh checkout compile successfully on the first run.
+    let registered_apps: Vec<String> = app_dirs
+        .iter()
+        .filter(|(app, _dir)| runtime_has_app_dependency(&manifest_dir, app))
+        .map(|(app, _dir)| app.clone())
+        .collect();
+    let generated = generate_registered_apps(&registered_apps);
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let out_path = out_dir.join("registered_apps.rs");
     write_if_changed(&out_path, &generated);
 
-    // Keep Cargo.toml manifests in sync with apps.json so adding/removing an
-    // app only requires editing the JSON config. Directory names may use mixed
-    // case on case-insensitive filesystems, so resolve the real name.
-    let app_dirs = resolve_app_dirs(&workspace_root, &apps);
     let runtime_changed = sync_runtime_cargo_toml(&manifest_dir, &app_dirs);
     let workspace_changed = sync_workspace_cargo_toml(&workspace_root, &app_dirs);
 
@@ -64,13 +83,12 @@ fn resolve_app_dirs(workspace_root: &Path, apps: &[String]) -> Vec<(String, Stri
         .collect();
 
     apps.iter()
-        .map(|app| {
-            let dir = entries
+        .filter_map(|app| {
+            entries
                 .iter()
                 .find(|entry| entry.to_lowercase() == app.to_lowercase())
                 .cloned()
-                .unwrap_or_else(|| app.clone());
-            (app.clone(), dir)
+                .map(|dir| (app.clone(), dir))
         })
         .collect()
 }
@@ -266,6 +284,23 @@ fn is_app_dependency(key: &str, value: &toml_edit::Item) -> bool {
             if let Some(dir) = path.strip_prefix("../../rust_apps/") {
                 return dir.to_lowercase() == key.to_lowercase();
             }
+        }
+    }
+    false
+}
+
+/// Returns true if `crates/runtime/Cargo.toml` already declares `app` as a path
+/// dependency. We use this to decide whether it is safe to register the app in
+/// the generated code for the current cargo invocation.
+fn runtime_has_app_dependency(manifest_dir: &Path, app: &str) -> bool {
+    let path = manifest_dir.join("Cargo.toml");
+    let content = fs::read_to_string(&path).expect("read runtime Cargo.toml");
+    let doc = content
+        .parse::<toml_edit::DocumentMut>()
+        .expect("parse runtime Cargo.toml");
+    if let Some(deps) = doc["dependencies"].as_table() {
+        if let Some(value) = deps.get(app) {
+            return is_app_dependency(app, value);
         }
     }
     false

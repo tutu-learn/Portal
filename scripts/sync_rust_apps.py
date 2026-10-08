@@ -10,6 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
@@ -36,15 +37,20 @@ CORE_CRATES = [
 ]
 
 
-def resolve_app_dir(app: str) -> str:
-    """Return the actual directory name under rust_apps/ for `app`."""
+def resolve_app_dir(app: str) -> Optional[str]:
+    """Return the actual directory name under rust_apps/ for `app`.
+
+    Returns ``None`` if the app directory is not present, so apps that are
+    configured but not checked out are skipped rather than generating invalid
+    path dependencies.
+    """
     rust_apps_dir = WORKSPACE_ROOT / "rust_apps"
     if not rust_apps_dir.is_dir():
-        return app
+        return None
     for entry in rust_apps_dir.iterdir():
         if entry.is_dir() and entry.name.lower() == app.lower():
             return entry.name
-    return app
+    return None
 
 
 def read_apps() -> list[str]:
@@ -108,14 +114,21 @@ def replace_dependencies_table(text: str, section: str, deps: dict[str, str]) ->
 def sync_root_cargo(apps: list[str]) -> None:
     text = ROOT_CARGO.read_text()
 
-    # Workspace members: core crates + rust_apps/core + each configured app.
+    # Workspace members: core crates + rust_apps/core + each configured app
+    # that is actually checked out.
+    app_dirs = [d for a in apps if (d := resolve_app_dir(a)) is not None]
     members = CORE_CRATES + ["rust_apps/core"] + [
-        f"rust_apps/{resolve_app_dir(a)}" for a in apps
+        f"rust_apps/{d}" for d in app_dirs
     ]
     text = replace_array_block(text, "members", members)
 
-    # Dev-dependencies: keep rust_apps_core and any configured apps.
-    app_dev_deps = {a: f"rust_apps/{resolve_app_dir(a)}" for a in apps}
+    # Dev-dependencies: keep rust_apps_core and any configured apps that are
+    # actually checked out.
+    app_dev_deps = {
+        a: f"rust_apps/{d}"
+        for a in apps
+        if (d := resolve_app_dir(a)) is not None
+    }
     text = replace_dependencies_table(text, "dev-dependencies", app_dev_deps)
 
     ROOT_CARGO.write_text(text)
@@ -123,7 +136,11 @@ def sync_root_cargo(apps: list[str]) -> None:
 
 def sync_runtime_cargo(apps: list[str]) -> None:
     text = RUNTIME_CARGO.read_text()
-    app_deps = {a: f"../../rust_apps/{resolve_app_dir(a)}" for a in apps}
+    app_deps = {
+        a: f"../../rust_apps/{d}"
+        for a in apps
+        if (d := resolve_app_dir(a)) is not None
+    }
     text = replace_dependencies_table(text, "dependencies", app_deps)
     RUNTIME_CARGO.write_text(text)
 

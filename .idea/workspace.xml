@@ -5,10 +5,10 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/rust_apps/audit_ready">
+      <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/config">
+      <package file="$PROJECT_DIR$/crates/email">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/crates/error">
@@ -59,65 +59,36 @@
       <package file="$PROJECT_DIR$/crates/sql-translator">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/rust_apps/strongroom">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rust_apps/strongroom/tauri">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/protocol">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ad31be83-820f-4b7d-a92d-009d74fd97a3" name="Changes" comment="Adjust memory, merge, and database connection defaults for better performance&#10;&#10;Fine-tuned the `MAX_SEGMENTS_BEFORE_MERGE` to reduce memory spikes during segment merges, added default memory limits for deployments, increased SQLite busy timeout to 10 seconds, adjusted SQLite connection pool to default to 8 with a bounded cache size, and extended connection acquisition timeout to prevent saturation during high concurrent loads.">
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove `tauri/Cargo.lock` file from project">
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/commands/backup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/commands/backup.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/commands/migrate.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/commands/migrate.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/commands/new_site.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/commands/new_site.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/site.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/site.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/api.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/handlers/thruster.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/handlers/thruster.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/http/src/site.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/http/src/site.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/kiff_logger/src/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/kiff_logger/src/handlers.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/kiff_logger/src/methods.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/kiff_logger/src/methods.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/kiff_logger/src/page.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/kiff_logger/src/page.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/backends/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/backends/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/backends/postgres.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync/dynamic_fields.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync/dynamic_fields.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync/seed_data.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync/seed_data.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/migrations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/migrations.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/password.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/password.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/pool.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/pool.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/python-bridge/src/queue.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/python-bridge/src/queue.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/queue/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/queue/src/worker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/pool_watchdog.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/startup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/startup.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/session/src/session.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/session/src/session.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/sql-translator/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/sql-translator/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/sql-translator/src/placeholders.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/sql-translator/src/placeholders.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/actions/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/actions/handlers.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/actions/ws.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/actions/ws.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/deployments/handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/deployments/handler.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/handlers/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/handlers/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/integrations/sync.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/integrations/sync.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/k8s/ws.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/k8s/ws.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/actions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/actions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/methods/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/pages/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/pages/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/portal/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/portal/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/s2s/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/s2s/handlers.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/client_report.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/client_report.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/telemetry/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/timesheet/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/timesheet/handlers.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/tunnel/broker.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/audit_ready/src/vuln/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/audit_ready/src/vuln/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/core/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/common/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/sql_translator/test_functions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/sql_translator/test_functions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/sql_translator/test_placeholders.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/sql_translator/test_placeholders.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/common/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/email_followup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/email_followup.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.css" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.lock" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/auth.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/setup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/setup.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/sidecar.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/sidecar.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -125,12 +96,25 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19765" />
+    <option name="cachedIndexableFilesCount" value="20613" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/audit_ready" />
+    <excluded-from-favorite>
+      <branch-storage>
+        <map>
+          <entry type="LOCAL">
+            <value>
+              <list>
+                <branch-info repo="$PROJECT_DIR$" source="master" />
+              </list>
+            </value>
+          </entry>
+        </map>
+      </branch-storage>
+    </excluded-from-favorite>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -139,14 +123,14 @@
     &quot;assignee&quot;: &quot;nefdtie101&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
-    &quot;accountId&quot;: &quot;e5c6b783-876f-427e-8950-125234752873&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/tutu-learn/Portal",
+    "accountId": "e5c6b783-876f-427e-8950-125234752873"
   }
-}</component>
+}]]></component>
   <component name="MacroExpansionManager">
-    <option name="directoryName" value="ggITKaGb" />
+    <option name="directoryName" value="3pBfu8Y3" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -154,23 +138,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4708680196515573" />
-      <entry key="MS500" value="2.978551697866733" />
-      <entry key="S2" value="3.6973685269705814" />
-      <entry key="S5" value="3.874551286794047" />
-      <entry key="S10" value="3.9365171311195186" />
-      <entry key="S30" value="3.9786680165933688" />
-      <entry key="S60" value="3.989312473646805" />
-      <entry key="M2" value="3.9946508413671142" />
-      <entry key="M5" value="3.997859198452475" />
-      <entry key="M10" value="3.9995007874508857" />
-      <entry key="M15" value="4.012871233479185" />
-      <entry key="M30" value="4.4564549318190405" />
-      <entry key="H1" value="6.896612457768382" />
-      <entry key="H2" value="11.39464982093036" />
-      <entry key="H4" value="15.859346719935026" />
-      <entry key="D1" value="33.27154091630337" />
-      <entry key="W1" value="64.56741644118853" />
+      <entry key="MS100" value="1.6920695347769044" />
+      <entry key="MS500" value="3.1398808928624455" />
+      <entry key="S2" value="3.751068191106482" />
+      <entry key="S5" value="3.897335883918422" />
+      <entry key="S10" value="3.948137041918707" />
+      <entry key="S30" value="3.9825928782750006" />
+      <entry key="S60" value="3.99128141128759" />
+      <entry key="M2" value="3.995636941576201" />
+      <entry key="M5" value="3.998253872343181" />
+      <entry key="M10" value="3.999126785381049" />
+      <entry key="M15" value="3.9994178234060596" />
+      <entry key="M30" value="3.999708896323484" />
+      <entry key="H1" value="4.000030719654167" />
+      <entry key="H2" value="4.073230521457948" />
+      <entry key="H4" value="5.573539058352496" />
+      <entry key="D1" value="35.85646584344823" />
+      <entry key="W1" value="164.29117212785496" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -192,61 +176,64 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.4305694849343118" />
-      <entry key="MS500" value="2.952589388426187" />
-      <entry key="S2" value="3.6881749997252142" />
-      <entry key="S5" value="3.870593644038652" />
-      <entry key="S10" value="3.934488750174367" />
-      <entry key="S30" value="3.977980599351528" />
-      <entry key="S60" value="3.9889673361048628" />
-      <entry key="M2" value="3.9944779140306474" />
-      <entry key="M5" value="3.9977899412830253" />
-      <entry key="M10" value="3.9994661279953516" />
-      <entry key="M15" value="4.012847821782902" />
-      <entry key="M30" value="4.456437222693483" />
-      <entry key="H1" value="6.896586057850103" />
-      <entry key="H2" value="11.394620010440711" />
-      <entry key="H4" value="15.85932346697646" />
-      <entry key="D1" value="33.27153266355638" />
-      <entry key="W1" value="64.56741439925428" />
+      <entry key="MS100" value="1.6518267826147308" />
+      <entry key="MS500" value="3.1185676547750454" />
+      <entry key="S2" value="3.7441238516565494" />
+      <entry key="S5" value="3.894398808255262" />
+      <entry key="S10" value="3.9466406493839807" />
+      <entry key="S30" value="3.9820877658907348" />
+      <entry key="S60" value="3.9910280578074824" />
+      <entry key="M2" value="3.995510064914923" />
+      <entry key="M5" value="3.998203073620682" />
+      <entry key="M10" value="3.99910137800372" />
+      <entry key="M15" value="3.9994008833726795" />
+      <entry key="M30" value="3.999700425415759" />
+      <entry key="H1" value="4.000026483753241" />
+      <entry key="H2" value="4.073228345337857" />
+      <entry key="H4" value="5.573537288263041" />
+      <entry key="D1" value="35.856463091292746" />
+      <entry key="W1" value="164.29117032338746" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 4
+  &quot;associatedIndex&quot;: 8,
+  &quot;fromUser&quot;: false
 }</component>
-  <component name="ProjectId" id="3Jwnr7KsqVVDPxZthYUKTKZd7si" />
+  <component name="ProjectId" id="3IC2k1ReikK5POh7nrVtkx4QTBR" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/SebrusApps",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "ts.external.directory.path": "/Users/johannnefdt/RustroverProjects/StrongRoom/rust_apps/strongroom/e2e-tauri/node_modules/typescript/lib"
   }
-}</component>
+}]]></component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="ad31be83-820f-4b7d-a92d-009d74fd97a3" name="Changes" comment="fixed bugs" />
-      <created>1790581193292</created>
+      <changelist id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Added edit button on vault" />
+      <created>1787254368855</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1790581193292</updated>
+      <updated>1787254368855</updated>
     </task>
     <servers />
   </component>
@@ -254,24 +241,31 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="this cool" />
-    <MESSAGE value="this cool  " />
-    <MESSAGE value="Remove `sebrus_apps` from workspace and runtime configuration" />
-    <MESSAGE value="upayed " />
-    <MESSAGE value="Remove `sebrus_apps` and related configurations.&#10;&#10;Removed `sebrus_apps` and `strongroom` directory mappings and Cargo project references from `.idea` configurations. Cleaned up outdated entries and adjusted runtime settings to reflect these changes, streamlining the project setup." />
-    <MESSAGE value="added time sheets" />
-    <MESSAGE value="Remove time_sheet.json workspace configuration.&#10;&#10;Deleted the `time_sheet.json` file, removing the associated workspace configuration for the Time Sheet module. This cleanup may have been performed to deprecate or refactor how Time Sheet functionality is handled." />
-    <MESSAGE value="fixed bugs" />
-    <MESSAGE value="adeed audit ready actions" />
-    <MESSAGE value="Remove audit_ready_action.json file from the repository&#10;&#10;The audit_ready_action.json file has been deleted as it is no longer required. This change reduces unnecessary files in the codebase, streamlining the structure and improving maintainability." />
-    <MESSAGE value="Add initial Kubernetes deployment for `audit-ready` service" />
-    <MESSAGE value="fixed bugs." />
-    <MESSAGE value="Add AUDIT_READY_FEATURES.md to document feature reference&#10;&#10;This new markdown file provides a comprehensive overview of the features available, categorized by functional areas such as actions, patch management, vulnerability scanning, and compliance. It aims to serve as a centralized reference for understanding the system’s capabilities." />
-    <MESSAGE value="added action callbacks" />
-    <MESSAGE value="Test" />
-    <MESSAGE value="Reduce memory usage and improve default configurations for segment merges and SQLite pool settings" />
-    <MESSAGE value="Adjust memory and connection management defaults in log engine and SQLite pool&#10;&#10;- Reduced `MAX_SEGMENTS_BEFORE_MERGE` to 10 for smaller merge sizes and improved memory stability on constrained nodes.&#10;- Set log engine memory limit default to 4 GiB for safer deployments.&#10;- Increased SQLite connection pool size to 8 and cache size to 16 MB per connection for better API concurrency.&#10;- Extended SQLite busy timeout and acquire timeout for smoother handling of high-load scenarios." />
-    <MESSAGE value="Adjust memory, merge, and database connection defaults for better performance&#10;&#10;Fine-tuned the `MAX_SEGMENTS_BEFORE_MERGE` to reduce memory spikes during segment merges, added default memory limits for deployments, increased SQLite busy timeout to 10 seconds, adjusted SQLite connection pool to default to 8 with a bounded cache size, and extended connection acquisition timeout to prevent saturation during high concurrent loads." />
-    <option name="LAST_COMMIT_MESSAGE" value="Adjust memory, merge, and database connection defaults for better performance&#10;&#10;Fine-tuned the `MAX_SEGMENTS_BEFORE_MERGE` to reduce memory spikes during segment merges, added default memory limits for deployments, increased SQLite busy timeout to 10 seconds, adjusted SQLite connection pool to default to 8 with a bounded cache size, and extended connection acquisition timeout to prevent saturation during high concurrent loads." />
+    <MESSAGE value="Update IIS deploy flow" />
+    <MESSAGE value="fixed casing and home screen loading" />
+    <MESSAGE value="Add install location visibility and Thruster data location drift detection&#10;&#10;- Expose Strongroom's installation directory in the settings screen.&#10;- Introduce tools for identifying and resolving mismatches between Strongroom's current data location and Thruster's configured path.&#10;- Update modals and UI workflows to guide users on resolving data location issues.&#10;- Extend backend logic to handle Thruster-specific data directory settings and conflicts.&#10;" />
+    <MESSAGE value="Add install location display, Thruster data mismatch alerts, and pipeline path fixes&#10;&#10;- Added a read-only install location field in settings.&#10;- Implemented Thruster data location mismatch detection with user alerts and navigation options.&#10;- Refined Azure pipeline paths for consistent lowercase directory naming." />
+    <MESSAGE value="Migrate Azure pipeline steps to PowerShell for Windows compatibility and improve cleanup/debug scripts" />
+    <MESSAGE value="Add Node.js installation step to Azure pipeline for sidecar prep scripts" />
+    <MESSAGE value="Improve Frappe framework fetch step in Azure pipeline: add cleanup for existing dir, handle git clone errors" />
+    <MESSAGE value="Add Chocolatey installation step to Azure pipeline for missing agents" />
+    <MESSAGE value="Switch OpenSSL installation in Azure pipeline to FireDaemon redistributable for improved compatibility with non-admin agents" />
+    <MESSAGE value="Run migrations before doctype sync to fix ordering bug and avoid fresh DB errors; update app identifier and streamline data location logic." />
+    <MESSAGE value="Refactor module imports and reorganize `src` structure:&#10;&#10;- Moved general entities to `core` and practice-specific elements to `practice`.&#10;- Updated module paths across the entire codebase to reflect the new structure.&#10;- Introduced `entries` module within `diary`.&#10;- Adjusted doctypes and related constants." />
+    <MESSAGE value="Add core module and embed essential Frappe DocType fixtures for standalone runtime support" />
+    <MESSAGE value="Add collection fee handling, trust refund functionality, and minimum trust balance enforcement:&#10;&#10;- Introduced settings for collection fee mode and default percentage.&#10;- Added endpoints for posting trust refunds and collection fees.&#10;- Implemented minimum trust balance validation for trust transactions.&#10;- Enhanced invoice refund logic and ledger entry reversals.&#10;- Updated docs and refactored affected modules with auto-posted collection fee support." />
+    <MESSAGE value="Add trust refunds, collection fees, and enhanced trust balance validation:&#10;&#10;- Introduced APIs for trust refunds and collection fee posting.&#10;- Added support for minimum trust balance validation and auto-posting collection fees on trust receipts.&#10;- Expanded settings for manual/automatic collection fee modes and default collection fee percentage.&#10;- Implemented refund support for trust receipts, invoice payments, and collection fees with updated ledger entries.&#10;- Refactored modules for better extensibility and code organization." />
+    <MESSAGE value="Add integration tests for ledger features and collection fees:&#10;&#10;- Implemented comprehensive tests for trust refunds, collection fees, and minimum trust balance validation.&#10;- Added functionality to test manual and automatic collection fee modes.&#10;- Verified disbursement blocking based on minimum trust balance.&#10;- Ensured proper handling of trust refunds and fee calculations.&#10;- Introduced `collection_fee.rs` for modular collection fee handling with effective percent resolution." />
+    <MESSAGE value="Add PR validation pipeline and e2e tests for Strongroom:  &#10;&#10;- Introduced Azure DevOps pipeline configuration for lightweight PR validation without building the full Tauri bundle.  &#10;- Added e2e tests for bank reconciliation, beneficiaries, and billing modules in both TypeScript and Rust.  &#10;- Implemented tests for edge cases like fuzzy matching, transaction reconciliation, CRUD operations, and CSV/OFX imports.  &#10;- Ensured pipeline compatibility with non-admin Windows agents using FireDaemon OpenSSL and PowerShell scripts." />
+    <MESSAGE value="Add PR validation pipeline and comprehensive E2E deployment/test suite:&#10;&#10;- Introduced `azure-pipelines-pr.yml` for lightweight PR validation, including cache for Cargo registry and Rust target directory.&#10;- Added E2E tests for bank reconciliation, beneficiary management, and billing functionalities.&#10;- Implemented comprehensive Rust tests for auto-matching, manual matching, and transaction imports (CSV/OFX).&#10;- Integrated OpenSSL setup via FireDaemon in the pipeline for compatibility with Windows agents." />
+    <MESSAGE value="Add end-to-end tests for bank reconciliation, beneficiaries, and billing modules:&#10;&#10;- Introduced comprehensive E2E tests for bank reconciliation, including manual and automatic matching, unmatched transaction listing, and fuzzy matching logic.&#10;- Added beneficiary CRUD and estate filter tests to validate balance due calculations.&#10;- Implemented billing tests to verify time entry locking, invoice generation, VAT calculations, and sequential invoice numbering." />
+    <MESSAGE value="Remove outdated test files for cleanup and maintenance&#10;&#10;Deleted legacy test files for bank reconciliation, beneficiary CRUD, &#10;and billing modules to improve code maintainability. These files &#10;were either replaced or no longer relevant to ongoing development." />
+    <MESSAGE value="Remove outdated stages and streamline pipeline configs&#10;&#10;Removed legacy E2E and test stages from Azure pipeline to simplify CI/CD workflows. Updated project files, dependencies, and configurations for the transition from `audit_ready` to `strongroom` as the primary focus of development. Simplified outdated setups, improving maintainability and clarity." />
+    <MESSAGE value="Implement framework-wide property setters for user home page visibility&#10;&#10;Added property setters to standardize user home page visibility across sites and updated runtime to seed these setters during initialization. Also introduced a mechanism to apply and normalize these settings dynamically in API responses and &quot;/desk&quot; redirects." />
+    <MESSAGE value="update build file" />
+    <MESSAGE value="Add logging for custom paths and framework property seeding&#10;&#10;Added `tracing::info` logs for `auth.custom_login_path` and `auth.custom_home_path` configurations in `config` crate. Included a log message for the `User.home_page` property seeding to enhance observability during runtime." />
+    <MESSAGE value="fixed desktop load" />
+    <MESSAGE value="Remove `tauri/Cargo.lock` file from project" />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove `tauri/Cargo.lock` file from project" />
   </component>
 </project>
