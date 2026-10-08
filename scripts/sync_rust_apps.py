@@ -53,6 +53,34 @@ def resolve_app_dir(app: str) -> Optional[str]:
     return None
 
 
+def resolve_app_workspace_members(apps: list[str]) -> list[str]:
+    """Return all workspace member paths for configured apps that are checked out.
+
+    Includes the app crate itself and any nested crate directories directly
+    underneath it that contain a ``Cargo.toml`` (e.g.
+    ``rust_apps/strongroom/tauri``).
+    """
+    rust_apps_dir = WORKSPACE_ROOT / "rust_apps"
+    if not rust_apps_dir.is_dir():
+        return []
+
+    app_dirs = {entry.name: entry for entry in rust_apps_dir.iterdir() if entry.is_dir()}
+
+    members: list[str] = []
+    for app in apps:
+        dir_name = next(
+            (name for name in app_dirs if name.lower() == app.lower()), None
+        )
+        if dir_name is None:
+            continue
+        members.append(f"rust_apps/{dir_name}")
+        app_path = rust_apps_dir / dir_name
+        for subdir in app_path.iterdir():
+            if subdir.is_dir() and (subdir / "Cargo.toml").is_file():
+                members.append(f"rust_apps/{dir_name}/{subdir.name}")
+    return members
+
+
 def read_apps() -> list[str]:
     data = json.loads(APPS_JSON.read_text())
     apps = data.get("apps", [])
@@ -115,11 +143,10 @@ def sync_root_cargo(apps: list[str]) -> None:
     text = ROOT_CARGO.read_text()
 
     # Workspace members: core crates + rust_apps/core + each configured app
-    # that is actually checked out.
-    app_dirs = [d for a in apps if (d := resolve_app_dir(a)) is not None]
-    members = CORE_CRATES + ["rust_apps/core"] + [
-        f"rust_apps/{d}" for d in app_dirs
-    ]
+    # that is actually checked out, including nested crates such as
+    # rust_apps/strongroom/tauri.
+    app_members = resolve_app_workspace_members(apps)
+    members = CORE_CRATES + ["rust_apps/core"] + app_members
     text = replace_array_block(text, "members", members)
 
     # Dev-dependencies: keep rust_apps_core and any configured apps that are

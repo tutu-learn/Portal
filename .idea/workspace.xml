@@ -62,33 +62,16 @@
       <package file="$PROJECT_DIR$/rust_apps/strongroom">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/strongroom/tauri">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/protocol">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Remove `tauri/Cargo.lock` file from project">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="7d5846e2-d8c7-44ee-97c3-b8cf87805463" name="Changes" comment="Switch workspace focus from `audit_ready` to `strongroom`  &#10;&#10;- Replaced `audit_ready` with `strongroom` as the primary Rust app in the workspace configuration.  &#10;- Updated `.idea` project settings to reflect this transition, including changes in dependencies and added configurations for `strongroom` features.  &#10;- Improved maintainability by adjusting related project files and indexes.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/common/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/email_followup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/e2e/rust-tests/email_followup.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.css" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.html" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/frontend/splash.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/auth.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/setup.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/commands/setup.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/sidecar.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/strongroom/tauri/src/sidecar.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/build.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/sync_rust_apps.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/sync_rust_apps.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +97,7 @@
         </map>
       </branch-storage>
     </excluded-from-favorite>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/strongroom" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -213,7 +196,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/SebrusApps",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -241,7 +224,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update IIS deploy flow" />
     <MESSAGE value="fixed casing and home screen loading" />
     <MESSAGE value="Add install location visibility and Thruster data location drift detection&#10;&#10;- Expose Strongroom's installation directory in the settings screen.&#10;- Introduce tools for identifying and resolving mismatches between Strongroom's current data location and Thruster's configured path.&#10;- Update modals and UI workflows to guide users on resolving data location issues.&#10;- Extend backend logic to handle Thruster-specific data directory settings and conflicts.&#10;" />
     <MESSAGE value="Add install location display, Thruster data mismatch alerts, and pipeline path fixes&#10;&#10;- Added a read-only install location field in settings.&#10;- Implemented Thruster data location mismatch detection with user alerts and navigation options.&#10;- Refined Azure pipeline paths for consistent lowercase directory naming." />
@@ -266,6 +248,7 @@
     <MESSAGE value="Add logging for custom paths and framework property seeding&#10;&#10;Added `tracing::info` logs for `auth.custom_login_path` and `auth.custom_home_path` configurations in `config` crate. Included a log message for the `User.home_page` property seeding to enhance observability during runtime." />
     <MESSAGE value="fixed desktop load" />
     <MESSAGE value="Remove `tauri/Cargo.lock` file from project" />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove `tauri/Cargo.lock` file from project" />
+    <MESSAGE value="Switch workspace focus from `audit_ready` to `strongroom`  &#10;&#10;- Replaced `audit_ready` with `strongroom` as the primary Rust app in the workspace configuration.  &#10;- Updated `.idea` project settings to reflect this transition, including changes in dependencies and added configurations for `strongroom` features.  &#10;- Improved maintainability by adjusting related project files and indexes." />
+    <option name="LAST_COMMIT_MESSAGE" value="Switch workspace focus from `audit_ready` to `strongroom`  &#10;&#10;- Replaced `audit_ready` with `strongroom` as the primary Rust app in the workspace configuration.  &#10;- Updated `.idea` project settings to reflect this transition, including changes in dependencies and added configurations for `strongroom` features.  &#10;- Improved maintainability by adjusting related project files and indexes." />
   </component>
 </project>
