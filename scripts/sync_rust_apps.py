@@ -76,8 +76,17 @@ def resolve_app_workspace_members(apps: list[str]) -> list[str]:
         members.append(f"rust_apps/{dir_name}")
         app_path = rust_apps_dir / dir_name
         for subdir in app_path.iterdir():
-            if subdir.is_dir() and (subdir / "Cargo.toml").is_file():
-                members.append(f"rust_apps/{dir_name}/{subdir.name}")
+            if not subdir.is_dir():
+                continue
+            cargo_toml = subdir / "Cargo.toml"
+            if not cargo_toml.is_file():
+                continue
+            # Skip nested crates that declare their own `[workspace]`; they
+            # are built independently and must not be pulled into the main
+            # monorepo workspace.
+            if "[workspace]" in cargo_toml.read_text():
+                continue
+            members.append(f"rust_apps/{dir_name}/{subdir.name}")
     return members
 
 

@@ -134,11 +134,21 @@ fn resolve_app_workspace_members(workspace_root: &Path, apps: &[String]) -> Vec<
                         return None;
                     }
                     let name = entry.file_name().into_string().ok()?;
-                    if entry.path().join("Cargo.toml").is_file() {
-                        Some(format!("rust_apps/{dir}/{name}"))
-                    } else {
-                        None
+                    let cargo_toml = entry.path().join("Cargo.toml");
+                    if !cargo_toml.is_file() {
+                        return None;
                     }
+                    // Skip nested crates that declare their own `[workspace]`;
+                    // they are built independently and must not be pulled into
+                    // the main monorepo workspace.
+                    if let Ok(content) = fs::read_to_string(&cargo_toml) {
+                        if let Ok(doc) = content.parse::<toml_edit::DocumentMut>() {
+                            if doc.get("workspace").is_some() {
+                                return None;
+                            }
+                        }
+                    }
+                    Some(format!("rust_apps/{dir}/{name}"))
                 })
                 .collect(),
             Err(_) => continue,
