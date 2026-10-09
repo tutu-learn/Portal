@@ -218,7 +218,11 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
                 pw
             }
         };
-        let admin_hash = hash_user_password(&admin_password)?;
+        let admin_hash = tokio::task::spawn_blocking(move || hash_user_password(&admin_password))
+            .await
+            .map_err(|e| {
+                RuntimeError::Validation(format!("failed to hash admin password: {}", e))
+            })??;
         pool.execute_sql(
             &format!(
                 r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
