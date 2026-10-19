@@ -30,8 +30,30 @@ fn is_valid_platform(name: &str) -> bool {
     PLATFORMS.contains(&name)
 }
 
-fn is_hidden_or_sidecar(name: &str) -> bool {
-    name.starts_with('.') || name.ends_with(".sha256")
+fn is_valid_filename(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains('\0')
+        && !name.contains("..")
+        && !name.ends_with(".sha256")
+}
+
+fn bad_request_json(msg: impl std::fmt::Display) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": msg.to_string() })),
+    )
+        .into_response()
+}
+
+fn internal_error_json(msg: impl std::fmt::Display) -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": msg.to_string() })),
+    )
+        .into_response()
 }
 
 async fn require_thruster_uploader(
@@ -132,63 +154,37 @@ pub async fn upload_binary(
             "platform" => {
                 if let Ok(value) = field.text().await {
                     if !is_valid_platform(&value) {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(json!({ "error": format!("invalid platform: {value}") })),
-                        )
-                            .into_response();
+                        return bad_request_json(format!("invalid platform: {value}"));
                     }
                     platform = Some(value);
                 }
             }
             "file" => {
                 let filename = field.file_name().unwrap_or("binary").to_string();
-                if filename.is_empty() || is_hidden_or_sidecar(&filename) {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(json!({ "error": "invalid file name" })),
-                    )
-                        .into_response();
+                if !is_valid_filename(&filename) {
+                    return bad_request_json("invalid file name");
                 }
 
                 let data = match field.bytes().await {
                     Ok(b) => b,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(json!({ "error": format!("failed to read upload: {e}") })),
-                        )
-                            .into_response();
-                    }
+                    Err(e) => return bad_request_json(format!("failed to read upload: {e}")),
                 };
 
                 let p = match platform.as_deref() {
                     Some(p) => p,
                     None => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(json!({ "error": "platform must be sent before file" })),
-                        )
-                            .into_response();
+                        return bad_request_json("platform must be sent before file");
                     }
                 };
 
                 let dir = thruster_dir().join(p);
                 if let Err(e) = tokio::fs::create_dir_all(&dir).await {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({ "error": format!("failed to create directory: {e}") })),
-                    )
-                        .into_response();
+                    return internal_error_json(format!("failed to create directory: {e}"));
                 }
 
                 let path = dir.join(&filename);
                 if let Err(e) = write_file_atomic(&path, &data).await {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({ "error": format!("failed to write file: {e}") })),
-                    )
-                        .into_response();
+                    return internal_error_json(format!("failed to write file: {e}"));
                 }
                 saved_file = Some(filename);
             }
@@ -206,12 +202,210 @@ pub async fn upload_binary(
             })),
         )
             .into_response(),
-        None => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "no file received" })),
-        )
-            .into_response(),
+        None => bad_request_json("no file received"),
     }
+}
+
+/// Chunked upload for large Thruster binaries.
+///
+/// Clients split a file into chunks and POST each chunk here with:
+///   platform, filename, upload_id, chunk_index, total_chunks, file
+/// When all chunks for an upload_id are present they are concatenated
+/// and atomically moved to `thruster/<platform>/<filename>`.
+pub async fn upload_binary_chunk(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    if let Err(resp) = require_thruster_uploader(&state, &headers).await {
+        return resp;
+    }
+
+    let mut platform: Option<String> = None;
+    let mut filename: Option<String> = None;
+    let mut upload_id: Option<String> = None;
+    let mut chunk_index: Option<usize> = None;
+    let mut total_chunks: Option<usize> = None;
+    let mut chunk_data: Option<Bytes> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let name = field.name().unwrap_or("").to_string();
+        match name.as_str() {
+            "platform" => {
+                if let Ok(value) = field.text().await {
+                    if !is_valid_platform(&value) {
+                        return bad_request_json(format!("invalid platform: {value}"));
+                    }
+                    platform = Some(value);
+                }
+            }
+            "filename" => {
+                if let Ok(value) = field.text().await {
+                    if !is_valid_filename(&value) {
+                        return bad_request_json("invalid filename");
+                    }
+                    filename = Some(value);
+                }
+            }
+            "upload_id" => {
+                if let Ok(value) = field.text().await {
+                    if value.is_empty()
+                        || value.contains('/')
+                        || value.contains('\\')
+                        || value.contains('\0')
+                    {
+                        return bad_request_json("invalid upload_id");
+                    }
+                    upload_id = Some(value);
+                }
+            }
+            "chunk_index" => {
+                if let Ok(value) = field.text().await {
+                    match value.parse::<usize>() {
+                        Ok(n) => chunk_index = Some(n),
+                        Err(_) => return bad_request_json("chunk_index must be an integer"),
+                    }
+                }
+            }
+            "total_chunks" => {
+                if let Ok(value) = field.text().await {
+                    match value.parse::<usize>() {
+                        Ok(n) if n > 0 => total_chunks = Some(n),
+                        _ => return bad_request_json("total_chunks must be a positive integer"),
+                    }
+                }
+            }
+            "file" => {
+                match field.bytes().await {
+                    Ok(b) => chunk_data = Some(b),
+                    Err(e) => return bad_request_json(format!("failed to read chunk: {e}")),
+                };
+            }
+            _ => {}
+        }
+    }
+
+    let platform = match platform {
+        Some(v) => v,
+        None => return bad_request_json("platform is required"),
+    };
+    let filename = match filename {
+        Some(v) => v,
+        None => return bad_request_json("filename is required"),
+    };
+    let upload_id = match upload_id {
+        Some(v) => v,
+        None => return bad_request_json("upload_id is required"),
+    };
+    let chunk_index = match chunk_index {
+        Some(v) => v,
+        None => return bad_request_json("chunk_index is required"),
+    };
+    let total_chunks = match total_chunks {
+        Some(v) => v,
+        None => return bad_request_json("total_chunks is required"),
+    };
+    let chunk_data = match chunk_data {
+        Some(v) => v,
+        None => return bad_request_json("no chunk data received"),
+    };
+
+    if chunk_index >= total_chunks {
+        return bad_request_json("chunk_index out of range");
+    }
+
+    let tmp_dir = thruster_dir().join(".tmp").join(&upload_id);
+    if let Err(e) = tokio::fs::create_dir_all(&tmp_dir).await {
+        return internal_error_json(format!("failed to create temp directory: {e}"));
+    }
+
+    let chunk_path = tmp_dir.join(chunk_index.to_string());
+    if let Err(e) = tokio::fs::write(&chunk_path, &chunk_data).await {
+        return internal_error_json(format!("failed to write chunk: {e}"));
+    }
+
+    // Treat the upload as complete when every expected chunk exists.
+    let all_present = (0..total_chunks).all(|i| tmp_dir.join(i.to_string()).exists());
+
+    if !all_present {
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "message": "chunk received",
+                "completed": false,
+                "chunk_index": chunk_index,
+                "total_chunks": total_chunks,
+            })),
+        )
+            .into_response();
+    }
+
+    let platform_dir = thruster_dir().join(&platform);
+    if let Err(e) = tokio::fs::create_dir_all(&platform_dir).await {
+        return internal_error_json(format!("failed to create directory: {e}"));
+    }
+
+    let final_path = platform_dir.join(&filename);
+
+    // Another request may have already finalized this upload.
+    if final_path.exists() {
+        let _ = tokio::fs::remove_dir_all(&tmp_dir).await;
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "message": "uploaded",
+                "completed": true,
+                "platform": platform,
+                "file": filename,
+            })),
+        )
+            .into_response();
+    }
+
+    let part_path = platform_dir.join(format!("{filename}.part"));
+    let mut part_file = match tokio::fs::File::create(&part_path).await {
+        Ok(f) => f,
+        Err(e) => return internal_error_json(format!("failed to create part file: {e}")),
+    };
+
+    for i in 0..total_chunks {
+        let chunk_path = tmp_dir.join(i.to_string());
+        let mut chunk_file = match tokio::fs::File::open(&chunk_path).await {
+            Ok(f) => f,
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&part_path).await;
+                return internal_error_json(format!("failed to open chunk {i}: {e}"));
+            }
+        };
+        if let Err(e) = tokio::io::copy(&mut chunk_file, &mut part_file).await {
+            let _ = tokio::fs::remove_file(&part_path).await;
+            return internal_error_json(format!("failed to assemble chunk {i}: {e}"));
+        }
+    }
+
+    drop(part_file);
+
+    if let Err(e) = tokio::fs::rename(&part_path, &final_path).await {
+        if final_path.exists() {
+            let _ = tokio::fs::remove_file(&part_path).await;
+        } else {
+            let _ = tokio::fs::remove_file(&part_path).await;
+            return internal_error_json(format!("failed to finalize file: {e}"));
+        }
+    }
+
+    let _ = tokio::fs::remove_dir_all(&tmp_dir).await;
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "message": "uploaded",
+            "completed": true,
+            "platform": platform,
+            "file": filename,
+        })),
+    )
+        .into_response()
 }
 
 async fn write_file_atomic(path: &PathBuf, data: &Bytes) -> std::io::Result<()> {

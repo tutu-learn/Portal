@@ -6,3 +6,5 @@ mod test_api;
 mod test_auth;
 #[path = "http/test_desk.rs"]
 mod test_desk;
+#[path = "http/test_thruster.rs"]
+mod test_thruster;

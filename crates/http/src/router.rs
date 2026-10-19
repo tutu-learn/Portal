@@ -129,5 +129,9 @@ pub fn create_router() -> Router<AppState> {
             "/api/method/thruster.upload",
             post(thruster::upload_binary).layer(DefaultBodyLimit::max(1024 * 1024 * 1024)),
         )
+        .route(
+            "/api/method/thruster.upload_chunk",
+            post(thruster::upload_binary_chunk).layer(DefaultBodyLimit::max(128 * 1024 * 1024)),
+        )
         .fallback(desk::serve_desk)
 }
