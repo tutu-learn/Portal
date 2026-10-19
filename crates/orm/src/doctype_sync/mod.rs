@@ -78,11 +78,43 @@ pub async fn sync_all(
     client_script_fixtures: Vec<(String, String)>,
     page_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
+    sync_all_with_progress(
+        pool,
+        fixtures,
+        workspace_fixtures,
+        module_fixtures,
+        client_script_fixtures,
+        page_fixtures,
+        None,
+    )
+    .await
+}
+
+/// Like [`sync_all`], but reports user-facing progress messages through
+/// `progress` at each phase boundary (and a running counter during metadata
+/// sync, which dominates first boot).
+pub async fn sync_all_with_progress(
+    pool: &DatabasePool,
+    fixtures: Vec<DoctypeFixture>,
+    workspace_fixtures: Vec<(String, String, String)>,
+    module_fixtures: Vec<ModuleFixture>,
+    client_script_fixtures: Vec<(String, String)>,
+    page_fixtures: Vec<(String, String)>,
+    progress: Option<&(dyn Fn(&str) + Sync)>,
+) -> Result<()> {
+    let report = |msg: &str| {
+        if let Some(cb) = progress {
+            cb(msg);
+        }
+    };
+
     info!("syncing frappe doctypes");
-    metadata::sync_metadata(pool, fixtures.clone()).await?;
+    report("Loading DocType definitions...");
+    metadata::sync_metadata(pool, fixtures.clone(), progress).await?;
     // Ensure module definitions exist before dynamic field rules are evaluated,
     // because those rules check `module_def.app_name` to decide whether to
     // inject fields (e.g. the Logger tab on User for sebrus_logger).
+    report("Loading modules...");
     seed_data::insert_module_defs(
         pool,
         fixtures.clone(),
@@ -90,11 +122,16 @@ pub async fn sync_all(
         module_fixtures.clone(),
     )
     .await?;
+    report("Applying field rules...");
     dynamic_fields::ensure_dynamic_fields(pool).await?;
+    report("Creating tables...");
     data_tables::sync_data_tables(pool).await?;
     dynamic_fields::migrate_legacy_log_viewer_service(pool).await?;
+    report("Applying permissions...");
     permissions::ensure_docperm_defaults(pool).await?;
+    report("Preparing accounts...");
     seed_data::insert_seed_data(pool, workspace_fixtures, page_fixtures).await?;
+    report("Loading client scripts...");
     seed_data::insert_client_script_fixtures(pool, client_script_fixtures).await?;
     info!("doctype sync complete");
     Ok(())

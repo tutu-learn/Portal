@@ -25,18 +25,38 @@ fn main() {
     // `kiff_logger` is appended unconditionally by `rust_apps::load_registry`,
     // so the runtime still has its core logging app available.
     let apps = read_apps(&apps_json).unwrap_or_default();
-    let generated = generate_registered_apps(&apps);
+
+    // Keep Cargo.toml manifests in sync with apps.json so adding/removing an
+    // app only requires editing the JSON config. Directory names may use mixed
+    // case on case-insensitive filesystems, so resolve the real name.
+    // Apps listed in apps.json but not present under rust_apps/ are skipped so
+    // the main repo can build independently of any specific app checkout.
+    let app_dirs = resolve_app_dirs(&workspace_root, &apps);
+    for app in apps.iter().filter(|a| !app_dirs.iter().any(|(name, _)| name == *a)) {
+        println!(
+            "cargo:warning=rust_apps/{} is configured but not checked out; skipping",
+            app
+        );
+    }
+
+    // Only register apps whose path dependency is already present in the
+    // runtime manifest for the current cargo invocation. Missing dependencies
+    // are added below, but cargo will not pick them up until the next build.
+    // This lets a fresh checkout compile successfully on the first run.
+    let registered_apps: Vec<String> = app_dirs
+        .iter()
+        .filter(|(app, _dir)| runtime_has_app_dependency(&manifest_dir, app))
+        .map(|(app, _dir)| app.clone())
+        .collect();
+    let generated = generate_registered_apps(&registered_apps);
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let out_path = out_dir.join("registered_apps.rs");
     write_if_changed(&out_path, &generated);
 
-    // Keep Cargo.toml manifests in sync with apps.json so adding/removing an
-    // app only requires editing the JSON config. Directory names may use mixed
-    // case on case-insensitive filesystems, so resolve the real name.
-    let app_dirs = resolve_app_dirs(&workspace_root, &apps);
+    let app_members = resolve_app_workspace_members(&workspace_root, &apps);
     let runtime_changed = sync_runtime_cargo_toml(&manifest_dir, &app_dirs);
-    let workspace_changed = sync_workspace_cargo_toml(&workspace_root, &app_dirs);
+    let workspace_changed = sync_workspace_cargo_toml(&workspace_root, &app_members);
 
     if runtime_changed || workspace_changed {
         println!(
@@ -64,15 +84,78 @@ fn resolve_app_dirs(workspace_root: &Path, apps: &[String]) -> Vec<(String, Stri
         .collect();
 
     apps.iter()
-        .map(|app| {
-            let dir = entries
+        .filter_map(|app| {
+            entries
                 .iter()
                 .find(|entry| entry.to_lowercase() == app.to_lowercase())
                 .cloned()
-                .unwrap_or_else(|| app.clone());
-            (app.clone(), dir)
+                .map(|dir| (app.clone(), dir))
         })
         .collect()
+}
+
+/// Return all workspace member paths for configured apps that are actually
+/// checked out. This includes the app crate itself plus any nested crate
+/// directories directly underneath it that contain a `Cargo.toml` (e.g.
+/// `rust_apps/strongroom/tauri`).
+fn resolve_app_workspace_members(workspace_root: &Path, apps: &[String]) -> Vec<String> {
+    let rust_apps_dir = workspace_root.join("rust_apps");
+    let entries: Vec<String> = fs::read_dir(&rust_apps_dir)
+        .expect("read rust_apps directory")
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let name = entry.file_name().into_string().ok()?;
+            if entry.file_type().ok()?.is_dir() {
+                Some(name)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut members = Vec::new();
+    for app in apps {
+        let dir = match entries
+            .iter()
+            .find(|entry| entry.to_lowercase() == app.to_lowercase())
+        {
+            Some(dir) => dir,
+            None => continue,
+        };
+
+        members.push(format!("rust_apps/{dir}"));
+
+        let app_dir = rust_apps_dir.join(dir);
+        let nested: Vec<String> = match fs::read_dir(&app_dir) {
+            Ok(it) => it
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    if !entry.file_type().ok()?.is_dir() {
+                        return None;
+                    }
+                    let name = entry.file_name().into_string().ok()?;
+                    let cargo_toml = entry.path().join("Cargo.toml");
+                    if !cargo_toml.is_file() {
+                        return None;
+                    }
+                    // Skip nested crates that declare their own `[workspace]`;
+                    // they are built independently and must not be pulled into
+                    // the main monorepo workspace.
+                    if let Ok(content) = fs::read_to_string(&cargo_toml) {
+                        if let Ok(doc) = content.parse::<toml_edit::DocumentMut>() {
+                            if doc.get("workspace").is_some() {
+                                return None;
+                            }
+                        }
+                    }
+                    Some(format!("rust_apps/{dir}/{name}"))
+                })
+                .collect(),
+            Err(_) => continue,
+        };
+        members.extend(nested);
+    }
+    members
 }
 
 fn read_apps(path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -167,20 +250,18 @@ fn sync_runtime_cargo_toml(manifest_dir: &Path, app_dirs: &[(String, String)]) -
     write_if_changed(&path, &doc.to_string())
 }
 
-/// Update the root `Cargo.toml` workspace members so every app in `apps.json`
-/// is listed under `rust_apps/<app>` and stale app members are removed. Returns
-/// `true` if the file was modified.
-fn sync_workspace_cargo_toml(workspace_root: &Path, app_dirs: &[(String, String)]) -> bool {
+/// Update the root `Cargo.toml` workspace members so every configured app (and
+/// any nested crates it contains) is listed, and stale app members are removed.
+/// Returns `true` if the file was modified.
+fn sync_workspace_cargo_toml(workspace_root: &Path, app_members: &[String]) -> bool {
     let path = workspace_root.join("Cargo.toml");
     let content = fs::read_to_string(&path).expect("read workspace Cargo.toml");
     let mut doc = content
         .parse::<toml_edit::DocumentMut>()
         .expect("parse workspace Cargo.toml");
 
-    let app_dirs_lookup: std::collections::HashSet<String> = app_dirs
-        .iter()
-        .map(|(_, dir)| format!("rust_apps/{dir}"))
-        .collect();
+    let app_members_lookup: std::collections::HashSet<String> =
+        app_members.iter().cloned().collect();
 
     // Modify the array inside a block so the mutable borrow ends before we
     // render the document.
@@ -197,7 +278,7 @@ fn sync_workspace_cargo_toml(workspace_root: &Path, app_dirs: &[(String, String)
             .filter(|entry| {
                 entry.starts_with("rust_apps/")
                     && *entry != "rust_apps/core"
-                    && !app_dirs_lookup.contains(entry)
+                    && !app_members_lookup.contains(entry)
             })
             .collect();
         for entry in to_remove {
@@ -205,11 +286,10 @@ fn sync_workspace_cargo_toml(workspace_root: &Path, app_dirs: &[(String, String)
         }
 
         // Add missing app members, preserving apps.json order after core.
-        for (_, dir) in app_dirs {
-            let entry = format!("rust_apps/{dir}");
-            let exists = members.iter().any(|value| value.as_str() == Some(&entry));
+        for entry in app_members {
+            let exists = members.iter().any(|value| value.as_str() == Some(entry));
             if !exists {
-                members.push(entry);
+                members.push(entry.clone());
             }
         }
 
@@ -266,6 +346,23 @@ fn is_app_dependency(key: &str, value: &toml_edit::Item) -> bool {
             if let Some(dir) = path.strip_prefix("../../rust_apps/") {
                 return dir.to_lowercase() == key.to_lowercase();
             }
+        }
+    }
+    false
+}
+
+/// Returns true if `crates/runtime/Cargo.toml` already declares `app` as a path
+/// dependency. We use this to decide whether it is safe to register the app in
+/// the generated code for the current cargo invocation.
+fn runtime_has_app_dependency(manifest_dir: &Path, app: &str) -> bool {
+    let path = manifest_dir.join("Cargo.toml");
+    let content = fs::read_to_string(&path).expect("read runtime Cargo.toml");
+    let doc = content
+        .parse::<toml_edit::DocumentMut>()
+        .expect("parse runtime Cargo.toml");
+    if let Some(deps) = doc["dependencies"].as_table() {
+        if let Some(value) = deps.get(app) {
+            return is_app_dependency(app, value);
         }
     }
     false

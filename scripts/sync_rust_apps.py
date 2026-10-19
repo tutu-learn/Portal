@@ -10,6 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
@@ -36,15 +37,57 @@ CORE_CRATES = [
 ]
 
 
-def resolve_app_dir(app: str) -> str:
-    """Return the actual directory name under rust_apps/ for `app`."""
+def resolve_app_dir(app: str) -> Optional[str]:
+    """Return the actual directory name under rust_apps/ for `app`.
+
+    Returns ``None`` if the app directory is not present, so apps that are
+    configured but not checked out are skipped rather than generating invalid
+    path dependencies.
+    """
     rust_apps_dir = WORKSPACE_ROOT / "rust_apps"
     if not rust_apps_dir.is_dir():
-        return app
+        return None
     for entry in rust_apps_dir.iterdir():
         if entry.is_dir() and entry.name.lower() == app.lower():
             return entry.name
-    return app
+    return None
+
+
+def resolve_app_workspace_members(apps: list[str]) -> list[str]:
+    """Return all workspace member paths for configured apps that are checked out.
+
+    Includes the app crate itself and any nested crate directories directly
+    underneath it that contain a ``Cargo.toml`` (e.g.
+    ``rust_apps/strongroom/tauri``).
+    """
+    rust_apps_dir = WORKSPACE_ROOT / "rust_apps"
+    if not rust_apps_dir.is_dir():
+        return []
+
+    app_dirs = {entry.name: entry for entry in rust_apps_dir.iterdir() if entry.is_dir()}
+
+    members: list[str] = []
+    for app in apps:
+        dir_name = next(
+            (name for name in app_dirs if name.lower() == app.lower()), None
+        )
+        if dir_name is None:
+            continue
+        members.append(f"rust_apps/{dir_name}")
+        app_path = rust_apps_dir / dir_name
+        for subdir in app_path.iterdir():
+            if not subdir.is_dir():
+                continue
+            cargo_toml = subdir / "Cargo.toml"
+            if not cargo_toml.is_file():
+                continue
+            # Skip nested crates that declare their own `[workspace]`; they
+            # are built independently and must not be pulled into the main
+            # monorepo workspace.
+            if "[workspace]" in cargo_toml.read_text():
+                continue
+            members.append(f"rust_apps/{dir_name}/{subdir.name}")
+    return members
 
 
 def read_apps() -> list[str]:
@@ -108,14 +151,20 @@ def replace_dependencies_table(text: str, section: str, deps: dict[str, str]) ->
 def sync_root_cargo(apps: list[str]) -> None:
     text = ROOT_CARGO.read_text()
 
-    # Workspace members: core crates + rust_apps/core + each configured app.
-    members = CORE_CRATES + ["rust_apps/core"] + [
-        f"rust_apps/{resolve_app_dir(a)}" for a in apps
-    ]
+    # Workspace members: core crates + rust_apps/core + each configured app
+    # that is actually checked out, including nested crates such as
+    # rust_apps/strongroom/tauri.
+    app_members = resolve_app_workspace_members(apps)
+    members = CORE_CRATES + ["rust_apps/core"] + app_members
     text = replace_array_block(text, "members", members)
 
-    # Dev-dependencies: keep rust_apps_core and any configured apps.
-    app_dev_deps = {a: f"rust_apps/{resolve_app_dir(a)}" for a in apps}
+    # Dev-dependencies: keep rust_apps_core and any configured apps that are
+    # actually checked out.
+    app_dev_deps = {
+        a: f"rust_apps/{d}"
+        for a in apps
+        if (d := resolve_app_dir(a)) is not None
+    }
     text = replace_dependencies_table(text, "dev-dependencies", app_dev_deps)
 
     ROOT_CARGO.write_text(text)
@@ -123,7 +172,11 @@ def sync_root_cargo(apps: list[str]) -> None:
 
 def sync_runtime_cargo(apps: list[str]) -> None:
     text = RUNTIME_CARGO.read_text()
-    app_deps = {a: f"../../rust_apps/{resolve_app_dir(a)}" for a in apps}
+    app_deps = {
+        a: f"../../rust_apps/{d}"
+        for a in apps
+        if (d := resolve_app_dir(a)) is not None
+    }
     text = replace_dependencies_table(text, "dependencies", app_deps)
     RUNTIME_CARGO.write_text(text)
 

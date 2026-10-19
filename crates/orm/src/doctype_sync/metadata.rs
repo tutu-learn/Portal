@@ -7,11 +7,22 @@ use tracing::{info, warn};
 pub(crate) async fn sync_metadata(
     pool: &DatabasePool,
     fixtures: Vec<crate::doctype_sync::DoctypeFixture>,
+    progress: Option<&(dyn Fn(&str) + Sync)>,
 ) -> Result<()> {
     create_metadata_tables(pool).await?;
 
     let mut synced = 0usize;
     let mut fields_synced = 0usize;
+
+    let base = std::path::PathBuf::from("apps/frappe/frappe");
+    let total = fixtures.len() + count_frappe_doctypes(&base);
+    let report = |synced: usize| {
+        if let Some(cb) = progress {
+            if synced > 0 && synced % 25 == 0 {
+                cb(&format!("Loading DocType definitions ({}/{})...", synced, total));
+            }
+        }
+    };
 
     // Sync fixtures from Rust apps first.
     for fixture in fixtures {
@@ -35,12 +46,9 @@ pub(crate) async fn sync_metadata(
         synced += 1;
 
         if let Some(fields) = doc.get("fields").and_then(|f| f.as_array()) {
-            for (idx, field) in fields.iter().enumerate() {
-                if let Err(e) = insert_docfield(pool, doctype_name, field, idx).await {
-                    warn!("failed to insert docfield for {}: {}", doctype_name, e);
-                    continue;
-                }
-                fields_synced += 1;
+            match insert_docfields(pool, doctype_name, fields).await {
+                Ok(n) => fields_synced += n,
+                Err(e) => warn!("failed to insert docfields for {}: {}", doctype_name, e),
             }
             if let Err(e) = prune_stale_docfields(pool, doctype_name, fields).await {
                 warn!(
@@ -53,10 +61,10 @@ pub(crate) async fn sync_metadata(
         if let Err(e) = insert_docperms(pool, doctype_name, &doc).await {
             warn!("failed to insert docperms for {}: {}", doctype_name, e);
         }
+        report(synced);
     }
 
     // Sync fixtures from the bundled frappe app tree.
-    let base = std::path::PathBuf::from("apps/frappe/frappe");
     if !base.exists() {
         warn!("frappe app path not found at {}", base.display());
         info!(
@@ -126,12 +134,9 @@ pub(crate) async fn sync_metadata(
             synced += 1;
 
             if let Some(fields) = doc.get("fields").and_then(|f| f.as_array()) {
-                for (idx, field) in fields.iter().enumerate() {
-                    if let Err(e) = insert_docfield(pool, doctype_name, field, idx).await {
-                        warn!("failed to insert docfield for {}: {}", doctype_name, e);
-                        continue;
-                    }
-                    fields_synced += 1;
+                match insert_docfields(pool, doctype_name, fields).await {
+                    Ok(n) => fields_synced += n,
+                    Err(e) => warn!("failed to insert docfields for {}: {}", doctype_name, e),
                 }
                 if let Err(e) = prune_stale_docfields(pool, doctype_name, fields).await {
                     warn!(
@@ -144,6 +149,7 @@ pub(crate) async fn sync_metadata(
             if let Err(e) = insert_docperms(pool, doctype_name, &doc).await {
                 warn!("failed to insert docperms for {}: {}", doctype_name, e);
             }
+            report(synced);
         }
     }
 
@@ -302,6 +308,29 @@ pub(crate) async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
     Ok(())
 }
 
+/// Count DocTypes in the bundled frappe app tree without reading any fixture
+/// files, so progress messages can show a real total.
+fn count_frappe_doctypes(base: &std::path::Path) -> usize {
+    let mut count = 0usize;
+    let Ok(entries) = std::fs::read_dir(base) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        let doctype_dir = entry.path().join("doctype");
+        let Ok(doctypes) = std::fs::read_dir(&doctype_dir) else {
+            continue;
+        };
+        for dt_entry in doctypes.flatten() {
+            let path = dt_entry.path();
+            let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if path.join(format!("{}.json", fname)).exists() {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
 async fn insert_doctype(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()> {
     let name = json_str(doc, "name");
     if name.is_empty() {
@@ -365,33 +394,31 @@ async fn insert_doctype(pool: &DatabasePool, doc: &serde_json::Value) -> Result<
     Ok(())
 }
 
-pub(crate) async fn insert_docfield(
-    pool: &DatabasePool,
-    parent: &str,
-    field: &serde_json::Value,
-    idx: usize,
-) -> Result<()> {
+const DOCFIELD_COLUMNS: &str = r#"
+    name, creation, modified, modified_by, owner, docstatus,
+    parent, parentfield, parenttype, idx, fieldname, fieldtype,
+    label, options, permlevel, reqd, read_only, hidden, in_list_view,
+    in_standard_filter, in_preview, in_global_search, in_filter,
+    bold, italic, no_copy, allow_in_quick_entry, translatable,
+    collapsible, "unique", set_only_once, remember_last_selected_value,
+    ignore_user_permissions, allow_on_submit, report_hide,
+    search_index, show_dashboard, "default", depends_on, description,
+    fetch_from, fetch_if_empty, mandatory_depends_on,
+    read_only_depends_on, placeholder, tooltip, is_system_generated
+"#;
+
+/// Number of bound values per docfield row; chunk multi-row inserts so the
+/// total stays well under SQLite's variable limit.
+const DOCFIELD_COLUMN_COUNT: usize = 47;
+const DOCFIELD_CHUNK_ROWS: usize = 500;
+
+fn docfield_params(parent: &str, field: &serde_json::Value, idx: usize) -> Vec<serde_json::Value> {
     let fieldname = json_str(field, "fieldname");
     let name = if fieldname.is_empty() {
         format!("{}-field-{}", parent, idx)
     } else {
         format!("{}-{}", parent, fieldname)
     };
-
-    let sql = r#"
-        INSERT OR REPLACE INTO "docfield" (
-            name, creation, modified, modified_by, owner, docstatus,
-            parent, parentfield, parenttype, idx, fieldname, fieldtype,
-            label, options, permlevel, reqd, read_only, hidden, in_list_view,
-            in_standard_filter, in_preview, in_global_search, in_filter,
-            bold, italic, no_copy, allow_in_quick_entry, translatable,
-            collapsible, "unique", set_only_once, remember_last_selected_value,
-            ignore_user_permissions, allow_on_submit, report_hide,
-            search_index, show_dashboard, "default", depends_on, description,
-            fetch_from, fetch_if_empty, mandatory_depends_on,
-            read_only_depends_on, placeholder, tooltip, is_system_generated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    "#;
 
     let params = vec![
         val(name),
@@ -442,9 +469,51 @@ pub(crate) async fn insert_docfield(
         val(json_str(field, "tooltip")),
         num(json_i64(field, "is_system_generated")),
     ];
+    debug_assert_eq!(params.len(), DOCFIELD_COLUMN_COUNT);
+    params
+}
 
-    pool.execute_sql(sql, params).await?;
+pub(crate) async fn insert_docfield(
+    pool: &DatabasePool,
+    parent: &str,
+    field: &serde_json::Value,
+    idx: usize,
+) -> Result<()> {
+    let sql = format!(
+        r#"INSERT OR REPLACE INTO "docfield" ({}) VALUES ({})"#,
+        DOCFIELD_COLUMNS,
+        vec!["?"; DOCFIELD_COLUMN_COUNT].join(", ")
+    );
+    pool.execute_sql(&sql, docfield_params(parent, field, idx))
+        .await?;
     Ok(())
+}
+
+/// Insert all fields of a DocType in as few multi-row statements as possible.
+/// Returns the number of fields inserted.
+async fn insert_docfields(
+    pool: &DatabasePool,
+    parent: &str,
+    fields: &[serde_json::Value],
+) -> Result<usize> {
+    if fields.is_empty() {
+        return Ok(0);
+    }
+    let row_placeholders = format!("({})", vec!["?"; DOCFIELD_COLUMN_COUNT].join(", "));
+    for (chunk_idx, chunk) in fields.chunks(DOCFIELD_CHUNK_ROWS).enumerate() {
+        let base_idx = chunk_idx * DOCFIELD_CHUNK_ROWS;
+        let mut params = Vec::with_capacity(chunk.len() * DOCFIELD_COLUMN_COUNT);
+        for (offset, field) in chunk.iter().enumerate() {
+            params.extend(docfield_params(parent, field, base_idx + offset));
+        }
+        let sql = format!(
+            r#"INSERT OR REPLACE INTO "docfield" ({}) VALUES {}"#,
+            DOCFIELD_COLUMNS,
+            vec![row_placeholders.as_str(); chunk.len()].join(", ")
+        );
+        pool.execute_sql(&sql, params).await?;
+    }
+    Ok(fields.len())
 }
 
 /// Delete docfield rows for `doctype_name` that are no longer present in the
