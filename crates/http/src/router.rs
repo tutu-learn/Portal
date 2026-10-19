@@ -2,6 +2,7 @@ use crate::handlers::{api, auth, desk, files, home_page, permissions, socketio, 
 use crate::websocket::ws_handler;
 use crate::AppState;
 use axum::{
+    extract::DefaultBodyLimit,
     response::Redirect,
     routing::{get, post},
     Router,
@@ -124,6 +125,9 @@ pub fn create_router() -> Router<AppState> {
         .route("/desk", get(desk::serve_desk))
         .route("/desk/*path", get(desk::serve_desk))
         .route("/thruster/:platform/:filename", get(thruster::serve_binary))
-        .route("/api/method/thruster.upload", post(thruster::upload_binary))
+        .route(
+            "/api/method/thruster.upload",
+            post(thruster::upload_binary).layer(DefaultBodyLimit::max(1024 * 1024 * 1024)),
+        )
         .fallback(desk::serve_desk)
 }
