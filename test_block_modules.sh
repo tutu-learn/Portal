@@ -10,7 +10,7 @@ curl_json() {
 }
 
 echo "=== LOGIN ==="
-ADMIN_PASSWORD="${KIFF_ADMIN_PASSWORD:-admin}"
+ADMIN_PASSWORD="${ANRI_ADMIN_PASSWORD:-admin}"
 curl_json "$BASE/api/method/login" -X POST -d "usr=Administrator&pwd=${ADMIN_PASSWORD}" | python3 -m json.tool
 
 echo ""

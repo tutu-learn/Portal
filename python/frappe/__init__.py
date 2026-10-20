@@ -3,7 +3,7 @@ Frappe shim — drop-in replacement for the real frappe package.
 
 Strategy:
 1. Explicit overrides (db, get_doc, local, session, etc.) delegate to the
-   Rust kiff_core PyO3 module.
+   Rust anri_core PyO3 module.
 2. The real frappe package is loaded once with ``sys.modules['frappe']``
    temporarily swapped to the real module so its internal circular imports
    resolve cleanly.  After it loads we restore the shim.
@@ -141,10 +141,10 @@ def _ensure_real_frappe():
 
 
 # ------------------------------------------------------------------
-# kiff_core bridge
+# anri_core bridge
 # ------------------------------------------------------------------
 try:
-    import kiff_core as _rust
+    import anri_core as _rust
 except ImportError:
     _rust = None
 
@@ -339,7 +339,7 @@ def get_installed_apps(*, _ensure_on_bench=False):
     """Return installed Frappe apps plus Rust apps declared in rust_apps/apps.json.
 
     The real frappe function relies on a global ``installed_apps`` value that the
-    Kiff runtime does not maintain, so we start with the core "frappe" app and
+    Anri runtime does not maintain, so we start with the core "frappe" app and
     append any Rust apps declared in ``rust_apps/apps.json``.
     """
     installed = ["frappe"]
@@ -617,7 +617,7 @@ def _patch_real_module(mod):
     # token request body. The scope is taken from the provider's auth_url_data.
     try:
         import frappe.utils.oauth as _oauth_mod
-        if not getattr(_oauth_mod, "_kiff_patched", False):
+        if not getattr(_oauth_mod, "_anri_patched", False):
 
             def _oauth_provider_slugs(provider_type):
                 """Return the set of equivalent scrubbed slugs for a provider type.
@@ -657,7 +657,7 @@ def _patch_real_module(mod):
                             return frappe.scrub(key.social_login_provider)
                 except Exception as e:
                     import logging
-                    logging.getLogger("kiff.oauth").warning(
+                    logging.getLogger("anri.oauth").warning(
                         "_oauth_provider_type failed for %r: %s", provider, e
                     )
                 return None
@@ -671,7 +671,7 @@ def _patch_real_module(mod):
                 """
                 import logging
 
-                _log = logging.getLogger("kiff.oauth")
+                _log = logging.getLogger("anri.oauth")
                 oauth2_providers = _oauth_mod.get_oauth2_providers()
                 _log.warning(
                     "_resolve_oauth_provider(%r): available provider keys=%r",
@@ -726,7 +726,7 @@ def _patch_real_module(mod):
                 import frappe
                 import logging
 
-                _log = logging.getLogger("kiff.oauth")
+                _log = logging.getLogger("anri.oauth")
                 try:
                     target_slugs = _oauth_provider_slugs(provider_type)
                     keys = frappe.get_all(
@@ -762,22 +762,22 @@ def _patch_real_module(mod):
             _orig_login_via_oauth2 = _oauth_mod.login_via_oauth2
             _orig_login_via_oauth2_id_token = _oauth_mod.login_via_oauth2_id_token
 
-            def _kiff_login_via_oauth2(provider, code, state, decoder=None):
+            def _anri_login_via_oauth2(provider, code, state, decoder=None):
                 return _orig_login_via_oauth2(
                     _resolve_oauth_provider(provider), code, state, decoder
                 )
 
-            def _kiff_login_via_oauth2_id_token(provider, code, state, decoder=None):
+            def _anri_login_via_oauth2_id_token(provider, code, state, decoder=None):
                 return _orig_login_via_oauth2_id_token(
                     _resolve_oauth_provider(provider), code, state, decoder
                 )
 
-            _oauth_mod.login_via_oauth2 = _kiff_login_via_oauth2
-            _oauth_mod.login_via_oauth2_id_token = _kiff_login_via_oauth2_id_token
+            _oauth_mod.login_via_oauth2 = _anri_login_via_oauth2
+            _oauth_mod.login_via_oauth2_id_token = _anri_login_via_oauth2_id_token
 
             _orig_get_oauth_keys = _oauth_mod.get_oauth_keys
 
-            def _kiff_get_oauth_keys(provider_key):
+            def _anri_get_oauth_keys(provider_key):
                 # provider_key is the OAuth provider config key (e.g. office_365).
                 # Fetch credentials from the Social Login Key that uses this type.
                 login_key = _find_social_login_key(provider_key)
@@ -785,14 +785,14 @@ def _patch_real_module(mod):
                     return _orig_get_oauth_keys(login_key)
                 return _orig_get_oauth_keys(provider_key)
 
-            _oauth_mod.get_oauth_keys = _kiff_get_oauth_keys
+            _oauth_mod.get_oauth_keys = _anri_get_oauth_keys
 
             _orig_get_oauth2_providers = _oauth_mod.get_oauth2_providers
 
-            def _kiff_get_oauth2_providers():
+            def _anri_get_oauth2_providers():
                 import logging
 
-                _log = logging.getLogger("kiff.oauth")
+                _log = logging.getLogger("anri.oauth")
                 providers = _orig_get_oauth2_providers()
                 if not isinstance(providers, dict):
                     providers = dict(providers) if providers is not None else {}
@@ -840,11 +840,11 @@ def _patch_real_module(mod):
 
                 return providers
 
-            _oauth_mod.get_oauth2_providers = _kiff_get_oauth2_providers
+            _oauth_mod.get_oauth2_providers = _anri_get_oauth2_providers
 
             _orig_get_redirect_uri = _oauth_mod.get_redirect_uri
 
-            def _kiff_get_redirect_uri(provider):
+            def _anri_get_redirect_uri(provider):
                 """Return an absolute redirect URI for the OAuth callback.
 
                 Microsoft Entra ID requires the redirect_uri sent in the token request
@@ -864,7 +864,7 @@ def _patch_real_module(mod):
                 import re
                 from urllib.parse import urlparse, urlunparse
 
-                _log = logging.getLogger("kiff.oauth")
+                _log = logging.getLogger("anri.oauth")
                 callback_path = (
                     "/api/method/frappe.integrations.oauth2_logins.login_via_"
                     + provider.replace("_", "")
@@ -1021,15 +1021,15 @@ def _patch_real_module(mod):
                     "Could not determine absolute redirect_uri for provider '%s'" % provider
                 )
 
-            _oauth_mod.get_redirect_uri = _kiff_get_redirect_uri
+            _oauth_mod.get_redirect_uri = _anri_get_redirect_uri
 
             _orig_get_info_via_oauth = _oauth_mod.get_info_via_oauth
 
-            def _kiff_get_info_via_oauth(provider, code, decoder=None, id_token=False):
+            def _anri_get_info_via_oauth(provider, code, decoder=None, id_token=False):
                 import json as _json
                 import logging
 
-                _log = logging.getLogger("kiff.oauth")
+                _log = logging.getLogger("anri.oauth")
 
                 try:
                     # provider is the OAuth provider config key (e.g. office_365).
@@ -1116,7 +1116,7 @@ def _patch_real_module(mod):
                         # "error_description": ...} with no access_token at
                         # all). The Rust exchange raises a RuntimeError that
                         # actually says what Microsoft said.
-                        import kiff_core
+                        import anri_core
 
                         # Source auth_url_data (and therefore `scope`) from the
                         # real Social Login Key doc directly, the same source
@@ -1172,7 +1172,7 @@ def _patch_real_module(mod):
                             "+" in code,
                             " " in code,
                         )
-                        token_response = kiff_core.oauth2_token_exchange(
+                        token_response = anri_core.oauth2_token_exchange(
                             access_token_url,
                             code,
                             redirect_uri,
@@ -1185,7 +1185,7 @@ def _patch_real_module(mod):
                             raise RuntimeError(
                                 "id_token missing in OAuth response: %r" % (token_response,)
                             )
-                        info = kiff_core.oauth2_decode_jwt_payload(token)
+                        info = anri_core.oauth2_decode_jwt_payload(token)
                     else:
                         # Build the flow ourselves so we use the corrected
                         # flow_params instead of letting Frappe re-read
@@ -1236,11 +1236,11 @@ def _patch_real_module(mod):
 
                     return info
                 except Exception as e:
-                    _log.exception("_kiff_get_info_via_oauth failed for provider %r", provider)
+                    _log.exception("_anri_get_info_via_oauth failed for provider %r", provider)
                     raise
 
-            _oauth_mod.get_info_via_oauth = _kiff_get_info_via_oauth
-            _oauth_mod._kiff_patched = True
+            _oauth_mod.get_info_via_oauth = _anri_get_info_via_oauth
+            _oauth_mod._anri_patched = True
     except Exception:
         pass
 
@@ -1249,10 +1249,10 @@ def _patch_real_module(mod):
     # __auth table, leaving orphaned secrets when a document is deleted.
     try:
         import frappe.utils.password as _password_mod
-        if not getattr(_password_mod, "_kiff_patched", False):
+        if not getattr(_password_mod, "_anri_patched", False):
             _orig_remove_encrypted_password = _password_mod.remove_encrypted_password
 
-            def _kiff_remove_encrypted_password(doctype, name, fieldname="password"):
+            def _anri_remove_encrypted_password(doctype, name, fieldname="password"):
                 import frappe
 
                 try:
@@ -1264,8 +1264,8 @@ def _patch_real_module(mod):
                     # Fall back to the original implementation if direct SQL fails.
                     _orig_remove_encrypted_password(doctype, name, fieldname)
 
-            _password_mod.remove_encrypted_password = _kiff_remove_encrypted_password
-            _password_mod._kiff_patched = True
+            _password_mod.remove_encrypted_password = _anri_remove_encrypted_password
+            _password_mod._anri_patched = True
     except Exception:
         pass
 
@@ -1275,7 +1275,7 @@ def _patch_real_module(mod):
         from frappe.integrations.doctype.social_login_key.social_login_key import (
             SocialLoginKey as _SocialLoginKey,
         )
-        if not getattr(_SocialLoginKey, "_kiff_patched", False):
+        if not getattr(_SocialLoginKey, "_anri_patched", False):
             _orig_slk_validate = _SocialLoginKey.validate
 
             def _normalize_json_code_field(value):
@@ -1292,7 +1292,7 @@ def _patch_real_module(mod):
                 return _orig_slk_validate(self)
 
             _SocialLoginKey.validate = _patched_slk_validate
-            _SocialLoginKey._kiff_patched = True
+            _SocialLoginKey._anri_patched = True
     except Exception:
         pass
 
@@ -1301,9 +1301,9 @@ def _patch_real_module(mod):
     # so bootinfo can run without a full real-frappe runtime.
     try:
         import frappe.defaults as _defaults
-        if not getattr(_defaults, "_kiff_patched", False):
+        if not getattr(_defaults, "_anri_patched", False):
 
-            def _kiff_get_defaults(user=None):
+            def _anri_get_defaults(user=None):
                 # Merge global defaults with sensible hard-coded fallbacks.
                 defaults = _dict(
                     date_format="yyyy-mm-dd",
@@ -1328,26 +1328,26 @@ def _patch_real_module(mod):
                     pass
                 return defaults
 
-            _defaults.get_defaults = _kiff_get_defaults
+            _defaults.get_defaults = _anri_get_defaults
             _defaults.get_defaults_for = lambda parent="__default": _dict()
-            _defaults._kiff_patched = True
+            _defaults._anri_patched = True
     except Exception:
         pass
 
     # Stub session-default settings so bootinfo doesn't abort.
     try:
         import frappe.core.doctype.session_default_settings.session_default_settings as _sds
-        if not getattr(_sds, "_kiff_patched", False):
+        if not getattr(_sds, "_anri_patched", False):
             import json as _json
             _sds.get_session_default_values = lambda: _json.dumps([])
-            _sds._kiff_patched = True
+            _sds._anri_patched = True
     except Exception:
         pass
 
     # Stub print style generation so bootinfo doesn't require Jinja templates.
     try:
         import frappe.www.printview as _printview
-        if not getattr(_printview, "_kiff_patched", False):
+        if not getattr(_printview, "_anri_patched", False):
             _orig_get_print_style = _printview.get_print_style
 
             def _patched_get_print_style(print_style=None, for_legacy=False):
@@ -1357,7 +1357,7 @@ def _patch_real_module(mod):
                     return ""
 
             _printview.get_print_style = _patched_get_print_style
-            _printview._kiff_patched = True
+            _printview._anri_patched = True
     except Exception:
         pass
 
@@ -1367,7 +1367,7 @@ def _patch_real_module(mod):
     # loading (we don't have a real bench/module tree in the Rust runtime).
     try:
         from frappe.desk.form import meta as _form_meta
-        if not getattr(_form_meta.FormMeta, "_kiff_patched", False):
+        if not getattr(_form_meta.FormMeta, "_anri_patched", False):
 
             def _patched_formmeta_init(self, doctype, *, cached=True):
                 import frappe as _frappe
@@ -1398,7 +1398,7 @@ def _patch_real_module(mod):
             _form_meta.FormMeta.__init__ = _patched_formmeta_init
             _form_meta.FormMeta.load_assets = _patched_load_assets
             _form_meta.FormMeta.as_dict = _patched_formmeta_as_dict
-            _form_meta.FormMeta._kiff_patched = True
+            _form_meta.FormMeta._anri_patched = True
     except Exception:
         pass
 
@@ -1408,7 +1408,7 @@ def _patch_real_module(mod):
     # desk page. Patch the getters to treat None as an empty list.
     try:
         from frappe.desk import desktop as _desktop_mod
-        if not getattr(_desktop_mod.Workspace, "_kiff_patched", False):
+        if not getattr(_desktop_mod.Workspace, "_anri_patched", False):
             import functools
 
             def _safe_list(getter):
@@ -1427,7 +1427,7 @@ def _patch_real_module(mod):
                 _orig = getattr(_desktop_mod.Workspace, _method_name)
                 setattr(_desktop_mod.Workspace, _method_name, _safe_list(_orig))
 
-            _desktop_mod.Workspace._kiff_patched = True
+            _desktop_mod.Workspace._anri_patched = True
     except Exception:
         pass
 
@@ -1437,7 +1437,7 @@ def _patch_real_module(mod):
     # empty list.
     try:
         from frappe.model.document import Document as _Document
-        if not getattr(_Document, "_kiff_patched_load_doc_before_save", False):
+        if not getattr(_Document, "_anri_patched_load_doc_before_save", False):
             _orig_load_doc_before_save = _Document.load_doc_before_save
 
             def _patched_load_doc_before_save(self, raise_exception=True):
@@ -1468,7 +1468,7 @@ def _patch_real_module(mod):
                         )
 
             _Document.load_doc_before_save = _patched_load_doc_before_save
-            _Document._kiff_patched_load_doc_before_save = True
+            _Document._anri_patched_load_doc_before_save = True
     except Exception:
         pass
 
@@ -1477,7 +1477,7 @@ def _patch_real_module(mod):
     # Ensure sensible defaults while still respecting real values if present.
     try:
         from frappe.core.doctype.user import user as _user_mod
-        if not getattr(_user_mod, "_kiff_patched", False):
+        if not getattr(_user_mod, "_anri_patched", False):
             _orig_get_desk_settings = _user_mod.get_desk_settings
 
             def _patched_get_desk_settings():
@@ -1488,7 +1488,7 @@ def _patch_real_module(mod):
                 return settings
 
             _user_mod.get_desk_settings = _patched_get_desk_settings
-            _user_mod._kiff_patched = True
+            _user_mod._anri_patched = True
     except Exception:
         pass
 
@@ -1497,7 +1497,7 @@ def _patch_real_module(mod):
     # synchronously instead (e.g. RoleProfile.on_update -> update_all_users).
     try:
         from frappe.model.document import Document as _Document
-        if not getattr(_Document, "_kiff_patched_queue_action", False):
+        if not getattr(_Document, "_anri_patched_queue_action", False):
             _orig_queue_action = _Document.queue_action
 
             def _patched_queue_action(self, action, **kwargs):
@@ -1509,7 +1509,7 @@ def _patch_real_module(mod):
                 return method()
 
             _Document.queue_action = _patched_queue_action
-            _Document._kiff_patched_queue_action = True
+            _Document._anri_patched_queue_action = True
     except Exception:
         pass
 
@@ -1518,7 +1518,7 @@ def _patch_real_module(mod):
     # a role_profiles child row so populate_role_profile_roles() can run.
     try:
         from frappe.core.doctype.user.user import User as _User
-        if not getattr(_User, "_kiff_patched_move_role_profile", False):
+        if not getattr(_User, "_anri_patched_move_role_profile", False):
             _orig_move_role_profile = _User.move_role_profile_name_to_role_profiles
 
             def _patched_move_role_profile_name_to_role_profiles(self):
@@ -1536,7 +1536,7 @@ def _patch_real_module(mod):
                 self.role_profile_name = None
 
             _User.move_role_profile_name_to_role_profiles = _patched_move_role_profile_name_to_role_profiles
-            _User._kiff_patched_move_role_profile = True
+            _User._anri_patched_move_role_profile = True
     except Exception:
         pass
 
@@ -1545,7 +1545,7 @@ def _patch_real_module(mod):
     # module-profile changes propagate to linked users.
     try:
         from frappe.core.doctype.module_profile.module_profile import ModuleProfile as _ModuleProfile
-        if not getattr(_ModuleProfile, "_kiff_patched_update_all_users", False):
+        if not getattr(_ModuleProfile, "_anri_patched_update_all_users", False):
             _orig_mp_update_all_users = _ModuleProfile.update_all_users
 
             def _patched_mp_update_all_users(self):
@@ -1582,7 +1582,7 @@ def _patch_real_module(mod):
                         user.save()
 
             _ModuleProfile.update_all_users = _patched_mp_update_all_users
-            _ModuleProfile._kiff_patched_update_all_users = True
+            _ModuleProfile._anri_patched_update_all_users = True
     except Exception:
         pass
 
@@ -1593,7 +1593,7 @@ def _patch_real_module(mod):
     # get_all() filter instead.
     try:
         from frappe.core.doctype.user.user import User as _User
-        if not getattr(_User, "_kiff_patched_has_desk_access", False):
+        if not getattr(_User, "_anri_patched_has_desk_access", False):
 
             def _patched_has_desk_access(self):
                 if not self.roles:
@@ -1611,7 +1611,7 @@ def _patch_real_module(mod):
                 )
 
             _User.has_desk_access = _patched_has_desk_access
-            _User._kiff_patched_has_desk_access = True
+            _User._anri_patched_has_desk_access = True
     except Exception:
         pass
 
@@ -1621,7 +1621,7 @@ def _patch_real_module(mod):
     # fallback instead.
     try:
         from frappe.utils import user as _user_utils
-        if not getattr(_user_utils, "_kiff_patched_get_user_fullname", False):
+        if not getattr(_user_utils, "_anri_patched_get_user_fullname", False):
             _orig_get_user_fullname = _user_utils.get_user_fullname
 
             def _patched_get_user_fullname(user):
@@ -1634,7 +1634,7 @@ def _patch_real_module(mod):
                     return _orig_get_user_fullname(user)
 
             _user_utils.get_user_fullname = _patched_get_user_fullname
-            _user_utils._kiff_patched_get_user_fullname = True
+            _user_utils._anri_patched_get_user_fullname = True
     except Exception:
         pass
 
@@ -1642,14 +1642,14 @@ def _patch_real_module(mod):
     # minimal runtime, so welcome/reset emails would otherwise block User insert.
     # Make frappe.sendmail a no-op.
     try:
-        if not getattr(_real_frappe, "_kiff_patched_sendmail", False):
-            _real_frappe._kiff_sendmail = _real_frappe.sendmail
+        if not getattr(_real_frappe, "_anri_patched_sendmail", False):
+            _real_frappe._anri_sendmail = _real_frappe.sendmail
 
             def _patched_sendmail(*args, **kwargs):
                 return None
 
             _real_frappe.sendmail = _patched_sendmail
-            _real_frappe._kiff_patched_sendmail = True
+            _real_frappe._anri_patched_sendmail = True
     except Exception:
         pass
 
@@ -1657,15 +1657,15 @@ def _patch_real_module(mod):
     # Provide safe fallbacks so bootinfo can finish.
     try:
         from frappe.core.doctype.navbar_settings import navbar_settings as _navbar
-        if not getattr(_navbar, "_kiff_patched", False):
+        if not getattr(_navbar, "_anri_patched", False):
             _navbar.get_app_logo = lambda: ""
-            _navbar._kiff_patched = True
+            _navbar._anri_patched = True
     except Exception:
         pass
 
     try:
-        if not hasattr(_real_frappe, "_kiff_get_website_settings"):
-            _real_frappe._kiff_get_website_settings = _real_frappe.get_website_settings
+        if not hasattr(_real_frappe, "_anri_get_website_settings"):
+            _real_frappe._anri_get_website_settings = _real_frappe.get_website_settings
 
             def _patched_get_website_settings(key):
                 if getattr(_real_frappe.local, "website_settings", None) is None:

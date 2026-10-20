@@ -8,7 +8,7 @@ from ._types import _dict, _DocProxy, _make_doc_proxy
 from ._db import _sqlite_query, db
 
 try:
-    import kiff_core as _rust
+    import anri_core as _rust
 except ImportError:
     _rust = None
 
@@ -412,7 +412,7 @@ def _build_log_query(normalized):
 def _query_log_engine(q, limit, fields=None):
     """Fetch Kiff Log Entry records from the log engine HTTP API.
 
-    The Python-shim .so has its own kiff_core statics, so the Rust log service
+    The Python-shim .so has its own anri_core statics, so the Rust log service
     initialized by the runtime is not directly reachable.  We call the local
     kiff_logger query endpoint instead, which is served by the same process.
     """

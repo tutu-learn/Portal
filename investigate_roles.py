@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Playwright investigation of the User form Roles section on local Kiff runtime."""
+"""Playwright investigation of the User form Roles section on local Anri runtime."""
 import asyncio
 import json
 import sys

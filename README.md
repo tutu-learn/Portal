@@ -1,4 +1,4 @@
-# Kiff Runtime
+# Anri Runtime
 
 A high-performance Rust runtime for ERPNext/Frappe apps.
 
@@ -19,7 +19,7 @@ A high-performance Rust runtime for ERPNext/Frappe apps.
 
 ## Quick Start
 
-Kiff needs the upstream Frappe framework source and its Python dependencies available to the embedded Python interpreter.
+Anri needs the upstream Frappe framework source and its Python dependencies available to the embedded Python interpreter.
 
 ### Prerequisites
 
@@ -43,7 +43,7 @@ pip install --upgrade pip setuptools wheel
 export PKG_CONFIG_PATH="/opt/homebrew/opt/mariadb-connector-c/lib/pkgconfig"
 pip install -e apps/frappe
 
-# 3. Build the Kiff runtime
+# 3. Build the Anri runtime
 cargo build -p runtime --release
 cargo build -p kiff --release
 
@@ -57,7 +57,7 @@ export PYTHONPATH="$(pwd)/.venv/lib/python3.14/site-packages"
 
 The server listens on `0.0.0.0:8000`.
 
-> **Note:** `python/frappe/` is Kiff's drop-in shim. Do **not** overwrite it with upstream Frappe; clone upstream Frappe into `apps/frappe/` instead.
+> **Note:** `python/frappe/` is Anri's drop-in shim. Do **not** overwrite it with upstream Frappe; clone upstream Frappe into `apps/frappe/` instead.
 
 ## Architecture
 
@@ -70,13 +70,13 @@ The server listens on `0.0.0.0:8000`.
 ## Project Structure
 
 ```
-kiff/
+anri/
 ├── crates/
 │   ├── error/           # Shared error types
 │   ├── config/          # Runtime + site configuration
 │   ├── orm/             # sqlx database layer
 │   ├── sql-translator/  # MariaDB → SQLite rewriter
-│   ├── python-bridge/   # PyO3 bindings (kiff_core module)
+│   ├── python-bridge/   # PyO3 bindings (anri_core module)
 │   ├── permissions/     # Role, user, field, SOD permissions
 │   ├── session/         # Auth, session store, MFA
 │   ├── queue/           # Background jobs + scheduler
@@ -94,7 +94,7 @@ kiff/
 
 ## Building Rust Frappe Apps
 
-The `rust_apps/` directory lets you build Frappe apps as native Rust crates that integrate directly with the Kiff runtime:
+The `rust_apps/` directory lets you build Frappe apps as native Rust crates that integrate directly with the Anri runtime:
 
 ```bash
 # Scaffold a new Rust app

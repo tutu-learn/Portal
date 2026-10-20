@@ -792,7 +792,7 @@ fn reset_pool_from_url(_db_driver: &str, db_url: &str) -> PyResult<()> {
 }
 
 #[pymodule]
-fn kiff_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn anri_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init_from_url, m)?)?;
     m.add_function(wrap_pyfunction!(reset_pool_from_url, m)?)?;
     m.add_function(wrap_pyfunction!(db::get_doc, m)?)?;

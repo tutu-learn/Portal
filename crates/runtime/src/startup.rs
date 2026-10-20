@@ -13,7 +13,7 @@ fn ext_suffix() -> String {
     })
 }
 
-fn find_kiff_core_dylib() -> Option<std::path::PathBuf> {
+fn find_anri_core_dylib() -> Option<std::path::PathBuf> {
     use std::path::Path;
 
     let exe = std::env::current_exe().unwrap_or_default();
@@ -22,7 +22,7 @@ fn find_kiff_core_dylib() -> Option<std::path::PathBuf> {
     // Cargo places the cdylib artifact next to the executable in release builds,
     // but in dev builds it lives under target/<profile>/deps/. Check both.
     let candidates: Vec<std::path::PathBuf> =
-        ["libkiff_core.dylib", "libkiff_core.so", "libkiff_core.dll"]
+        ["libanri_core.dylib", "libanri_core.so", "libanri_core.dll"]
             .iter()
             .flat_map(|name| [exe_dir.join(name), exe_dir.join("deps").join(name)])
             .collect();
@@ -35,16 +35,16 @@ fn find_kiff_core_dylib() -> Option<std::path::PathBuf> {
     None
 }
 
-fn install_kiff_core_symlink(site_packages: &str) {
+fn install_anri_core_symlink(site_packages: &str) {
     use std::path::Path;
 
     let suffix = ext_suffix();
-    let dest = Path::new(site_packages).join(format!("kiff_core{}", suffix));
+    let dest = Path::new(site_packages).join(format!("anri_core{}", suffix));
 
-    let Some(dylib) = find_kiff_core_dylib() else {
+    let Some(dylib) = find_anri_core_dylib() else {
         let exe = std::env::current_exe().unwrap_or_default();
         info!(
-            "kiff_core dylib not found next to executable ({}), skipping symlink",
+            "anri_core dylib not found next to executable ({}), skipping symlink",
             exe.display()
         );
         return;
@@ -53,11 +53,11 @@ fn install_kiff_core_symlink(site_packages: &str) {
     let _ = std::fs::remove_file(&dest);
     match std::os::unix::fs::symlink(&dylib, &dest) {
         Ok(_) => info!(
-            "installed kiff_core symlink: {} → {}",
+            "installed anri_core symlink: {} → {}",
             dylib.display(),
             dest.display()
         ),
-        Err(e) => info!("failed to install kiff_core symlink: {}", e),
+        Err(e) => info!("failed to install anri_core symlink: {}", e),
     }
 }
 
@@ -119,7 +119,7 @@ pub fn setup_python_path_with_db(
                 let sp = direct_sp.to_string_lossy();
                 info!("adding venv site-packages: {}", sp);
                 path.insert(0, sp.as_ref())?;
-                install_kiff_core_symlink(&sp);
+                install_anri_core_symlink(&sp);
                 true
             } else {
                 // Fallback: try site.getsitepackages() in case we're running
@@ -135,7 +135,7 @@ pub fn setup_python_path_with_db(
                     if sp.starts_with(&venv_root) && std::path::Path::new(sp).exists() {
                         info!("adding venv site-packages: {}", sp);
                         path.insert(0, sp.as_str())?;
-                        install_kiff_core_symlink(sp);
+                        install_anri_core_symlink(sp);
                         found = true;
                         break;
                     }
@@ -150,7 +150,7 @@ pub fn setup_python_path_with_db(
 
         // frappe framework at position 0 so its submodules resolve
         path.insert(0, frappe.to_str().unwrap_or(frappe_path))?;
-        // shim first so `import frappe` resolves to our kiff_core bridge
+        // shim first so `import frappe` resolves to our anri_core bridge
         path.insert(0, shim.to_str().unwrap_or(shim_path))?;
 
         // Only append erpnext_path when it's a non-empty path that actually exists
@@ -163,15 +163,15 @@ pub fn setup_python_path_with_db(
             }
         }
 
-        // Initialize kiff_core .so instance with DB connection so Python can use it.
+        // Initialize anri_core .so instance with DB connection so Python can use it.
         if let Some(url) = db_url {
-            match py.import("kiff_core") {
+            match py.import("anri_core") {
                 Ok(kc) => match kc.call_method1("init_from_url", ("sqlite", url)) {
-                    Ok(_) => info!("kiff_core .so instance initialized"),
-                    Err(e) => info!("kiff_core init_from_url failed: {}", e),
+                    Ok(_) => info!("anri_core .so instance initialized"),
+                    Err(e) => info!("anri_core init_from_url failed: {}", e),
                 },
                 Err(e) => info!(
-                    "kiff_core not importable from Python ({}), DB calls will be stubbed",
+                    "anri_core not importable from Python ({}), DB calls will be stubbed",
                     e
                 ),
             }

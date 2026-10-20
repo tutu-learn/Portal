@@ -1,6 +1,6 @@
 # Runtime Setup Notes
 
-This document records the framework-level changes required before the Kiff runtime can be built and started.
+This document records the framework-level changes required before the Anri runtime can be built and started.
 
 ## 1. Dynamic App Registration from `rust_apps/apps.json`
 
@@ -125,7 +125,7 @@ Without them, `cargo build -p runtime --release` fails.
 Implements the runtime job executor. It must satisfy `queue::JobExecutor` and dispatch queued jobs to:
 
 1. Rust app `api_methods()` registered in `AppState.rust_apps`.
-2. Python whitelisted methods via `kiff_core::call_method(...)`.
+2. Python whitelisted methods via `anri_core::call_method(...)`.
 
 ```rust
 use rust_apps_core::{AppContext, AppState};
@@ -169,7 +169,7 @@ impl queue::JobExecutor for RuntimeExecutor {
         match tokio::task::spawn_blocking({
             let method = method.to_string();
             let kwargs_value = kwargs_value.clone();
-            move || kiff_core::call_method(&method, &kwargs_value)
+            move || anri_core::call_method(&method, &kwargs_value)
         })
         .await
         {
@@ -316,5 +316,5 @@ Expected: `307 Temporary Redirect` to `/login?redirect-to=%2F`.
 
 ## Notes
 
-- The runtime sets up the Python path internally and symlinks `libkiff_core.dylib` into the venv site-packages, but setting `PYTHONPATH` externally matches the documented workflow.
+- The runtime sets up the Python path internally and symlinks `libanri_core.dylib` into the venv site-packages, but setting `PYTHONPATH` externally matches the documented workflow.
 - Background queue workers may log SQLite `disk I/O error` (code 522) warnings while polling `__kiff_queue`. These do not prevent the HTTP server from serving requests.

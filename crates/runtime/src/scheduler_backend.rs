@@ -67,7 +67,7 @@ impl SchedulerBackend for RuntimeSchedulerBackend {
 
         // Allow E2E and local test runs to skip scheduled jobs that can race
         // with test execution (e.g. TigerBeetle ledger access).
-        if std::env::var("KIFF_DISABLE_SCHEDULER").is_ok() {
+        if std::env::var("ANRI_DISABLE_SCHEDULER").is_ok() {
             return Ok(());
         }
 

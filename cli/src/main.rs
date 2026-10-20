@@ -4,7 +4,7 @@ mod commands;
 
 #[derive(Parser)]
 #[command(name = "kiff")]
-#[command(about = "Kiff runtime CLI — replaces bench")]
+#[command(about = "Anri runtime CLI — replaces bench")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

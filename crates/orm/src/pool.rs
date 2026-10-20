@@ -166,7 +166,7 @@ impl DatabasePool {
             // and max_lifetime = 30 min, and the resulting expiry close is
             // exactly what repeatedly wedged the pool (observed as the
             // watchdog reporting "WAL file was replaced externally" every
-            // ~20 minutes, driven by the libkiff_core.dylib bridge pool
+            // ~20 minutes, driven by the libanri_core.dylib bridge pool
             // recycling its idle connection).
             .max_lifetime(None)
             .idle_timeout(None)

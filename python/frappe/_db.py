@@ -12,7 +12,7 @@ from .exceptions import OperationalError, ProgrammingError, TableMissingError
 _NAMED_PARAM_RE = re.compile(r"%\((\w+)\)s")
 
 try:
-    import kiff_core as _rust
+    import anri_core as _rust
 except ImportError:
     _rust = None
 

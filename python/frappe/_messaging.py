@@ -6,7 +6,7 @@ import json
 from .exceptions import ValidationError
 
 try:
-    import kiff_core as _rust
+    import anri_core as _rust
 except ImportError:
     _rust = None
 

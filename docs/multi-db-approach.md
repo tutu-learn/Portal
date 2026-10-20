@@ -1,6 +1,6 @@
 # Multi-Domain SQLite Database Approach
 
-This document explains the new per-domain SQLite sharding introduced for Kiff sites. It is intended for app and integration authors who need their code to keep working whether sharding is enabled or not.
+This document explains the new per-domain SQLite sharding introduced for Anri sites. It is intended for app and integration authors who need their code to keep working whether sharding is enabled or not.
 
 ## Overview
 
@@ -175,7 +175,7 @@ Recommended fixes:
 
 ## Known limitations
 
-1. **Embedded Python `.so` bridge uses a single pool.** The `kiff_core` shared object loaded by the embedded Python runtime is initialized from a plain DB URL (`site.db`) and therefore does not participate in domain sharding. Doctype-based calls that go through the Rust binary's Python bridge are routed correctly, but raw SQL executed inside the `.so` instance only sees `site.db`. Keep domain-specific logic in Rust apps or HTTP handlers when sharding is enabled.
+1. **Embedded Python `.so` bridge uses a single pool.** The `anri_core` shared object loaded by the embedded Python runtime is initialized from a plain DB URL (`site.db`) and therefore does not participate in domain sharding. Doctype-based calls that go through the Rust binary's Python bridge are routed correctly, but raw SQL executed inside the `.so` instance only sees `site.db`. Keep domain-specific logic in Rust apps or HTTP handlers when sharding is enabled.
 
 2. **Raw SQL must quote table names.** Unquoted table names are not scanned by the router.
 

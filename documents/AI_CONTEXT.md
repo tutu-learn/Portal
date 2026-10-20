@@ -2,7 +2,7 @@
 
 ## What This Project Is
 
-**Kiff Runtime** — a Rust binary that replaces Gunicorn, MariaDB, Redis, and Node.js in the Frappe/ERPNext stack. One binary serves all sites. The goal is a drop-in replacement: the existing Frappe desk (JavaScript) talks to it exactly as it would to a normal Frappe/Python server.
+**Anri Runtime** — a Rust binary that replaces Gunicorn, MariaDB, Redis, and Node.js in the Frappe/ERPNext stack. One binary serves all sites. The goal is a drop-in replacement: the existing Frappe desk (JavaScript) talks to it exactly as it would to a normal Frappe/Python server.
 
 ### How It Works
 
@@ -13,14 +13,14 @@ Browser JS  →  Axum HTTP server (Rust)
                └── /assets/*, /desk → static files
 ```
 
-The Python bridge imports the real Frappe app from `apps/frappe/` but intercepts `import frappe` with a shim at `python/frappe/`. The shim delegates critical operations (DB, sessions, permissions) to Rust via PyO3 (`kiff_core` module), and falls back to the real Frappe code for everything else.
+The Python bridge imports the real Frappe app from `apps/frappe/` but intercepts `import frappe` with a shim at `python/frappe/`. The shim delegates critical operations (DB, sessions, permissions) to Rust via PyO3 (`anri_core` module), and falls back to the real Frappe code for everything else.
 
 ### Crate Layout
 
 | Crate | Purpose |
 |---|---|
 | `crates/http` | Axum server, routing, request handlers |
-| `crates/python-bridge` | PyO3 bindings — calls Python, exposes `kiff_core` |
+| `crates/python-bridge` | PyO3 bindings — calls Python, exposes `anri_core` |
 | `crates/orm` | Database layer (SQLite + Postgres via sqlx) |
 | `crates/permissions` | Role/permission engine |
 | `crates/session` | Session store |
@@ -49,11 +49,11 @@ python/frappe/
 ### Request Flow for `/api/method/frappe.desk.desktop.get_workspace_sidebar_items`
 
 1. `crates/http/src/handlers/api.rs:call_method` — extracts user from session cookie
-2. `kiff_core::call_method_with_user(method, body, user)` in `crates/python-bridge/src/lib.rs`
+2. `anri_core::call_method_with_user(method, body, user)` in `crates/python-bridge/src/lib.rs`
 3. Sets `frappe._set_request_context(kwargs, user)` — resets per-request state
 4. Imports `frappe.desk.desktop`, calls `get_workspace_sidebar_items()`
 5. Real Frappe code runs, calling `frappe.get_all(...)`, `frappe.get_cached_doc(...)`, etc.
-6. Those calls hit the shim, which delegates to Rust via `kiff_core`
+6. Those calls hit the shim, which delegates to Rust via `anri_core`
 7. Result is serialized to JSON and returned as `{"message": result}`
 
 ---
@@ -100,7 +100,7 @@ POST /api/method/frappe.desk.desktop.get_workspace_sidebar_items
         "module": ["not in", ["Dummy Module"]],  ← BUG 1: stripped by shim
     })
   → get_list() in _document.py  →  filters become {}  (BUG 1)
-  → kiff_core.get_list("Workspace", {}, ...)
+  → anri_core.get_list("Workspace", {}, ...)
   → ORM: SELECT * FROM workspace  ← BUG 2: no IN/NOT IN support anyway
   → SQLite: "no such table: workspace"  ← BUG 4: hard error, not graceful
   → RuntimeError propagates → HTTP 500 {"error": "..."}  ← BUG 5: wrong format

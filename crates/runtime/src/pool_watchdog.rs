@@ -54,7 +54,7 @@
 //!
 //! Queue workers re-fetch the pool from the shared map on every iteration,
 //! so they pick up the replacement; the Python bridge gets it via
-//! `kiff_core::swap_pool`.
+//! `anri_core::swap_pool`.
 //!
 //! With domain sharding, each physical SQLite file has its own WAL and is
 //! healed independently. The watchdog probes every domain for every site and
@@ -197,7 +197,7 @@ fn quarantine(path: &str) {
     }
 }
 
-/// The embedded Python loads `kiff_core` as a separate cdylib with its own
+/// The embedded Python loads `anri_core` as a separate cdylib with its own
 /// POOL static (`init_from_url`), so swapping the binary's bridge pool is
 /// not enough: the .so instance keeps file handles to the quarantined WAL
 /// and stays wedged across heals, re-triggering the heal cycle after every
@@ -210,15 +210,15 @@ async fn reset_embedded_python_pool(db_url: &str) {
     // panics when called from an async worker thread.
     let result = tokio::task::spawn_blocking(move || {
         pyo3::Python::with_gil(|py| -> Result<(), pyo3::PyErr> {
-            let kc = py.import("kiff_core")?;
+            let kc = py.import("anri_core")?;
             kc.call_method1("reset_pool_from_url", ("sqlite", db_url))?;
             Ok(())
         })
     })
     .await;
     match result {
-        Ok(Ok(())) => info!("reset embedded Python kiff_core pool"),
-        Ok(Err(e)) => warn!("failed to reset embedded Python kiff_core pool: {e}"),
+        Ok(Ok(())) => info!("reset embedded Python anri_core pool"),
+        Ok(Err(e)) => warn!("failed to reset embedded Python anri_core pool: {e}"),
         Err(e) => warn!("embedded Python pool reset task failed: {e}"),
     }
 }
@@ -257,7 +257,7 @@ async fn heal_domain(
     // For the core domain, also refresh the Python bridge pool so the embedded
     // .so does not keep file handles to the quarantined WAL.
     let old_bridge_pool = if domain == orm::DbDomain::Core {
-        kiff_core::clear_pool()
+        anri_core::clear_pool()
     } else {
         None
     };
@@ -299,7 +299,7 @@ async fn heal_domain(
         Ok(new_pool) => {
             domain_pools.swap_pool(domain, new_pool);
             if domain == orm::DbDomain::Core {
-                let _ = kiff_core::swap_pool(domain_pools.core());
+                let _ = anri_core::swap_pool(domain_pools.core());
             }
             let _ = std::fs::remove_file(&backup);
             info!(
@@ -335,7 +335,7 @@ async fn heal_missing_core_bundle(
         site_name, reason
     );
 
-    let old_bridge_pool = kiff_core::clear_pool();
+    let old_bridge_pool = anri_core::clear_pool();
 
     let backup = format!("{db_url}.heal-backup");
     let backed_up = match std::fs::copy(db_url, &backup) {
@@ -359,7 +359,7 @@ async fn heal_missing_core_bundle(
                 site_name.to_string(),
                 Arc::new(orm::DomainPools::from_core_pool(new_pool.clone())),
             );
-            let _ = kiff_core::swap_pool(new_pool);
+            let _ = anri_core::swap_pool(new_pool);
             let _ = std::fs::remove_file(&backup);
             info!(
                 "rebuilt missing core database pool bundle for site {}",
@@ -382,8 +382,8 @@ pub fn spawn(
     pools: Arc<dashmap::DashMap<String, Arc<orm::DomainPools>>>,
     site_manager: Arc<config::SiteManager>,
 ) {
-    if std::env::var("KIFF_DISABLE_POOL_WATCHDOG").is_ok() {
-        info!("database pool watchdog disabled by KIFF_DISABLE_POOL_WATCHDOG");
+    if std::env::var("ANRI_DISABLE_POOL_WATCHDOG").is_ok() {
+        info!("database pool watchdog disabled by ANRI_DISABLE_POOL_WATCHDOG");
         return;
     }
     tokio::spawn(async move {

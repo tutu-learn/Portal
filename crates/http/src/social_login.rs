@@ -126,7 +126,7 @@ fn parse_auth_url_data(value: Option<Value>) -> Option<Value> {
 }
 
 /// Build the OAuth2 authorization URL for a provider. `state` is created by
-/// the caller: via `kiff_core::create_oauth_state` on Frappe versions
+/// the caller: via `anri_core::create_oauth_state` on Frappe versions
 /// that validate state server-side, or [`legacy_oauth_state`] on older ones.
 pub fn build_authorize_url(
     provider: &SocialLoginProvider,
@@ -217,7 +217,7 @@ pub async fn social_login_urls(
             // cache entry written by create_oauth_state — so the state
             // must come from there when the API exists. Older Frappe
             // expects the legacy self-contained base64 state instead.
-            let state = kiff_core::create_oauth_state(redirect_to)
+            let state = anri_core::create_oauth_state(redirect_to)
                 .unwrap_or_else(|| legacy_oauth_state(site_url, redirect_to));
             let url = build_authorize_url(&p, site_url, &state)?;
             Some((p, url))

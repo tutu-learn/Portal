@@ -6,7 +6,7 @@ const path = require('path');
 const { setTimeout } = require('timers/promises');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const RUNTIME_BINARY = path.join(PROJECT_ROOT, 'target', 'debug', 'kiff-runtime');
+const RUNTIME_BINARY = path.join(PROJECT_ROOT, 'target', 'debug', 'anri-runtime');
 const LOCKFILE = path.join(PROJECT_ROOT, 'playwright', '.e2e-server.lock');
 const E2E_BASE_PORT = 8765;
 
@@ -19,7 +19,7 @@ function ensureRuntimeBuilt() {
     log(`runtime already built: ${RUNTIME_BINARY}`);
     return;
   }
-  log('building kiff-runtime...');
+  log('building anri-runtime...');
   execSync('cargo build -p runtime', {
     cwd: PROJECT_ROOT,
     stdio: 'inherit',
@@ -132,17 +132,17 @@ module.exports = async function globalSetup() {
   writeRuntimeToml(runtimeDir);
   createSite(runtimeDir);
 
-  log('starting kiff-runtime...');
+  log('starting anri-runtime...');
   const proc = spawn(RUNTIME_BINARY, [], {
     cwd: PROJECT_ROOT,
     stdio: 'pipe',
     detached: false,
     env: {
       ...process.env,
-      KIFF_RUNTIME_CONFIG: path.join(runtimeDir, 'runtime.toml'),
+      ANRI_RUNTIME_CONFIG: path.join(runtimeDir, 'runtime.toml'),
       // The bootstrap seeds the Administrator password into __auth on first
       // run; pin it so auth.setup.js can log in with Administrator/admin.
-      KIFF_ADMIN_PASSWORD: 'admin',
+      ANRI_ADMIN_PASSWORD: 'admin',
     },
   });
 

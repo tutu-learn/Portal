@@ -7,7 +7,7 @@
 //! shims (e.g. `_MetaProxy`) and the real Frappe code paths those shims stand
 //! in for could break login. This handler moves everything except the final
 //! `User.save()` into Rust: state validation, the authorization-code token
-//! exchange, and id_token decoding are done natively (`kiff_core::oauth`),
+//! exchange, and id_token decoding are done natively (`anri_core::oauth`),
 //! and Python is invoked only for `frappe.utils.oauth.update_oauth_user`,
 //! which owns creating/updating the `User` document (permissions, hooks,
 //! default role, welcome-mail suppression) exactly as it does today.
@@ -105,7 +105,7 @@ pub async fn handle_office365_callback(
         }
     };
 
-    let token_response = match kiff_core::oauth::token_exchange(
+    let token_response = match anri_core::oauth::token_exchange(
         &provider.access_token_url,
         &code,
         &provider.redirect_uri,
@@ -133,7 +133,7 @@ pub async fn handle_office365_callback(
         }
     };
 
-    let claims = match kiff_core::oauth::decode_jwt_payload(id_token) {
+    let claims = match anri_core::oauth::decode_jwt_payload(id_token) {
         Ok(c) => c,
         Err(e) => {
             warn!(error = %e, "failed to decode Office 365 id_token");
@@ -170,7 +170,7 @@ pub async fn handle_office365_callback(
         "data": claims,
         "provider": PROVIDER,
     });
-    let update_result = kiff_core::call_trusted_method(
+    let update_result = anri_core::call_trusted_method(
         "frappe.utils.oauth.update_oauth_user",
         &update_args,
         Some(&email),

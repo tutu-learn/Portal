@@ -203,10 +203,10 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         .is_empty();
 
     if !admin_password_exists {
-        // The seed password is determined at runtime: KIFF_ADMIN_PASSWORD
+        // The seed password is determined at runtime: ANRI_ADMIN_PASSWORD
         // when set (non-empty), otherwise a random password printed once to
         // stderr. Never log the password itself.
-        let admin_password = match std::env::var("KIFF_ADMIN_PASSWORD") {
+        let admin_password = match std::env::var("ANRI_ADMIN_PASSWORD") {
             Ok(pw) if !pw.is_empty() => pw,
             _ => {
                 let pw = generate_admin_password();

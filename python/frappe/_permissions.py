@@ -3,7 +3,7 @@
 from ._context import _local, session
 
 try:
-    import kiff_core as _rust
+    import anri_core as _rust
 except ImportError:
     _rust = None
 
@@ -50,7 +50,7 @@ def has_permission(doctype, ptype="read", doc=None, user=None, throw=False, **kw
     user = user or session.user
     if _rust is not None:
         return _rust.has_permission(doctype, ptype, doc, user)
-    # Without the Kiff runtime we cannot make a real permission decision.
+    # Without the Anri runtime we cannot make a real permission decision.
     # Default to deny rather than the old unconditional allow.
     return False
 

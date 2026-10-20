@@ -40,7 +40,7 @@ impl queue::JobExecutor for RuntimeExecutor {
         match tokio::task::spawn_blocking({
             let method = method.to_string();
             let kwargs_value = kwargs_value.clone();
-            move || kiff_core::call_method(&method, &kwargs_value)
+            move || anri_core::call_method(&method, &kwargs_value)
         })
         .await
         {

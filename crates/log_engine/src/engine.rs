@@ -102,7 +102,7 @@ impl LogEngine {
         // heaps reduce merge CPU but increase memory spikes. The staged-record
         // thresholds below are the primary memory bound; this heap just needs
         // to be big enough for normal indexing.
-        let writer_heap_bytes = std::env::var("KIFF_LOG_ENGINE_HEAP_MB")
+        let writer_heap_bytes = std::env::var("ANRI_LOG_ENGINE_HEAP_MB")
             .ok()
             .and_then(|s| s.parse().ok())
             .map(|mb: usize| mb * 1_000_000)
@@ -122,11 +122,11 @@ impl LogEngine {
         // Memory-bounding knobs for the staging buffer. With 3 agents calling
         // home every 10 s, a count threshold of 1000 typically commits every
         // ~30-60 s; the bytes threshold catches a single oversized batch.
-        let staged_count_threshold = std::env::var("KIFF_LOG_STAGED_COUNT_THRESHOLD")
+        let staged_count_threshold = std::env::var("ANRI_LOG_STAGED_COUNT_THRESHOLD")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(1_000usize);
-        let staged_bytes_threshold = std::env::var("KIFF_LOG_STAGED_BYTES_MB")
+        let staged_bytes_threshold = std::env::var("ANRI_LOG_STAGED_BYTES_MB")
             .ok()
             .and_then(|s| s.parse().ok())
             .map(|mb: usize| mb * 1_000_000)
@@ -137,7 +137,7 @@ impl LogEngine {
         // This keeps the pod alive on small nodes instead of relying on k8s
         // OOM-killing it after a SIGBUS. Default to 4 GiB so out-of-the-box
         // deployments do not let a 21-segment Tantivy merge consume all RAM.
-        let memory_limit_bytes = std::env::var("KIFF_LOG_MEMORY_LIMIT_MB")
+        let memory_limit_bytes = std::env::var("ANRI_LOG_MEMORY_LIMIT_MB")
             .ok()
             .and_then(|s| s.parse().ok())
             .or(Some(4096usize))

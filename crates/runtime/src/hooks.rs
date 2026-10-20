@@ -175,7 +175,7 @@ impl HookRegistry {
                         if let Some(ref dict) = doc_dict {
                             let py_dict = pyo3::types::PyDict::new(py);
                             for (k, v) in dict {
-                                let val = kiff_core::json_to_py(py, v)
+                                let val = anri_core::json_to_py(py, v)
                                     .map_err(|e| error::RuntimeError::Python(format!("{}", e)))?;
                                 py_dict
                                     .set_item(k, val)

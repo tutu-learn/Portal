@@ -28,14 +28,14 @@ The single structural fix with the highest payoff: enforce one auth+permission l
 | C3 unauth reportview / log read | ✅ Fixed | `api.rs`: auth required, `doctype_exists` metadata validation, `get_permission_query_conditions` enforced; kiff-log endpoints authenticated |
 | C4 doctype identifier SQLi | ✅ Fixed | `orm/pool.rs:805` `validate_doctype` (`^[A-Za-z0-9_ ]+$`) in `table_name()`; same rules at `python-bridge/db.rs:381` |
 | C5 filter-key SQLi | ✅ Fixed | `orm/filters.rs:8` `validate_column_name` (`^[A-Za-z_][A-Za-z0-9_]*$`) in `FilterCondition::to_sql` |
-| C6 shipped admin credential | ✅ Fixed | `doctype_sync.rs`: password from `KIFF_ADMIN_PASSWORD` or random-generated (printed once), hashed at seed time; prefilled login form removed; bind defaults `127.0.0.1`; tooling env-var-ized |
+| C6 shipped admin credential | ✅ Fixed | `doctype_sync.rs`: password from `ANRI_ADMIN_PASSWORD` or random-generated (printed once), hashed at seed time; prefilled login form removed; bind defaults `127.0.0.1`; tooling env-var-ized |
 | H1 getdoc/search_link IDOR | ✅ Fixed | `api.rs`: auth + metadata validation + `has_permission(..., "read", doc)` enforced on all Desk loaders |
 | H2 write-path SQLi | ✅ Fixed | `pool.rs`: field keys validated + double-quoted in `save_doc`/`insert_doc`/`save_child_tables` |
 | H3 whitelist fail-open | ✅ Fixed | `python-bridge/lib.rs:393`: dispatch fails closed when whitelist uninitialized (+ regression test) |
 | H4 if_owner spoof in desk_form_save | ✅ Fixed | `api.rs`: stored doc loaded and checked; body `owner` ignored for existing docs |
 | H5 unauth WebSocket | ✅ Fixed | `websocket.rs`: 401 before upgrade; rooms limited to `global` + `user:{self}`; 16-subscription cap |
 
-**Behavior changes to be aware of:** (1) Guests can no longer call reportview/getdoc/search_link/permission-manager or read private files — Desk clients authenticate as usual; (2) reportview results are now permission-filtered for non-admins (Frappe-intended); (3) `/ws` requires a session (no first-party anonymous consumers exist); (4) **new** sites get a random Administrator password (printed once) unless `KIFF_ADMIN_PASSWORD` is set — existing databases are untouched; (5) default bind is now `127.0.0.1` (set `host` in `runtime.toml` if remote access is needed).
+**Behavior changes to be aware of:** (1) Guests can no longer call reportview/getdoc/search_link/permission-manager or read private files — Desk clients authenticate as usual; (2) reportview results are now permission-filtered for non-admins (Frappe-intended); (3) `/ws` requires a session (no first-party anonymous consumers exist); (4) **new** sites get a random Administrator password (printed once) unless `ANRI_ADMIN_PASSWORD` is set — existing databases are untouched; (5) default bind is now `127.0.0.1` (set `host` in `runtime.toml` if remote access is needed).
 
 **Known pre-existing issue surfaced during verification:** `orm` `count()` returns 0 on SQLite (sqlx reports `COUNT(*)` as NULL declared type) — unrelated to these fixes, not yet addressed.
 

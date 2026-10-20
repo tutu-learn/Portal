@@ -1103,7 +1103,7 @@ pub async fn getdoc_native(
                 // the native ORM's onload injection on failure.
                 if matches!(doctype.as_str(), "User" | "Workspace" | "Module Profile") {
                     if let Ok(doc_value) = serde_json::to_value(&doc) {
-                        match kiff_core::document::run_onload(&doctype, &doc_value, user.as_deref())
+                        match anri_core::document::run_onload(&doctype, &doc_value, user.as_deref())
                         {
                             Ok(onload) => {
                                 // Only overwrite the native ORM fallback when
@@ -3415,7 +3415,7 @@ async fn call_rust_or_python_method(
 
     // Fall back to Python method dispatcher.
     let body = serde_json::to_value(params).unwrap_or(Value::Object(Default::default()));
-    let result = kiff_core::call_method_with_user(method, &body, user.as_deref())?;
+    let result = anri_core::call_method_with_user(method, &body, user.as_deref())?;
 
     // Frappe login/OAuth flows signal a redirect by setting
     // frappe.local.response["type"] == "redirect" with a "location" URL.
@@ -3465,7 +3465,7 @@ async fn session_cookie_after_py_login(
         return None;
     }
     let (_, pool) = resolve_site_pool(state, headers)?;
-    let py_user = kiff_core::current_py_session_user()?;
+    let py_user = anri_core::current_py_session_user()?;
     if py_user == "Guest" {
         return None;
     }

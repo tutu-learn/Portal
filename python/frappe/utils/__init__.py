@@ -114,7 +114,7 @@ def add_user_info(user, user_info=None):
 def get_table_name(table_name: str, wrap_in_backticks: bool = False) -> str:
     """Return the SQL table name for a DocType, matching real Frappe's API.
 
-    In the kiff runtime data tables are stored without the ``tab`` prefix and
+    In the anri runtime data tables are stored without the ``tab`` prefix and
     lower-cased, so the translation layer in :func:`frappe.db.sql` handles the
     conversion.  This function keeps the ``tab`` prefix so existing Frappe code
     that builds raw SQL continues to work.

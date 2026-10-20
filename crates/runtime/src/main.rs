@@ -16,10 +16,10 @@ mod startup;
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> error::Result<()> {
     logging::init_tracing();
-    info!("kiff runtime starting");
+    info!("anri runtime starting");
 
     let config_path =
-        std::env::var("KIFF_RUNTIME_CONFIG").unwrap_or_else(|_| "runtime.toml".into());
+        std::env::var("ANRI_RUNTIME_CONFIG").unwrap_or_else(|_| "runtime.toml".into());
     let config = config::RuntimeConfig::from_file(&config_path)?;
     let mut site_manager = config::SiteManager::load(&config.runtime.sites_path).await?;
 
@@ -151,7 +151,7 @@ async fn main() -> error::Result<()> {
         }
     }
 
-    // Setup Python path — pass the default site's DB URL so kiff_core .so can init
+    // Setup Python path — pass the default site's DB URL so anri_core .so can init
     let default_db_url = site_manager
         .sites()
         .iter()
@@ -187,9 +187,9 @@ async fn main() -> error::Result<()> {
             .enable_all()
             .build()
             .expect("failed to build py runtime");
-        kiff_core::init(py_rt, pool);
-        kiff_core::init_pubsub(pubsub.clone());
-        if let Err(e) = kiff_core::init_whitelist() {
+        anri_core::init(py_rt, pool);
+        anri_core::init_pubsub(pubsub.clone());
+        if let Err(e) = anri_core::init_whitelist() {
             warn!("failed to load Python method whitelist: {}", e);
         }
     }
@@ -261,7 +261,7 @@ async fn main() -> error::Result<()> {
 
     // Optional per-process request concurrency limit. E2E runs set this to 1
     // to work around a SIGBUS under concurrent SQLite/TigerBeetle access on macOS.
-    if let Ok(limit_str) = std::env::var("KIFF_HTTP_CONCURRENCY") {
+    if let Ok(limit_str) = std::env::var("ANRI_HTTP_CONCURRENCY") {
         if let Ok(limit) = limit_str.parse::<usize>() {
             router = router.layer(tower::limit::ConcurrencyLimitLayer::new(limit));
         }
@@ -344,7 +344,7 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
         .map(|(_, site)| site.path.join("logengine-data"))
         .unwrap_or_else(|| PathBuf::from("./logengine-data"));
 
-    let commit_interval_secs = std::env::var("KIFF_LOG_COMMIT_INTERVAL_SECS")
+    let commit_interval_secs = std::env::var("ANRI_LOG_COMMIT_INTERVAL_SECS")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(120u64);
@@ -354,12 +354,12 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
     // A Rust app's scheduled rollup job is the primary path; this loop only
     // guards the case where that job is disabled, keeping the mmap'd Tantivy
     // index from growing unbounded and eventually exhausting RAM on small servers.
-    let retention_days = std::env::var("KIFF_LOG_RETENTION_DAYS")
+    let retention_days = std::env::var("ANRI_LOG_RETENTION_DAYS")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(3u64);
     let retention_interval = Duration::from_secs(
-        std::env::var("KIFF_LOG_RETENTION_INTERVAL_SECS")
+        std::env::var("ANRI_LOG_RETENTION_INTERVAL_SECS")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(24 * 60 * 60u64),
@@ -393,7 +393,7 @@ async fn init_log_engine(_config: &config::RuntimeConfig, app_state: &rust_apps_
             // Make the log engine reachable from the Python shim so that
             // virtual DocTypes like Kiff Log Entry can bypass SQL and query
             // logs directly from the Tantivy index.
-            kiff_core::init_log_service(service.clone());
+            anri_core::init_log_service(service.clone());
 
             if let Err(_) = app_state.logger.set(service) {
                 warn!("log engine already initialized by another task");
