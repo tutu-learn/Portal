@@ -17,10 +17,15 @@ use axum::{
 };
 use serde_json::json;
 use std::path::{Path as StdPath, PathBuf};
+use std::time::{Duration, SystemTime};
 use tracing::warn;
 
 const THRUSTER_DIR: &str = "thruster";
 const PLATFORMS: &[&str] = &["windows", "macos", "linux"];
+/// Maximum size accepted by the non-chunked upload endpoint. Files larger than
+/// this must use `thruster.upload_chunk` so a reverse proxy such as Cloudflare
+/// (100 MB request limit on free/pro) never sees a huge body.
+const MAX_SINGLE_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
 
 fn thruster_dir() -> PathBuf {
     StdPath::new(THRUSTER_DIR).to_path_buf()
@@ -170,6 +175,14 @@ pub async fn upload_binary(
                     Err(e) => return bad_request_json(format!("failed to read upload: {e}")),
                 };
 
+                if data.len() > MAX_SINGLE_UPLOAD_BYTES {
+                    return bad_request_json(format!(
+                        "file is {} bytes; use /api/method/thruster.upload_chunk for files larger than {} bytes",
+                        data.len(),
+                        MAX_SINGLE_UPLOAD_BYTES
+                    ));
+                }
+
                 let p = match platform.as_deref() {
                     Some(p) => p,
                     None => {
@@ -314,6 +327,9 @@ pub async fn upload_binary_chunk(
         return bad_request_json("chunk_index out of range");
     }
 
+    // Clean up uploads abandoned more than a day ago before writing new chunks.
+    cleanup_old_tmp_dirs(Duration::from_secs(24 * 60 * 60)).await;
+
     let tmp_dir = thruster_dir().join(".tmp").join(&upload_id);
     if let Err(e) = tokio::fs::create_dir_all(&tmp_dir).await {
         return internal_error_json(format!("failed to create temp directory: {e}"));
@@ -406,6 +422,34 @@ pub async fn upload_binary_chunk(
         })),
     )
         .into_response()
+}
+
+/// Remove incomplete upload temp directories older than `max_age`. Runs best-
+/// effort: failures are logged but not returned so they cannot block uploads.
+async fn cleanup_old_tmp_dirs(max_age: Duration) {
+    let tmp_root = thruster_dir().join(".tmp");
+    let Ok(mut entries) = tokio::fs::read_dir(&tmp_root).await else {
+        return;
+    };
+    let now = SystemTime::now();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let remove = match entry.metadata().await {
+            Ok(meta) => match meta.modified() {
+                Ok(mtime) => now.duration_since(mtime).unwrap_or_default() > max_age,
+                Err(_) => false,
+            },
+            Err(_) => false,
+        };
+        if remove {
+            if let Err(e) = tokio::fs::remove_dir_all(&path).await {
+                warn!("failed to remove stale tmp dir {}: {e}", path.display());
+            }
+        }
+    }
 }
 
 async fn write_file_atomic(path: &PathBuf, data: &Bytes) -> std::io::Result<()> {

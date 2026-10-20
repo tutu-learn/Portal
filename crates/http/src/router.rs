@@ -98,6 +98,14 @@ pub fn create_router() -> Router<AppState> {
             get(desk::get_desktop_page).post(desk::get_desktop_page_post),
         )
         .route(
+            "/api/method/thruster.upload",
+            post(thruster::upload_binary).layer(DefaultBodyLimit::max(64 * 1024 * 1024)),
+        )
+        .route(
+            "/api/method/thruster.upload_chunk",
+            post(thruster::upload_binary_chunk).layer(DefaultBodyLimit::max(20 * 1024 * 1024)),
+        )
+        .route(
             "/api/method/:method",
             get(api::call_method_get).post(api::call_method),
         )
@@ -125,13 +133,5 @@ pub fn create_router() -> Router<AppState> {
         .route("/desk", get(desk::serve_desk))
         .route("/desk/*path", get(desk::serve_desk))
         .route("/thruster/:platform/:filename", get(thruster::serve_binary))
-        .route(
-            "/api/method/thruster.upload",
-            post(thruster::upload_binary).layer(DefaultBodyLimit::max(1024 * 1024 * 1024)),
-        )
-        .route(
-            "/api/method/thruster.upload_chunk",
-            post(thruster::upload_binary_chunk).layer(DefaultBodyLimit::max(128 * 1024 * 1024)),
-        )
         .fallback(desk::serve_desk)
 }

@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CHUNK_SIZE = 25 * 1024 * 1024; // must stay under the 128 MB route limit
+const CHUNK_SIZE = 10 * 1024 * 1024; // must stay under the 20 MB route limit
 
 async function uploadChunk(url, cookie, platform, filename, uploadId, index, total, chunk) {
   const fd = new FormData();

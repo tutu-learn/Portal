@@ -129,3 +129,49 @@ async fn test_thruster_chunked_upload_reassembles_file() {
     let _ = tokio::fs::remove_file(&final_path).await;
     let _ = tokio::fs::remove_dir_all(PathBuf::from("thruster").join(".tmp").join(upload_id)).await;
 }
+
+#[tokio::test]
+async fn test_thruster_single_upload_rejects_large_files() {
+    let pool = crate::common::setup_test_db().await.unwrap();
+    let state = crate::common::build_app_state(pool);
+    let app = http::router::create_router().with_state(state);
+    let cookie = login_as_administrator(&app).await;
+
+    let boundary = "----testBoundary";
+    let filename = "too-big.bin";
+    let platform = "linux";
+    let oversized = vec![0u8; 50 * 1024 * 1024 + 1];
+
+    let body = build_multipart_body(
+        boundary,
+        &[
+            ("platform", None, platform.as_bytes()),
+            ("file", Some(filename), &oversized),
+        ],
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/method/thruster.upload")
+                .header("content-type", format!("multipart/form-data; boundary={boundary}"))
+                .header("cookie", &cookie)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        json.get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .contains("upload_chunk"),
+        "error should direct caller to chunked endpoint: {json}"
+    );
+}
