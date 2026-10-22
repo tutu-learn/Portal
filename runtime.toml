@@ -33,4 +33,14 @@ long_workers    = 1
 # When set, a successful login (including social login) that did not carry
 # its own redirect_to lands here instead of the framework desk (/app).
 # Can also be set via the CUSTOM_HOME_PATH environment variable.
-custom_home_path = "/desk/build"
+custom_home_path = "/sebrus_mail/portal"
+
+[mail_server]
+enabled = true
+server_name = "localhost"
+smtp_enabled = true
+smtp_bind_host = "0.0.0.0"
+smtp_bind_port = 2525
+imap_enabled = true
+imap_bind_host = "0.0.0.0"
+imap_bind_port = 1143

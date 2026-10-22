@@ -16,8 +16,9 @@ members = [
     "cli",
     "crates/kiff_logger",
     "crates/protocol",
+    "crates/mail-server",
     "rust_apps/core",
-    "rust_apps/sebrus_apps",
+    "rust_apps/sebrus_mail",
 ]
 
 [workspace.dependencies]
@@ -73,6 +74,7 @@ hex          = { version = "0.4" }
 rand         = { version = "0.8" }
 fernet       = { version = "0.2" }
 reqwest      = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+lettre       = { version = "0.11", features = ["tokio1", "tokio1-native-tls"] }
 
 # internal crates
 error        = { path = "crates/error" }

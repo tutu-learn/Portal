@@ -24,6 +24,7 @@ python/frappe/**/*.pyc
 # Independently managed repos checked out under rust_apps/ (own git history/remote)
 /rust_apps/audit_ready/
 /rust_apps/sebrus_logger/
+/rust_apps/sebrus_mail/
 /apps/.idea/.gitignore
 /apps/.idea/apps.iml
 /apps/.idea/encodings.xml

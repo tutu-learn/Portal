@@ -250,6 +250,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Sebrus Log Viewer", 1),
         ("Server Admin", 1),
         ("Infrastructure Viewer", 1),
+        ("Sebrus Mail Admin", 1),
     ] {
         pool.execute_sql(
             &format!(
@@ -280,6 +281,7 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         "All",
         "Report Manager",
         "Translator",
+        "Sebrus Mail Admin",
     ];
     let placeholders: Vec<String> = (1..=admin_roles.len())
         .map(|i| pool.placeholder(i))

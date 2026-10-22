@@ -90,7 +90,7 @@ pub struct RuntimeSection {
 }
 
 fn default_home_path() -> Option<String> {
-    Some("/desk/build".to_string())
+    Some("/sebrus_mail/portal".to_string())
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -137,6 +137,52 @@ impl SyncConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct MailServerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_server_name")]
+    pub server_name: String,
+    #[serde(default = "default_true")]
+    pub smtp_enabled: bool,
+    #[serde(default = "default_smtp_host")]
+    pub smtp_bind_host: String,
+    #[serde(default = "default_smtp_port")]
+    pub smtp_bind_port: u16,
+    #[serde(default = "default_true")]
+    pub imap_enabled: bool,
+    #[serde(default = "default_imap_host")]
+    pub imap_bind_host: String,
+    #[serde(default = "default_imap_port")]
+    pub imap_bind_port: u16,
+    #[serde(default = "default_max_message_size")]
+    pub max_message_size: usize,
+}
+
+impl Default for MailServerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            server_name: default_server_name(),
+            smtp_enabled: true,
+            smtp_bind_host: default_smtp_host(),
+            smtp_bind_port: default_smtp_port(),
+            imap_enabled: true,
+            imap_bind_host: default_imap_host(),
+            imap_bind_port: default_imap_port(),
+            max_message_size: default_max_message_size(),
+        }
+    }
+}
+
+fn default_server_name() -> String { "sebrus.local".into() }
+fn default_smtp_host() -> String { "0.0.0.0".into() }
+fn default_smtp_port() -> u16 { 2525 }
+fn default_imap_host() -> String { "0.0.0.0".into() }
+fn default_imap_port() -> u16 { 1143 }
+fn default_max_message_size() -> usize { 25 * 1024 * 1024 }
+fn default_true() -> bool { true }
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeConfig {
     pub runtime: RuntimeSection,
     #[serde(default)]
@@ -149,6 +195,8 @@ pub struct RuntimeConfig {
     pub auth: AuthSection,
     #[serde(default)]
     pub sync: SyncConfig,
+    #[serde(default)]
+    pub mail_server: MailServerConfig,
 }
 
 impl Default for RuntimeConfig {
@@ -176,6 +224,7 @@ impl Default for RuntimeConfig {
             },
             auth: AuthSection::default(),
             sync: SyncConfig::default(),
+            mail_server: MailServerConfig::default(),
         }
     }
 }

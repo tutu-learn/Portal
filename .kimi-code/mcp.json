@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "vectorcraft": {
+      "command": "/Users/johannnefdt/.local/bin/vectorcraft-cli",
+      "args": [
+        "mcp",
+        "--automation-read-root",
+        "/Users/johannnefdt/RustroverProjects/sebrusMail/docs/design",
+        "--automation-write-root",
+        "/Users/johannnefdt/RustroverProjects/sebrusMail/docs/design"
+      ]
+    }
+  }
+}
