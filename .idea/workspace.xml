@@ -71,31 +71,18 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/sebrusMail.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.kimi-code/mcp.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/Cargo.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/imap.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/lib.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/smtp.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/store.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/store/orm.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crates/mail-server/src/store/tests.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/design/ADMIN_PORTAL.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/design/MAIL_PORTAL.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/design/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/design/sebrus-mail-design-frames.vectorcraft" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/SebrusApps.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources/data_sources_history.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/config/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/config/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/orm/src/doctype_sync/seed_data.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/orm/src/doctype_sync/seed_data.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/runtime.toml" beforeDir="false" afterPath="$PROJECT_DIR$/runtime.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/apps.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/apps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mail-server/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store/orm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store/orm.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store/tests.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store/tests.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/design/ADMIN_PORTAL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/design/ADMIN_PORTAL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/admin.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/admin.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/certs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/certs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/doctypes/sebrus_mail_domain/sebrus_mail_domain.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/doctypes/sebrus_mail_domain/sebrus_mail_domain.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,25 +90,26 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19566" />
+    <option name="cachedIndexableFilesCount" value="19557" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/sebrus_mail" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "nefdtie101"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;nefdtie101&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/tutu-learn/Portal.git",
-    "accountId": "e5c6b783-876f-427e-8950-125234752873"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/tutu-learn/Portal.git&quot;,
+    &quot;accountId&quot;: &quot;e5c6b783-876f-427e-8950-125234752873&quot;
   }
-}]]></component>
+}</component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="GaamVfyj" />
   </component>
@@ -188,34 +176,35 @@
       <entry key="W1" value="7.961422361105259" />
     </decayedShown>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 4
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
   <component name="ProjectId" id="3L2aZuySmSDweA4s98F30YlKFrf" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "org.rust.first.attach.projects": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/sebrusMail&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Cargo.Test open_frappe">
     <configuration name="Run anri-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="run --package runtime --bin anri-runtime" />
@@ -302,5 +291,10 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="**Add Sebrus Mail support with modular SMTP server, admin portal, and mail portal features**&#10;&#10;- Introduced `mail-server` crate for SMTP inbound server implementation, authentication, and message handling.&#10;- Added Admin Portal for domain, account, and certificate management (`docs/design/ADMIN_PORTAL.md`).&#10;- Added Mail Portal UX for user mailbox interactions (`docs/design/MAIL_PORTAL.md`).&#10;- Updated seed data and roles with `Sebrus Mail Admin` functionality.&#10;- Cleaned up outdated IDE files and adjusted workspace member configuration for `sebrus_mail`." />
+    <MESSAGE value="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files." />
+    <option name="LAST_COMMIT_MESSAGE" value="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files." />
   </component>
 </project>

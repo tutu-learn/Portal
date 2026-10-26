@@ -11,8 +11,6 @@ mod tests {
             r#"CREATE TABLE "sebrusmail_domain" (
                 name TEXT PRIMARY KEY,
                 enabled INTEGER,
-                tls_cert TEXT,
-                tls_key TEXT,
                 dkim_selector TEXT,
                 dkim_private_key TEXT,
                 catch_all_account TEXT,

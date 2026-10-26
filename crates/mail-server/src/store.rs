@@ -15,8 +15,6 @@ pub use orm::OrmMailStore;
 pub struct Domain {
     pub name: String,
     pub enabled: bool,
-    pub tls_cert: Option<String>,
-    pub tls_key: Option<String>,
     pub dkim_selector: Option<String>,
     pub dkim_private_key: Option<String>,
     pub catch_all_account: Option<String>,

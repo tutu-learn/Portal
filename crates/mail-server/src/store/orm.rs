@@ -73,8 +73,6 @@ impl OrmMailStore {
         Some(Domain {
             name: row.remove("name")?.as_str()?.to_string(),
             enabled: row.remove("enabled")?.as_i64().unwrap_or(0) != 0,
-            tls_cert: row.remove("tls_cert").and_then(|v| v.as_str().map(String::from)),
-            tls_key: row.remove("tls_key").and_then(|v| v.as_str().map(String::from)),
             dkim_selector: row.remove("dkim_selector").and_then(|v| v.as_str().map(String::from)),
             dkim_private_key: row.remove("dkim_private_key").and_then(|v| v.as_str().map(String::from)),
             catch_all_account: row.remove("catch_all_account").and_then(|v| v.as_str().map(String::from)),
