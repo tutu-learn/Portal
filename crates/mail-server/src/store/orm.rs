@@ -310,14 +310,20 @@ impl MailStore for OrmMailStore {
             .unwrap_or(now);
         let body_text = parsed.as_ref().map(|p| p.body_text.clone()).unwrap_or_default();
         let raw_str = String::from_utf8_lossy(raw).to_string();
+        let name = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
 
         self.pool
             .execute_sql(
                 r#"INSERT INTO "sebrusmail_message" (
+                    name, creation, modified, modified_by, owner, docstatus,
                     account, folder, uid, message_id, subject, "from", "to", cc, date,
                     size_bytes, flags, raw_eml, body_text, is_read
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"#,
+                ) VALUES (?, ?, ?, 'Mail Server', 'Mail Server', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"#,
                 vec![
+                    name.into(),
+                    now.clone().into(),
+                    now.into(),
                     account_email.into(),
                     folder.into(),
                     (uid as i64).into(),

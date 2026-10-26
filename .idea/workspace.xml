@@ -71,18 +71,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files.">
+    <list default="true" id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="added styling">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mail-server/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store/orm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store/orm.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mail-server/src/store/tests.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mail-server/src/store/tests.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/design/ADMIN_PORTAL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/design/ADMIN_PORTAL.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/admin.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/admin.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/certs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/certs.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/doctypes/sebrus_mail_domain/sebrus_mail_domain.json" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/doctypes/sebrus_mail_domain/sebrus_mail_domain.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rust_apps/sebrus_mail/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,23 +109,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4606327111829154" />
-      <entry key="MS500" value="2.903352823695613" />
-      <entry key="S2" value="3.6664578949915607" />
-      <entry key="S5" value="3.860913370243048" />
-      <entry key="S10" value="3.929472228416381" />
-      <entry key="S30" value="3.976268177478226" />
-      <entry key="S60" value="3.988106027187696" />
-      <entry key="M2" value="3.9940459800042687" />
-      <entry key="M5" value="3.9976167147056945" />
-      <entry key="M10" value="3.9990369881698524" />
-      <entry key="M15" value="4.005145614994971" />
-      <entry key="M30" value="4.153749289433469" />
-      <entry key="H1" value="4.785031621752696" />
-      <entry key="H2" value="5.772165096059784" />
-      <entry key="H4" value="6.662478781198423" />
-      <entry key="D1" value="7.737645205620795" />
-      <entry key="W1" value="7.961422406771471" />
+      <entry key="MS100" value="1.0005985316040915" />
+      <entry key="MS500" value="1.7380536910878763" />
+      <entry key="S2" value="4.076886634443065" />
+      <entry key="S5" value="5.114948491114036" />
+      <entry key="S10" value="5.535479019148702" />
+      <entry key="S30" value="5.839991216174383" />
+      <entry key="S60" value="5.919331166323215" />
+      <entry key="M2" value="5.959498060872245" />
+      <entry key="M5" value="5.983758849936731" />
+      <entry key="M10" value="5.992101273326728" />
+      <entry key="M15" value="6.000515078185826" />
+      <entry key="M30" value="6.151364660073872" />
+      <entry key="H1" value="6.783692964220608" />
+      <entry key="H2" value="7.771381411962154" />
+      <entry key="H4" value="8.662035374204065" />
+      <entry key="D1" value="9.737560926171865" />
+      <entry key="W1" value="9.96141005827224" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -157,23 +147,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.4152039963270915" />
-      <entry key="MS500" value="2.881195363627595" />
-      <entry key="S2" value="3.659003167584864" />
-      <entry key="S5" value="3.8577308850703886" />
-      <entry key="S10" value="3.927845399946194" />
-      <entry key="S30" value="3.9757177832422435" />
-      <entry key="S60" value="3.987829801904144" />
-      <entry key="M2" value="3.9939076093052277" />
-      <entry key="M5" value="3.9975613043617404" />
-      <entry key="M10" value="3.9990092715851544" />
-      <entry key="M15" value="4.005127117374911" />
-      <entry key="M30" value="4.153739811184471" />
-      <entry key="H1" value="4.785026396301462" />
-      <entry key="H2" value="5.7721621031732235" />
-      <entry key="H4" value="6.662477113325083" />
-      <entry key="D1" value="7.737644893138544" />
-      <entry key="W1" value="7.961422361105259" />
+      <entry key="MS100" value="0.9799978121906417" />
+      <entry key="MS500" value="1.7281468869395942" />
+      <entry key="S2" value="4.069562359058935" />
+      <entry key="S5" value="5.111134752386074" />
+      <entry key="S10" value="5.533391725114771" />
+      <entry key="S30" value="5.839251758680793" />
+      <entry key="S60" value="5.9189557361557155" />
+      <entry key="M2" value="5.9593089018581" />
+      <entry key="M5" value="5.983682837384714" />
+      <entry key="M10" value="5.99206320763538" />
+      <entry key="M15" value="6.000489670495581" />
+      <entry key="M30" value="6.15135172154688" />
+      <entry key="H1" value="6.783686007378692" />
+      <entry key="H2" value="7.771377553054981" />
+      <entry key="H4" value="8.662033273227005" />
+      <entry key="D1" value="9.73756054149026" />
+      <entry key="W1" value="9.96141000229141" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -295,6 +285,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="**Add Sebrus Mail support with modular SMTP server, admin portal, and mail portal features**&#10;&#10;- Introduced `mail-server` crate for SMTP inbound server implementation, authentication, and message handling.&#10;- Added Admin Portal for domain, account, and certificate management (`docs/design/ADMIN_PORTAL.md`).&#10;- Added Mail Portal UX for user mailbox interactions (`docs/design/MAIL_PORTAL.md`).&#10;- Updated seed data and roles with `Sebrus Mail Admin` functionality.&#10;- Cleaned up outdated IDE files and adjusted workspace member configuration for `sebrus_mail`." />
     <MESSAGE value="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files." />
-    <option name="LAST_COMMIT_MESSAGE" value="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files." />
+    <MESSAGE value="Remove TLS certificate management from mail server:  &#10;- Eliminated `tls_cert` and `tls_key` fields and logic from `Domain` struct and database schema.  &#10;- Removed unused dependencies (`tokio-rustls`, `rustls-pemfile`) from `Cargo.toml`.  &#10;- Updated documentation to reflect the change, clarifying that TLS is managed by the ingress controller." />
+    <MESSAGE value="added styling" />
+    <option name="LAST_COMMIT_MESSAGE" value="added styling" />
   </component>
 </project>

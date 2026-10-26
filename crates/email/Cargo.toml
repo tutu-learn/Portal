@@ -21,3 +21,6 @@ mail-parser = "0.9"
 imap = "2.4"
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls"] }
 native-tls = "0.2"
+
+[dev-dependencies]
+mailin-embedded = { version = "0.6", features = ["rtls"] }

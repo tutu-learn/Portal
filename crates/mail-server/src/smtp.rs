@@ -34,8 +34,10 @@ pub struct SmtpServerHandle {
 impl SmtpServerHandle {
     pub fn stop(mut self) {
         if let Some(t) = self.thread.take() {
-            // mailin-embedded does not expose a clean shutdown; detach the thread.
-            let _ = t.join();
+            // mailin-embedded does not expose a clean shutdown; the listener
+            // thread blocks forever in server.serve(). Detach it so the caller
+            // does not hang waiting for a graceful exit that will never happen.
+            drop(t);
         }
     }
 }

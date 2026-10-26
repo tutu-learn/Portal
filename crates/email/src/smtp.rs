@@ -11,20 +11,24 @@ pub fn test_smtp(config: &EmailConfig) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("SMTP host is empty"));
     }
 
-    let creds = lettre::transport::smtp::authentication::Credentials::new(
-        config.smtp.user.clone(),
-        config.smtp.pass.clone(),
-    );
-
     let builder = if config.smtp.tls {
         lettre::SmtpTransport::relay(&config.smtp.host)
             .map_err(|e| anyhow::anyhow!("SMTP relay setup failed: {e}"))?
             .port(config.smtp_port())
-            .credentials(creds)
     } else {
         lettre::SmtpTransport::builder_dangerous(&config.smtp.host)
             .port(config.smtp_port())
-            .credentials(creds)
+    };
+
+    let has_creds = !config.smtp.user.is_empty() || !config.smtp.pass.is_empty();
+    let builder = if has_creds {
+        let creds = lettre::transport::smtp::authentication::Credentials::new(
+            config.smtp.user.clone(),
+            config.smtp.pass.clone(),
+        );
+        builder.credentials(creds)
+    } else {
+        builder
     };
 
     let connected = builder
@@ -72,22 +76,24 @@ pub fn send_email(config: &EmailConfig, to: &str, subject: &str, body: &str) -> 
         .body(body.to_string())
         .map_err(|e| anyhow::anyhow!("failed to build message: {e}"))?;
 
-    let creds = lettre::transport::smtp::authentication::Credentials::new(
-        config.smtp.user.clone(),
-        config.smtp.pass.clone(),
-    );
-
     let mailer = if config.smtp.tls {
         lettre::SmtpTransport::relay(&config.smtp.host)
             .map_err(|e| anyhow::anyhow!("SMTP relay setup failed: {e}"))?
             .port(config.smtp_port())
-            .credentials(creds)
-            .build()
     } else {
         lettre::SmtpTransport::builder_dangerous(&config.smtp.host)
             .port(config.smtp_port())
-            .credentials(creds)
-            .build()
+    };
+
+    let has_creds = !config.smtp.user.is_empty() || !config.smtp.pass.is_empty();
+    let mailer = if has_creds {
+        let creds = lettre::transport::smtp::authentication::Credentials::new(
+            config.smtp.user.clone(),
+            config.smtp.pass.clone(),
+        );
+        mailer.credentials(creds).build()
+    } else {
+        mailer.build()
     };
 
     mailer

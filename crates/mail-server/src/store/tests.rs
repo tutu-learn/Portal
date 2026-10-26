@@ -62,6 +62,11 @@ mod tests {
         pool.execute_sql(
             r#"CREATE TABLE "sebrusmail_message" (
                 name TEXT PRIMARY KEY,
+                creation TEXT,
+                modified TEXT,
+                modified_by TEXT,
+                owner TEXT,
+                docstatus INTEGER DEFAULT 0,
                 account TEXT,
                 folder TEXT,
                 uid INTEGER,
