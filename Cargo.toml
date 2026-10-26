@@ -18,7 +18,7 @@ members = [
     "crates/protocol",
     "crates/mail-server",
     "rust_apps/core",
-    "rust_apps/sebrus_mail",
+    "rust_apps/sebrus_apps",
 ]
 
 [workspace.dependencies]

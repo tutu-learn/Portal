@@ -90,7 +90,7 @@ pub struct RuntimeSection {
 }
 
 fn default_home_path() -> Option<String> {
-    Some("/sebrus_mail/portal".to_string())
+    Some("/sebrus_apps/portal".to_string())
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
