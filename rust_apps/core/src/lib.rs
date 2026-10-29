@@ -185,6 +185,12 @@ pub struct PageFixture {
     pub script: String,
     pub style: String,
     pub templates: HashMap<String, String>,
+    /// URL of the full-page standalone UI served by this app (e.g.
+    /// `/audit_ready/actions-ide`). When set and no explicit script or
+    /// templates are given, the runtime generates a desk page script that
+    /// redirects the desk route to the standalone page, so the workspace
+    /// shortcut/link lands on the real UI instead of an empty desk page.
+    pub standalone_url: String,
 }
 
 impl PageFixture {
@@ -198,6 +204,11 @@ impl PageFixture {
 
     pub fn with_script(mut self, script: &str) -> Self {
         self.script = script.to_string();
+        self
+    }
+
+    pub fn with_standalone_url(mut self, url: &str) -> Self {
+        self.standalone_url = url.to_string();
         self
     }
 

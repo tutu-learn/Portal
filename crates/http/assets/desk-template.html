@@ -146,57 +146,6 @@
     {{JS_INCLUDES}}
 
     <script>
-        // Redirect custom audit_ready pages served by the Rust runtime so that
-        // workspace Page links don't get trapped inside the Desk SPA.
-        // Use capture phase to intercept the click before Frappe's router does.
-        document.addEventListener('click', function(e) {
-            var link = e.target.closest && e.target.closest('a[href*="/desk/ops-portal"], a[href*="/desk/server-token-ui"], a[href*="/desk/actions-ide"]');
-            if (!link) return;
-            var href = link.getAttribute('href');
-            if (!href) return;
-            var redirect = href.replace('/desk/ops-portal', '/audit_ready/ops-portal').replace('/desk/server-token-ui', '/audit_ready/server-token-ui').replace('/desk/actions-ide', '/audit_ready/actions-ide');
-            if (redirect !== href) {
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = redirect;
-            }
-        }, true);
-
-        // Shortcut tiles (and links widgets) navigate inside the SPA via
-        // history.pushState, never touching the server, so the anchor hook
-        // above never fires for them. Intercept SPA route changes to the
-        // Rust-served pages and force a real navigation instead.
-        (function() {
-            var REDIRECTS = {
-                '/desk/actions-ide': '/audit_ready/actions-ide',
-                '/desk/ops-portal': '/audit_ready/ops-portal',
-                '/desk/server-token-ui': '/audit_ready/server-token-ui'
-            };
-            function redirectIfNeeded(url) {
-                try {
-                    var u = new URL(url, window.location.origin);
-                    var target = REDIRECTS[u.pathname];
-                    if (target) {
-                        window.location.href = target + u.search + u.hash;
-                        return true;
-                    }
-                } catch (e) {}
-                return false;
-            }
-            ['pushState', 'replaceState'].forEach(function(fn) {
-                var original = history[fn];
-                history[fn] = function(state, title, url) {
-                    if (url && redirectIfNeeded(url)) return;
-                    return original.apply(this, arguments);
-                };
-            });
-            window.addEventListener('popstate', function() {
-                redirectIfNeeded(window.location.href);
-            });
-        })();
-    </script>
-
-    <script>
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 var splash = document.getElementById('splash-screen');

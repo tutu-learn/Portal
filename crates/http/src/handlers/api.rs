@@ -755,7 +755,10 @@ async fn load_page_from_fixture(
 
     check_page_roles(state, &doc, user, headers).await?;
 
-    let script = build_page_script(&fixture.templates, &fixture.script);
+    let mut script = build_page_script(&fixture.templates, &fixture.script);
+    if script.trim().is_empty() && !fixture.standalone_url.is_empty() {
+        script = standalone_redirect_script(&fixture.name, &fixture.standalone_url);
+    }
 
     if let serde_json::Value::Object(ref mut map) = doc {
         map.insert("script".to_string(), serde_json::Value::String(script));
@@ -802,6 +805,15 @@ fn build_page_script(templates: &HashMap<String, String>, script: &str) -> Strin
         template_script.push_str(&html_to_js_template(filename, content));
     }
     format!("{}{}", template_script, script)
+}
+
+/// Desk page script that hands the route off to the app's standalone page.
+/// Mirrors the hand-written `frappe.pages['<name>'].on_page_load` redirects
+/// previously shipped per page as `.js` fixtures.
+fn standalone_redirect_script(page_name: &str, url: &str) -> String {
+    format!(
+        "frappe.pages['{page_name}'].on_page_load = function(wrapper) {{\n    window.location.replace('{url}');\n}};\n"
+    )
 }
 
 async fn load_page_from_json(

@@ -92,13 +92,25 @@ pub async fn serve_desk(
         }
     }
 
-    // Rust app pages are mounted under /kiff_logger/*; Frappe Desk routes Page
-    // workspace links through /desk/<page_name>, so redirect those paths.
-    match uri.path() {
-        "/desk/server-token-ui" => {
-            return Redirect::temporary("/kiff_logger/token-ui").into_response();
-        }
-        _ => {}
+    // Rust app pages are full-screen standalone UIs mounted under
+    // /audit_ready/*; Frappe Desk routes Page workspace links through
+    // /desk/<page_name>. The page docs carry a generated redirect script for
+    // in-SPA navigation; bounce direct hits (typed URLs, new tabs) here so the
+    // SPA does not have to boot just to hand off.
+    let standalone_page_redirect = match uri.path() {
+        "/desk/actions-ide" => Some("/audit_ready/actions-ide"),
+        "/desk/ops-portal" => Some("/audit_ready/ops-portal"),
+        "/desk/integrations" => Some("/audit_ready/integrations"),
+        "/desk/user-audit" => Some("/audit_ready/user-audit"),
+        "/desk/time-sheet" => Some("/audit_ready/time-sheet"),
+        "/desk/organogram" => Some("/audit_ready/organogram"),
+        "/desk/server-token-ui" => Some("/kiff_logger/token-ui"),
+        "/desk/s2s-token-ui" => Some("/audit_ready/s2s-token-ui"),
+        "/desk/timesheet-token-ui" => Some("/audit_ready/timesheet-token-ui"),
+        _ => None,
+    };
+    if let Some(target) = standalone_page_redirect {
+        return Redirect::temporary(target).into_response();
     }
 
     // Load assets.json once; used in both boot info and HTML includes.

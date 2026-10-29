@@ -789,7 +789,12 @@ async fn insert_page(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()>
     Ok(())
 }
 
-async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()> {
+/// Insert (or replace) a Workspace doc together with its child-table rows.
+///
+/// Exported for apps that build workspaces at runtime (e.g. one workspace per
+/// Integration Connection); the fixture loader uses the same path so both
+/// stay byte-for-byte compatible with what the Desk expects.
+pub async fn insert_workspace(pool: &DatabasePool, doc: &serde_json::Value) -> Result<()> {
     let name = json_str(doc, "name");
     if name.is_empty() {
         return Ok(());

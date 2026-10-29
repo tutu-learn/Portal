@@ -14,7 +14,7 @@ mod seed_data;
 
 pub use data_tables::add_column_if_missing;
 pub(crate) use data_tables::data_table_name;
-pub use seed_data::{ensure_core_users_and_roles, hash_user_password};
+pub use seed_data::{ensure_core_users_and_roles, hash_user_password, insert_workspace};
 
 /// A DocType fixture contributed outside the standard `apps/frappe` tree.
 #[derive(Debug, Clone)]
