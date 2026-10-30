@@ -57,6 +57,7 @@ impl ConnectionOptions {
             DbDomain::K8s => "K8S",
             DbDomain::Telemetry => "TELEMETRY",
             DbDomain::State => "STATE",
+            DbDomain::History => "HISTORY",
         };
 
         let max_connections = std::env::var(format!("KIFF_SQLITE_MAX_CONNECTIONS_{}", suffix))
@@ -72,6 +73,8 @@ impl ConnectionOptions {
                 DbDomain::K8s => 12,
                 DbDomain::Telemetry => 8,
                 DbDomain::State => 6,
+                // Append-only audit trail: low write rate, small pool.
+                DbDomain::History => 4,
             });
 
         let (busy_secs, acquire_secs) = match domain {
@@ -79,6 +82,7 @@ impl ConnectionOptions {
             DbDomain::K8s => (30, 60),
             DbDomain::Telemetry => (15, 45),
             DbDomain::State => (10, 30),
+            DbDomain::History => (10, 30),
         };
 
         Self {
@@ -1104,6 +1108,45 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(k8s_rows.len(), 1);
+
+        std::env::remove_var("KIFF_SQLITE_SHARDED");
+    }
+
+    #[tokio::test]
+    async fn document_history_routes_to_history_domain() {
+        std::env::set_var("KIFF_SQLITE_SHARDED", "1");
+
+        let dir = tempfile::tempdir().unwrap();
+        let pools = Arc::new(DomainPools::connect(dir.path()).await.unwrap());
+        let core = pools.core();
+
+        // The durable document history table must live in its own history.db
+        // file so audit writes never hold the site.db writer lock.
+        let history_handle = core.for_doctype("Document History");
+        history_handle
+            .execute_sql("CREATE TABLE document_history (name TEXT)", vec![])
+            .await
+            .unwrap();
+
+        let history_rows = history_handle
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'document_history'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(history_rows.len(), 1);
+        assert!(dir.path().join("history.db").exists());
+
+        // The core file must NOT carry the table.
+        let core_rows = core
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'document_history'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(core_rows.is_empty());
 
         std::env::remove_var("KIFF_SQLITE_SHARDED");
     }

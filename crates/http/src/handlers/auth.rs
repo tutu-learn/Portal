@@ -46,9 +46,11 @@ pub async fn login(
     let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     match pool {
         Some(pool) => {
+            let ip = extract_client_ip(&headers, addr.map(|a| a.0));
+            let user_agent = extract_user_agent(&headers);
             let metadata = session::SessionMetadata {
-                ip: extract_client_ip(&headers, addr.map(|a| a.0)),
-                user_agent: extract_user_agent(&headers),
+                ip: ip.clone(),
+                user_agent: user_agent.clone(),
             };
             let auth = session::AuthService::new(session::SessionStore::new());
             match auth
@@ -56,6 +58,14 @@ pub async fn login(
                 .await
             {
                 Ok(session) => {
+                    kiff_logger::record_authentication_event(
+                        &pool,
+                        &usr,
+                        kiff_logger::AuthenticationEvent::LoginSuccess,
+                        ip.as_deref(),
+                        user_agent.as_deref(),
+                    )
+                    .await;
                     let home_page = crate::user_home::get_effective_home_page(
                         &pool,
                         &usr,
@@ -78,6 +88,14 @@ pub async fn login(
                     res
                 }
                 Err(e) => {
+                    kiff_logger::record_authentication_event(
+                        &pool,
+                        &usr,
+                        kiff_logger::AuthenticationEvent::LoginFailed,
+                        ip.as_deref(),
+                        user_agent.as_deref(),
+                    )
+                    .await;
                     let mut res =
                         Json(serde_json::json!({ "error": format!("{}", e) })).into_response();
                     *res.status_mut() = StatusCode::UNAUTHORIZED;
@@ -100,8 +118,11 @@ pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl I
             // Extract the session id from the cookie and delete it server-side.
             if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
                 if let Some(sid) = extract_cookie_value(cookie_header, "sid") {
-                    let auth = session::AuthService::new(session::SessionStore::new());
+                    let store = session::SessionStore::new();
+                    let user = session_user(&pool, &store, &sid).await;
+                    let auth = session::AuthService::new(store);
                     let _ = auth.logout(&pool, &sid).await;
+                    record_logout(&pool, &user, &headers).await;
                 }
             }
             let cookie = "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
@@ -123,8 +144,11 @@ pub async fn logout_redirect(
     if let Some(pool) = pool {
         if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
             if let Some(sid) = extract_cookie_value(cookie_header, "sid") {
-                let auth = session::AuthService::new(session::SessionStore::new());
+                let store = session::SessionStore::new();
+                let user = session_user(&pool, &store, &sid).await;
+                let auth = session::AuthService::new(store);
                 let _ = auth.logout(&pool, &sid).await;
+                record_logout(&pool, &user, &headers).await;
             }
         }
     }
@@ -134,6 +158,35 @@ pub async fn logout_redirect(
     res.headers_mut()
         .insert(SET_COOKIE, cookie.parse().unwrap());
     res
+}
+
+/// Resolve the username behind a session id before the session is deleted.
+/// Falls back to "Unknown" when the session is missing or expired.
+async fn session_user(
+    pool: &orm::DatabasePool,
+    store: &session::SessionStore,
+    sid: &str,
+) -> String {
+    store
+        .get(pool, sid)
+        .await
+        .ok()
+        .flatten()
+        .map(|s| s.user)
+        .unwrap_or_else(|| "Unknown".to_string())
+}
+
+async fn record_logout(pool: &orm::DatabasePool, user: &str, headers: &HeaderMap) {
+    let ip = extract_client_ip(headers, None);
+    let user_agent = extract_user_agent(headers);
+    kiff_logger::record_authentication_event(
+        pool,
+        user,
+        kiff_logger::AuthenticationEvent::Logout,
+        ip.as_deref(),
+        user_agent.as_deref(),
+    )
+    .await;
 }
 
 fn extract_cookie_value(header: &str, name: &str) -> Option<String> {

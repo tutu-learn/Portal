@@ -16,6 +16,7 @@ pub struct DomainPools {
     k8s: Arc<RwLock<sqlx::SqlitePool>>,
     telemetry: Arc<RwLock<sqlx::SqlitePool>>,
     state: Arc<RwLock<sqlx::SqlitePool>>,
+    history: Arc<RwLock<sqlx::SqlitePool>>,
 }
 
 impl DomainPools {
@@ -31,7 +32,8 @@ impl DomainPools {
             core: shared.clone(),
             k8s: shared.clone(),
             telemetry: shared.clone(),
-            state: shared,
+            state: shared.clone(),
+            history: shared,
         }
     }
 
@@ -47,19 +49,22 @@ impl DomainPools {
                 core: shared.clone(),
                 k8s: shared.clone(),
                 telemetry: shared.clone(),
-                state: shared,
+                state: shared.clone(),
+                history: shared,
             });
         }
 
         let k8s = DatabasePool::connect_sqlite_domain(site_path, DbDomain::K8s).await?;
         let telemetry = DatabasePool::connect_sqlite_domain(site_path, DbDomain::Telemetry).await?;
         let state = DatabasePool::connect_sqlite_domain(site_path, DbDomain::State).await?;
+        let history = DatabasePool::connect_sqlite_domain(site_path, DbDomain::History).await?;
 
         Ok(Self {
             core: Arc::new(RwLock::new(core)),
             k8s: Arc::new(RwLock::new(k8s)),
             telemetry: Arc::new(RwLock::new(telemetry)),
             state: Arc::new(RwLock::new(state)),
+            history: Arc::new(RwLock::new(history)),
         })
     }
 
@@ -83,6 +88,7 @@ impl DomainPools {
             DbDomain::K8s => self.k8s.read().unwrap().clone(),
             DbDomain::Telemetry => self.telemetry.read().unwrap().clone(),
             DbDomain::State => self.state.read().unwrap().clone(),
+            DbDomain::History => self.history.read().unwrap().clone(),
         }
     }
 
@@ -94,6 +100,7 @@ impl DomainPools {
             DbDomain::K8s => *self.k8s.write().unwrap() = new_pool,
             DbDomain::Telemetry => *self.telemetry.write().unwrap() = new_pool,
             DbDomain::State => *self.state.write().unwrap() = new_pool,
+            DbDomain::History => *self.history.write().unwrap() = new_pool,
         }
     }
 
@@ -105,6 +112,7 @@ impl DomainPools {
             self.k8s.read().unwrap().close().await;
             self.telemetry.read().unwrap().close().await;
             self.state.read().unwrap().close().await;
+            self.history.read().unwrap().close().await;
         }
     }
 }

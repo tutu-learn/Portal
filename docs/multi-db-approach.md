@@ -12,6 +12,7 @@ Previously every site stored all its data in a single `site.db` file. The runtim
 | `K8s`       | `k8s.db`         | `k8s_*`, `kubernetes_cluster`, `kubernetes_control_plane_node`, `kubernetes_worker_node` |
 | `Telemetry` | `telemetry.db`   | `audit_ready_dns_*`, `infrastructure_server*`, `client_machine` |
 | `State`     | `state.db`       | `patch_job*`, `agent_state*`                                |
+| `History`   | `history.db`     | `document_history` (durable document lifecycle audit trail) |
 
 When sharding is **disabled** (the default), all domains still alias the same `site.db`, so existing code continues to work unchanged.
 
@@ -34,6 +35,7 @@ The single source of truth for routing is `DbDomain::for_table` in `crates/orm/s
 - `k8s_*`, `kubernetes_cluster`, `kubernetes_control_plane_node`, `kubernetes_worker_node` → `K8s`
 - `audit_ready_dns_*`, `infrastructure_server*`, `client_machine` → `Telemetry`
 - `patch_job*`, `agent_state*` → `State`
+- `document_history` (and its indexes) → `History`
 - everything else → `Core`
 
 If you add a new family of tables that should live in a non-core domain, update this function and add a test in `crates/orm/src/pool.rs`.
@@ -118,6 +120,7 @@ The pool watchdog (`crates/runtime/src/pool_watchdog.rs`) now probes every domai
 | `KIFF_SQLITE_MAX_CONNECTIONS_K8S`   | `12`    | Max connections for `k8s.db`                 |
 | `KIFF_SQLITE_MAX_CONNECTIONS_TELEMETRY` | `8` | Max connections for `telemetry.db`           |
 | `KIFF_SQLITE_MAX_CONNECTIONS_STATE` | `6`     | Max connections for `state.db`               |
+| `KIFF_SQLITE_MAX_CONNECTIONS_HISTORY` | `4`   | Max connections for `history.db`             |
 
 ## Cross-domain operations
 

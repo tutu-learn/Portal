@@ -9,11 +9,13 @@ use rust_apps_core::{
     ApiMethod, AppContext, DoctypeFixture, PageFixture, RustApp, WorkspaceFixture,
 };
 
+mod auth_log;
 mod handlers;
 mod methods;
 mod page;
 mod token;
 
+pub use auth_log::{record_authentication_event, AuthenticationEvent};
 pub use handlers::{IngestRequest, IngestResponse, QueryResponse};
 pub use token::{touch_token, verify_bearer_token, VerifiedToken};
 
@@ -50,6 +52,16 @@ impl RustApp for KiffLoggerApp {
                 "Kiff Logger",
                 "S3 Backup Configuration",
                 include_str!("doctypes/kiff_logger/s3_backup_config.json"),
+            ),
+            DoctypeFixture::new(
+                "Kiff Logger",
+                "Authentication Log",
+                include_str!("doctypes/kiff_logger/authentication_log.json"),
+            ),
+            DoctypeFixture::new(
+                "Kiff Logger",
+                "Document History",
+                include_str!("doctypes/kiff_logger/document_history.json"),
             ),
         ]
     }

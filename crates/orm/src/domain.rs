@@ -8,6 +8,7 @@ pub enum DbDomain {
     K8s,
     Telemetry,
     State,
+    History,
 }
 
 impl DbDomain {
@@ -18,6 +19,7 @@ impl DbDomain {
             DbDomain::K8s => "k8s.db",
             DbDomain::Telemetry => "telemetry.db",
             DbDomain::State => "state.db",
+            DbDomain::History => "history.db",
         }
     }
 
@@ -43,6 +45,11 @@ impl DbDomain {
             || lower == "client_machine"
         {
             DbDomain::Telemetry
+        } else if lower == "document_history" || lower.starts_with("document_history_") {
+            // Durable document lifecycle history (written by the audit hooks).
+            // Kept out of the core file so audit writes never queue behind the
+            // site.db writer lock.
+            DbDomain::History
         } else if lower.starts_with("patch_job") || lower.starts_with("agent_state") {
             DbDomain::State
         } else {
@@ -52,7 +59,13 @@ impl DbDomain {
 
     /// All domains in their default order.
     pub fn all() -> &'static [DbDomain] {
-        &[DbDomain::Core, DbDomain::K8s, DbDomain::Telemetry, DbDomain::State]
+        &[
+            DbDomain::Core,
+            DbDomain::K8s,
+            DbDomain::Telemetry,
+            DbDomain::State,
+            DbDomain::History,
+        ]
     }
 }
 
