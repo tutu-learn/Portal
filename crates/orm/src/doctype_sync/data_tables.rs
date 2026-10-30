@@ -73,6 +73,46 @@ pub(crate) async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
     Ok(())
 }
 
+/// Extra indexes for framework-managed data tables, applied idempotently on
+/// every sync. Migrations cannot create these: the migrator runs before
+/// doctype_sync, so on a fresh site the tables do not exist yet when
+/// migrations run (see the 007-010 migration comments).
+const FRAMEWORK_TABLE_INDEXES: &[(&str, &[&str])] = &[
+    // Durable document history: "history of one entry", "all changes to a
+    // doctype", and "changes in a time window" are the analytics patterns.
+    ("document_history", &["ref_doctype", "docname"]),
+    ("document_history", &["docname"]),
+    ("document_history", &["timestamp"]),
+    // Authentication trail: "who logged in when" for access reviews.
+    ("authentication_log", &["user", "timestamp"]),
+];
+
+/// Create the framework indexes for `table` if it has any. Idempotent
+/// (CREATE INDEX IF NOT EXISTS) so it is safe on every sync.
+async fn ensure_framework_indexes(pool: &DatabasePool, table: &str) -> Result<()> {
+    for (idx_table, columns) in FRAMEWORK_TABLE_INDEXES {
+        if *idx_table != table {
+            continue;
+        }
+        let col_list = columns
+            .iter()
+            .map(|c| quote_if_reserved(c))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let idx_name = format!(
+            "idx_{}_{}",
+            table,
+            columns.join("_")
+        );
+        let sql = format!(
+            "CREATE INDEX IF NOT EXISTS {} ON \"{}\"({})",
+            idx_name, table, col_list
+        );
+        pool.execute_sql(&sql, vec![]).await?;
+    }
+    Ok(())
+}
+
 async fn create_data_table(
     pool: &DatabasePool,
     doctype_name: &str,
@@ -137,6 +177,7 @@ async fn create_data_table(
             col_defs.join(",\n    ")
         );
         domain_pool.execute_sql(&sql, vec![]).await?;
+        ensure_framework_indexes(&domain_pool, &table).await?;
         return Ok(());
     }
 
@@ -182,6 +223,9 @@ async fn create_data_table(
     if needs_recreate {
         recreate_table_with_migration(&domain_pool, &table, &expected_cols).await?;
     }
+
+    // Existing tables pick up framework indexes idempotently on every sync.
+    ensure_framework_indexes(&domain_pool, &table).await?;
 
     Ok(())
 }
@@ -446,6 +490,60 @@ fn quote_if_reserved(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Framework indexes are created idempotently: first call creates them,
+    /// later calls are no-ops.
+    #[tokio::test]
+    async fn framework_indexes_are_created_and_idempotent() {
+        let path = format!("/tmp/orm_framework_indexes_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let pool = DatabasePool::connect_sqlite(&path).await.unwrap();
+
+        pool.execute_sql(
+            "CREATE TABLE document_history (name TEXT, ref_doctype TEXT, docname TEXT, timestamp TEXT)",
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        ensure_framework_indexes(&pool, "document_history")
+            .await
+            .unwrap();
+        ensure_framework_indexes(&pool, "document_history")
+            .await
+            .unwrap();
+
+        let rows = pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'document_history'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        let names: Vec<String> = rows
+            .iter()
+            .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        assert!(names.contains(&"idx_document_history_ref_doctype_docname".to_string()));
+        assert!(names.contains(&"idx_document_history_docname".to_string()));
+        assert!(names.contains(&"idx_document_history_timestamp".to_string()));
+
+        // Tables without registered framework indexes are left alone.
+        pool.execute_sql("CREATE TABLE plain_table (name TEXT)", vec![])
+            .await
+            .unwrap();
+        ensure_framework_indexes(&pool, "plain_table").await.unwrap();
+        let rows = pool
+            .execute_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plain_table'",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(rows.is_empty());
+
+        let _ = std::fs::remove_file(&path);
+    }
 
     /// A raw table created before its DocType existed (no `name` column)
     /// must gain a plain TEXT column via ALTER — never a drop-and-recreate.
