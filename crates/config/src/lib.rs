@@ -90,7 +90,12 @@ pub struct RuntimeSection {
 }
 
 fn default_home_path() -> Option<String> {
-    Some("/sebrus_apps/portal".to_string())
+    // The Desktop page (roles: All) — the one landing that renders for every
+    // authenticated user, including non-admins whose workspace list excludes
+    // the frappe-app workspaces. Do NOT point this at a workspace route such
+    // as /desk/build: non-admins never see those in boot and the desk SPA
+    // falls back to pageview -> getpage -> 404.
+    Some("/desk/desktop".to_string())
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -103,7 +108,7 @@ pub struct AuthSection {
     /// When set, a successful login that did not specify a `redirect_to`
     /// (e.g. a social login authorize URL built without one) lands here
     /// instead of the framework desk (`/app`) — e.g. an app-provided
-    /// dashboard/portal. Must start with '/'. Defaults to `/desk/build`.
+    /// dashboard/portal. Must start with '/'. Defaults to `/desk/desktop`.
     #[serde(default = "default_home_path")]
     pub custom_home_path: Option<String>,
 }

@@ -97,6 +97,11 @@ pub async fn serve_desk(
     // /desk/<page_name>. The page docs carry a generated redirect script for
     // in-SPA navigation; bounce direct hits (typed URLs, new tabs) here so the
     // SPA does not have to boot just to hand off.
+    //
+    // /sebrus_apps/portal is the legacy post-login landing path (old Sebrus
+    // Apps portal). Nothing serves it anymore; bounce it to the Desktop page
+    // (roles: All — safe for every authenticated user), otherwise the desk SPA
+    // boots there and 404s on getpage?name=sebrus_apps.
     let standalone_page_redirect = match uri.path() {
         "/desk/actions-ide" => Some("/audit_ready/actions-ide"),
         "/desk/ops-portal" => Some("/audit_ready/ops-portal"),
@@ -107,6 +112,7 @@ pub async fn serve_desk(
         "/desk/server-token-ui" => Some("/kiff_logger/token-ui"),
         "/desk/s2s-token-ui" => Some("/audit_ready/s2s-token-ui"),
         "/desk/timesheet-token-ui" => Some("/audit_ready/timesheet-token-ui"),
+        "/sebrus_apps/portal" => Some("/desk/desktop"),
         _ => None,
     };
     if let Some(target) = standalone_page_redirect {
