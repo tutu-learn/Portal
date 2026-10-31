@@ -50,6 +50,10 @@ pub fn create_router() -> Router<AppState> {
             get(api::getdoctype_native),
         )
         .route(
+            "/api/method/frappe.desk.form.load.getdoctypecolumns",
+            get(api::getdoctype_columns_native),
+        )
+        .route(
             "/api/method/frappe.desk.search.search_link",
             get(api::search_link).post(api::search_link_post),
         )

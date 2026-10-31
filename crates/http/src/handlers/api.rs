@@ -1377,6 +1377,169 @@ pub async fn getdoctype_native(
     }
 }
 
+/// Native schema-discovery endpoint: returns the column definitions of every
+/// DocType (optionally filtered with `?doctype=<name>`), metadata only — no
+/// document data, so no PII. The response maps each DocType name to its
+/// standard columns and schema fields, mirroring the shape of
+/// `scripts/dump_column_names.py` output.
+///
+/// Access follows read permission on the DocType meta doctype: Administrator
+/// and System Manager have that from the fixture defaults, and the Audit
+/// Developer/Auditor roles via their wildcard read grant. Everyone else gets
+/// 403, so integrations can discover schemas of empty tables without row
+/// access.
+pub async fn getdoctype_columns_native(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let filter = params
+        .get("doctype")
+        .cloned()
+        .filter(|d| !d.is_empty());
+
+    let (_site, pool) = match crate::site::resolve_site_pool(&state, &headers) {
+        Some(sp) => sp,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "no database pool" })),
+            );
+        }
+    };
+
+    let user = session_user_from_request(&state, &headers)
+        .await
+        .unwrap_or_else(|| "Guest".into());
+    match state
+        .permissions
+        .has_permission(&pool, &user, "DocType", "read", None)
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": "permission denied" })),
+            );
+        }
+        Err(e) => return frappe_error_response(e),
+    }
+
+    let doctype_rows = match &filter {
+        Some(name) => {
+            match pool
+                .execute_sql(
+                    r#"SELECT name FROM "doctype" WHERE name = ? ORDER BY name"#,
+                    vec![serde_json::Value::String(name.clone())],
+                )
+                .await
+            {
+                Ok(rows) => rows,
+                Err(e) => return frappe_error_response(e),
+            }
+        }
+        None => match pool
+            .execute_sql(r#"SELECT name FROM "doctype" ORDER BY name"#, vec![])
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => return frappe_error_response(e),
+        },
+    };
+    if doctype_rows.is_empty() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "doctype not found" })),
+        );
+    }
+
+    let field_rows = match &filter {
+        Some(name) => match pool
+            .execute_sql(
+                r#"SELECT parent, fieldname, fieldtype, label, idx
+                   FROM docfield
+                   WHERE fieldname IS NOT NULL AND fieldname != '' AND parent = ?
+                   ORDER BY parent, idx"#,
+                vec![serde_json::Value::String(name.clone())],
+            )
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => return frappe_error_response(e),
+        },
+        None => match pool
+            .execute_sql(
+                r#"SELECT parent, fieldname, fieldtype, label, idx
+                   FROM docfield
+                   WHERE fieldname IS NOT NULL AND fieldname != ''
+                   ORDER BY parent, idx"#,
+                vec![],
+            )
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => return frappe_error_response(e),
+        },
+    };
+
+    let mut fields: std::collections::HashMap<String, Vec<serde_json::Value>> =
+        std::collections::HashMap::new();
+    for mut row in field_rows {
+        let parent = row
+            .remove("parent")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+        let fieldname = row
+            .remove("fieldname")
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+        if parent.is_empty() || fieldname.is_empty() {
+            continue;
+        }
+        let mut field = serde_json::json!({
+            "fieldname": fieldname,
+            "fieldtype": row.remove("fieldtype").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
+            "label": row.remove("label").and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
+        });
+        if let Some(map) = field.as_object_mut() {
+            // Drop null/empty labels so the shape matches the file dump.
+            if map.get("label").and_then(|v| v.as_str()) == Some("") {
+                map.remove("label");
+            }
+            if map.get("fieldtype").and_then(|v| v.as_str()) == Some("") {
+                map.remove("fieldtype");
+            }
+        }
+        fields.entry(parent).or_default().push(field);
+    }
+
+    let standard = [
+        "name",
+        "owner",
+        "creation",
+        "modified",
+        "modified_by",
+        "docstatus",
+        "idx",
+    ];
+    let mut result = serde_json::Map::new();
+    for mut row in doctype_rows {
+        let Some(name) = row.remove("name").and_then(|v| v.as_str().map(String::from)) else {
+            continue;
+        };
+        result.insert(
+            name.clone(),
+            serde_json::json!({
+                "standard_columns": standard,
+                "fields": fields.remove(&name).unwrap_or_default(),
+            }),
+        );
+    }
+
+    (StatusCode::OK, Json(serde_json::Value::Object(result)))
+}
+
 /// Native Rust implementation of `frappe.desk.search.search_link` (GET).
 pub async fn search_link(
     State(state): State<AppState>,
