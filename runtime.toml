@@ -33,7 +33,11 @@ long_workers    = 1
 # When set, a successful login (including social login) that did not carry
 # its own redirect_to lands here instead of the framework desk (/app).
 # Can also be set via the CUSTOM_HOME_PATH environment variable.
-custom_home_path = "/sebrus_apps/portal"
+# Must be a route that works for every authenticated user: /desk/desktop (the
+# Desktop page, roles: All). Workspace routes like /desk/build 404 for
+# non-admins, and dead paths like the old /sebrus_apps/portal end in a
+# getpage 404 inside the desk SPA.
+custom_home_path = "/desk/desktop"
 
 [mail_server]
 enabled = true
