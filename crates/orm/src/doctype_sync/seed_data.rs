@@ -251,6 +251,8 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ("Server Admin", 1),
         ("Infrastructure Viewer", 1),
         ("Sebrus Mail Admin", 1),
+        ("Audit Developer", 1),
+        ("Auditor", 1),
     ] {
         pool.execute_sql(
             &format!(
@@ -315,6 +317,40 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
                 serde_json::Value::String(role.into()),
             ],
         ).await?;
+    }
+
+    // Full-read wildcard grants for the audit roles. The permission engine
+    // matches `parent = '*'` for every DocType, so a single row per role
+    // grants read on all current and future doctypes, including meta doctypes
+    // like DocField/DocType that have no per-DocType default grants. Per-
+    // DocType fixture syncs only replace rows for their own parent, so these
+    // survive syncs. The roles stay read-only: write/create/delete are 0 and
+    // the read-following ptypes (select, report, export, print, email, share)
+    // are derived from read by the engine.
+    for role in ["Audit Developer", "Auditor"] {
+        let existing = pool
+            .execute_sql(
+                r#"SELECT 1 FROM __kiff_docperm
+                   WHERE parent = '*' AND role = ? AND permlevel = 0 AND if_owner = 0
+                   LIMIT 1"#,
+                vec![serde_json::Value::String(role.into())],
+            )
+            .await?;
+        if existing.is_empty() {
+            pool.execute_sql(
+                r#"
+                INSERT INTO __kiff_docperm (
+                    parent, role, permlevel, "read", "write", "create", "delete",
+                    "submit", "cancel", if_owner, "select", "report", "export", "import",
+                    "share", "print", "email", "mask", "amend"
+                ) VALUES (
+                    '*', ?, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                )
+                "#,
+                vec![serde_json::Value::String(role.into())],
+            )
+            .await?;
+        }
     }
 
     info!("core users and roles seeded");
