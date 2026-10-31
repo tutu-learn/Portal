@@ -719,57 +719,34 @@ fn build_workspace_boot_objects(workspaces: &[Value], is_guest: bool) -> (Value,
     workspaces_obj.insert("has_create_access".to_string(), json!(!is_guest));
     let workspaces_value = Value::Object(workspaces_obj);
 
-    // Frappe 16 sidebar expects workspace_sidebar_item = { title_lower: { items, module, app } }
+    // Frappe 16 sidebar expects workspace_sidebar_item = { title_lower: { items, module, app } }.
+    // Each workspace's group carries ITS OWN navigation items (sections from "Card Break"
+    // rows, links from "Link" rows of the workspace's links child table) — that is what the
+    // desk SPA renders when the workspace is active. A group holding only a self-link
+    // leaves the sidebar with nothing to navigate.
     let mut workspace_sidebar_item = Map::new();
     workspace_sidebar_item.insert(
         "my workspaces".to_string(),
         json!({
-            "items": workspaces.iter().map(|ws| {
-                json!({
-                    "label": ws.get("label").unwrap_or(&Value::Null),
-                    "link_to": ws.get("name").unwrap_or(&Value::Null),
-                    "link_type": "Workspace",
-                    "type": "Link",
-                    "icon": ws.get("icon").unwrap_or(&Value::Null),
-                    "child": false,
-                    "collapsible": false,
-                    "indent": 0,
-                    "keep_closed": false,
-                    "url": Value::Null,
-                    "show_arrow": false,
-                    "filters": Value::Null,
-                    "route_options": Value::Null,
-                    "tab": Value::Null,
-                })
-            }).collect::<Vec<Value>>(),
+            "items": workspaces.iter().map(workspace_switch_item).collect::<Vec<Value>>(),
             "module": "Core",
             "app": "frappe",
         }),
     );
     for ws in workspaces {
         if let Some(title) = ws.get("title").and_then(|v| v.as_str()) {
-            let name = ws.get("name").and_then(|v| v.as_str()).unwrap_or(title);
+            let mut items = workspace_nav_items(ws);
+            if items.is_empty() {
+                // Workspaces without links still get a self entry so the
+                // switcher can reach them.
+                items = vec![workspace_switch_item(ws)];
+            }
             workspace_sidebar_item.insert(
                 title.to_lowercase(),
                 json!({
-                    "items": [{
-                        "label": title,
-                        "link_to": name,
-                        "link_type": "Workspace",
-                        "type": "Link",
-                        "icon": ws.get("icon").unwrap_or(&Value::Null),
-                        "child": false,
-                        "collapsible": false,
-                        "indent": 0,
-                        "keep_closed": false,
-                        "url": Value::Null,
-                        "show_arrow": false,
-                        "filters": Value::Null,
-                        "route_options": Value::Null,
-                        "tab": Value::Null,
-                    }],
+                    "items": items,
                     "module": ws.get("module").unwrap_or(&json!("")),
-                    "app": "frappe",
+                    "app": ws.get("app").unwrap_or(&json!("frappe")),
                 }),
             );
         }
@@ -794,6 +771,138 @@ fn build_workspace_boot_objects(workspaces: &[Value], is_guest: bool) -> (Value,
         workspace_sidebar_item_value,
         default_workspace_obj,
     )
+}
+
+/// A sidebar entry that switches to the workspace itself (used in the
+/// "my workspaces" group and as the fallback for link-less workspaces).
+fn workspace_switch_item(ws: &Value) -> Value {
+    json!({
+        "label": ws.get("label").unwrap_or(&Value::Null),
+        "link_to": ws.get("name").unwrap_or(&Value::Null),
+        "link_type": "Workspace",
+        "type": "Link",
+        "icon": ws.get("icon").unwrap_or(&Value::Null),
+        "child": false,
+        "collapsible": false,
+        "indent": 0,
+        "keep_closed": false,
+        "url": Value::Null,
+        "show_arrow": false,
+        "filters": Value::Null,
+        "route_options": Value::Null,
+        "tab": Value::Null,
+    })
+}
+
+/// Sidebar navigation items for one workspace, built from its `links` child
+/// rows: "Card Break" rows become collapsible sections, "Link" rows become
+/// navigation links. This mirrors what the frappe desk SPA renders from
+/// `frappe.boot.workspace_sidebar_item[title].items`.
+fn workspace_nav_items(ws: &Value) -> Vec<Value> {
+    let mut items = Vec::new();
+    let Some(links) = ws.get("links").and_then(|l| l.as_array()) else {
+        return items;
+    };
+    for link in links {
+        if link.get("hidden").and_then(|v| v.as_i64()) == Some(1) {
+            continue;
+        }
+        let is_section = link.get("type").and_then(|v| v.as_str()) == Some("Card Break");
+        let label = link
+            .get("label")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| json!(s))
+            .unwrap_or_else(|| link.get("link_to").cloned().unwrap_or(Value::Null));
+        items.push(json!({
+            "label": label,
+            "link_to": link.get("link_to").cloned().unwrap_or(Value::Null),
+            "link_type": link.get("link_type").cloned().unwrap_or(Value::Null),
+            "type": if is_section { "Section" } else { "Link" },
+            "icon": link.get("icon").cloned().unwrap_or(Value::Null),
+            "child": false,
+            "collapsible": is_section,
+            "indent": 0,
+            "keep_closed": false,
+            "url": Value::Null,
+            "show_arrow": false,
+            "filters": Value::Null,
+            "route_options": Value::Null,
+            "tab": Value::Null,
+        }));
+    }
+    items
+}
+
+/// Native `frappe.desk.desktop.get_workspaces`.
+///
+/// The frappe 16 desk SPA consumes more than the upstream response shape: on
+/// save/reload it reads `message.workspace_pages` (the { pages, has_access,
+/// has_create_access } object) and `message.sidebar_items` (the per-workspace
+/// sidebar navigation map), while the plain reload path reads `message.pages`.
+/// Serve all of them from the same native data the desk boot uses.
+pub async fn get_workspaces_native(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let user = extract_user_from_request(&state, &headers).await;
+    let pool = match resolve_site_pool(&state, &headers) {
+        Some((_, p)) => p,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "exc": "no database pool" })),
+            )
+                .into_response()
+        }
+    };
+
+    let is_guest = user.is_none();
+    let user_name = user.as_deref().unwrap_or("Guest");
+    let blocked_modules = if let Some(ref u) = user {
+        get_blocked_modules(&pool, u).await.unwrap_or_default()
+    } else {
+        HashSet::new()
+    };
+    let is_admin = !is_guest
+        && (user_name == "Administrator"
+            || state
+                .permissions
+                .get_roles(&pool, user_name)
+                .await
+                .map(|roles| roles.iter().any(|r| r == "System Manager"))
+                .unwrap_or(false));
+    let visible_apps: Option<HashSet<String>> = if is_admin {
+        None
+    } else {
+        Some(
+            state
+                .rust_apps
+                .apps()
+                .iter()
+                .map(|a| a.name().to_string())
+                .collect(),
+        )
+    };
+
+    let fallback = (vec![], Map::new(), vec![], Map::new(), None);
+    let (workspaces, _, _, _, _) =
+        match query_boot_data(&pool, &blocked_modules, visible_apps.as_ref()).await {
+            Ok(data) => data,
+            Err(_) => fallback,
+        };
+    let (workspaces_value, sidebar_items, _) = build_workspace_boot_objects(&workspaces, is_guest);
+
+    let message = json!({
+        // Shape consumed by the workspace reload path (frappe.xcall result).
+        "pages": workspaces_value.get("pages").cloned().unwrap_or(json!([])),
+        "has_access": workspaces_value.get("has_access").cloned().unwrap_or(json!(false)),
+        "has_create_access": workspaces_value.get("has_create_access").cloned().unwrap_or(json!(false)),
+        // Shape consumed after save/reload (frappe.call callback r.message.*).
+        "workspace_pages": workspaces_value,
+        "sidebar_items": sidebar_items,
+    });
+    Json(json!({ "message": message })).into_response()
 }
 
 /// Frappe's `scrub`: lower-case and replace spaces/hyphens with underscores.

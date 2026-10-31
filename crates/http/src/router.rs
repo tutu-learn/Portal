@@ -38,6 +38,10 @@ pub fn create_router() -> Router<AppState> {
         .route("/logout", get(auth::logout_redirect))
         .route("/api/method/upload_file", post(files::upload_file))
         .route(
+            "/api/method/frappe.desk.desktop.get_workspaces",
+            get(desk::get_workspaces_native).post(desk::get_workspaces_native),
+        )
+        .route(
             "/api/method/frappe.desk.form.load.getdoc",
             get(api::getdoc_native),
         )
