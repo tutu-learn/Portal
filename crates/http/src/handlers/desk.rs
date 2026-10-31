@@ -795,19 +795,28 @@ fn workspace_switch_item(ws: &Value) -> Value {
 }
 
 /// Sidebar navigation items for one workspace, built from its `links` child
-/// rows: "Card Break" rows become collapsible sections, "Link" rows become
-/// navigation links. This mirrors what the frappe desk SPA renders from
-/// `frappe.boot.workspace_sidebar_item[title].items`.
+/// rows: "Card Break" rows become collapsible "Section Break" headers, "Link"
+/// rows become navigation links nested under the preceding section. This
+/// mirrors what the frappe desk SPA renders from
+/// `frappe.boot.workspace_sidebar_item[title].items` — the JS sidebar only
+/// recognises the type "Section Break" (anything else is looked up as a
+/// `frappe.ui.sidebar_item.Type*` class and crashes the sidebar build), and
+/// `find_nested_items()` only nests links that carry `child: true`.
 fn workspace_nav_items(ws: &Value) -> Vec<Value> {
     let mut items = Vec::new();
     let Some(links) = ws.get("links").and_then(|l| l.as_array()) else {
         return items;
     };
+    let mut in_section = false;
     for link in links {
         if link.get("hidden").and_then(|v| v.as_i64()) == Some(1) {
             continue;
         }
         let is_section = link.get("type").and_then(|v| v.as_str()) == Some("Card Break");
+        let child = !is_section && in_section;
+        if is_section {
+            in_section = true;
+        }
         let label = link
             .get("label")
             .and_then(|v| v.as_str())
@@ -818,9 +827,9 @@ fn workspace_nav_items(ws: &Value) -> Vec<Value> {
             "label": label,
             "link_to": link.get("link_to").cloned().unwrap_or(Value::Null),
             "link_type": link.get("link_type").cloned().unwrap_or(Value::Null),
-            "type": if is_section { "Section" } else { "Link" },
+            "type": if is_section { "Section Break" } else { "Link" },
             "icon": link.get("icon").cloned().unwrap_or(Value::Null),
-            "child": false,
+            "child": child,
             "collapsible": is_section,
             "indent": 0,
             "keep_closed": false,
