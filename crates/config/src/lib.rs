@@ -202,6 +202,17 @@ pub struct RuntimeConfig {
     pub sync: SyncConfig,
     #[serde(default)]
     pub mail_server: MailServerConfig,
+    #[serde(default)]
+    pub demo: DemoSection,
+}
+
+/// Demo mode, framework-wide. Apps read this to seed a demo dataset on first
+/// start and/or show demo quick-pick accounts on their login page.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct DemoSection {
+    /// Off by default; production sites leave this unset.
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 impl Default for RuntimeConfig {
@@ -230,6 +241,7 @@ impl Default for RuntimeConfig {
             auth: AuthSection::default(),
             sync: SyncConfig::default(),
             mail_server: MailServerConfig::default(),
+            demo: DemoSection::default(),
         }
     }
 }
@@ -444,6 +456,35 @@ mod tests {
         "#;
         let config: RuntimeConfig = toml::from_str(toml).unwrap();
         assert!(config.auth.custom_login_path.is_none());
+    }
+
+    #[test]
+    fn demo_section_defaults_to_off() {
+        let toml = r#"
+            [runtime]
+            frappe_path = "./apps/frappe"
+            erpnext_path = ""
+            shim_path = "./python"
+            sites_path = "./sites"
+        "#;
+        let config: RuntimeConfig = toml::from_str(toml).unwrap();
+        assert!(!config.demo.enabled);
+    }
+
+    #[test]
+    fn demo_section_parses_enabled() {
+        let toml = r#"
+            [runtime]
+            frappe_path = "./apps/frappe"
+            erpnext_path = ""
+            shim_path = "./python"
+            sites_path = "./sites"
+
+            [demo]
+            enabled = true
+        "#;
+        let config: RuntimeConfig = toml::from_str(toml).unwrap();
+        assert!(config.demo.enabled);
     }
 
     #[test]

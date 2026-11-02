@@ -48,3 +48,9 @@ smtp_bind_port = 2525
 imap_enabled = true
 imap_bind_host = "0.0.0.0"
 imap_bind_port = 1143
+
+[demo]
+# Demo mode: apps seed their demo dataset on first start and may show demo
+# quick-pick accounts on their login page. Default is OFF — production
+# sites leave this section out (or set enabled = false).
+enabled = true
