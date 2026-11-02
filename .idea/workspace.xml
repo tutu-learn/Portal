@@ -8,9 +8,6 @@
       <package file="$PROJECT_DIR$/crates/config">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/email">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/error">
         <feature name="default" enabled="true" />
       </package>
@@ -29,10 +26,10 @@
       <package file="$PROJECT_DIR$/crates/log_engine">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/mail-server">
+      <package file="$PROJECT_DIR$/crates/metadata">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/crates/metadata">
+      <package file="$PROJECT_DIR$/rust_apps/nexfin">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$">
@@ -56,9 +53,6 @@
       <package file="$PROJECT_DIR$/rust_apps/core">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rust_apps/sebrus_mail">
-        <feature name="default" enabled="true" />
-      </package>
       <package file="$PROJECT_DIR$/crates/session">
         <feature name="default" enabled="true" />
       </package>
@@ -71,21 +65,31 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="added styling">
+    <list default="true" id="4684e4c7-ef78-45ba-9720-ae3a5fd616dd" name="Changes" comment="Refactor: Consolidate demo configuration structure and remove unused test file">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/sebrusMail.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/runtime/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/runtime/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/design/sebrus-mail-design-frames.vectorcraft" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="DatabaseLocalColorSettings">
+    <colors>
+      <entry key="faf8f306-1e56-41c1-875a-252e5adc11dc" value="" />
+    </colors>
+  </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="19557" />
+    <option name="cachedIndexableFilesCount" value="19492" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/rust_apps/sebrus_mail" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -101,7 +105,7 @@
   }
 }</component>
   <component name="MacroExpansionManager">
-    <option name="directoryName" value="GaamVfyj" />
+    <option name="directoryName" value="xpAmiNG3" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -109,23 +113,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0005985316040915" />
-      <entry key="MS500" value="1.7380536910878763" />
-      <entry key="S2" value="4.076886634443065" />
-      <entry key="S5" value="5.114948491114036" />
-      <entry key="S10" value="5.535479019148702" />
-      <entry key="S30" value="5.839991216174383" />
-      <entry key="S60" value="5.919331166323215" />
-      <entry key="M2" value="5.959498060872245" />
-      <entry key="M5" value="5.983758849936731" />
-      <entry key="M10" value="5.992101273326728" />
-      <entry key="M15" value="6.000515078185826" />
-      <entry key="M30" value="6.151364660073872" />
-      <entry key="H1" value="6.783692964220608" />
-      <entry key="H2" value="7.771381411962154" />
-      <entry key="H4" value="8.662035374204065" />
-      <entry key="D1" value="9.737560926171865" />
-      <entry key="W1" value="9.96141005827224" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0000387350734259" />
+      <entry key="S2" value="1.0788907520070072" />
+      <entry key="S5" value="1.362084920435682" />
+      <entry key="S10" value="1.6017349253913071" />
+      <entry key="S30" value="1.844244833855011" />
+      <entry key="S60" value="1.919032241054307" />
+      <entry key="M2" value="1.9871403745054343" />
+      <entry key="M5" value="2.5374445177831677" />
+      <entry key="M10" value="3.480529579055812" />
+      <entry key="M15" value="4.065493157368115" />
+      <entry key="M30" value="4.967949148156634" />
+      <entry key="H1" value="7.295647363853874" />
+      <entry key="H2" value="18.155996055628485" />
+      <entry key="H4" value="39.657113428830414" />
+      <entry key="D1" value="85.13427403187004" />
+      <entry key="W1" value="97.71417216261942" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -147,135 +151,65 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9799978121906417" />
-      <entry key="MS500" value="1.7281468869395942" />
-      <entry key="S2" value="4.069562359058935" />
-      <entry key="S5" value="5.111134752386074" />
-      <entry key="S10" value="5.533391725114771" />
-      <entry key="S30" value="5.839251758680793" />
-      <entry key="S60" value="5.9189557361557155" />
-      <entry key="M2" value="5.9593089018581" />
-      <entry key="M5" value="5.983682837384714" />
-      <entry key="M10" value="5.99206320763538" />
-      <entry key="M15" value="6.000489670495581" />
-      <entry key="M30" value="6.15135172154688" />
-      <entry key="H1" value="6.783686007378692" />
-      <entry key="H2" value="7.771377553054981" />
-      <entry key="H4" value="8.662033273227005" />
-      <entry key="D1" value="9.73756054149026" />
-      <entry key="W1" value="9.96141000229141" />
+      <entry key="MS100" value="4.031199112392747E-11" />
+      <entry key="MS500" value="0.008363858295794823" />
+      <entry key="S2" value="0.37316139770874646" />
+      <entry key="S5" value="0.9666905150153192" />
+      <entry key="S10" value="1.376291458953709" />
+      <entry key="S30" value="1.7616346661507916" />
+      <entry key="S60" value="1.8766949763380676" />
+      <entry key="M2" value="1.9657047903298799" />
+      <entry key="M5" value="2.528800708645107" />
+      <entry key="M10" value="3.4761926948690856" />
+      <entry key="M15" value="4.062597784629091" />
+      <entry key="M30" value="4.966498945397201" />
+      <entry key="H1" value="7.294919789930896" />
+      <entry key="H2" value="18.155626348089783" />
+      <entry key="H4" value="39.65692260630252" />
+      <entry key="D1" value="85.13424010893368" />
+      <entry key="W1" value="97.71416723255425" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
-  <component name="ProjectId" id="3L2aZuySmSDweA4s98F30YlKFrf" />
+  <component name="ProjectId" id="3LF0aAoiJ2RSWuh3vzt6BAMAGwG" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/johannnefdt/RustroverProjects/sebrusMail&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/johannnefdt/RustroverProjects/NexsusAG",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true"
   }
-}</component>
-  <component name="RunManager" selected="Cargo.Test open_frappe">
-    <configuration name="Run anri-runtime" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package runtime --bin anri-runtime" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Run kiff-sync-server" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package kiff_sync --bin kiff-sync-server" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Run kiff" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package kiff --bin kiff" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test open_frappe" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="buildProfileId" value="test" />
-      <option name="command" value="test --workspace" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-  </component>
+}]]></component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="047d7903-1cd7-456e-973a-8e87c09b1862" name="Changes" comment="" />
-      <created>1792654675241</created>
+      <changelist id="4684e4c7-ef78-45ba-9720-ae3a5fd616dd" name="Changes" comment="" />
+      <created>1793034569685</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1792654675241</updated>
+      <updated>1793034569685</updated>
     </task>
     <servers />
   </component>
@@ -283,10 +217,16 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="**Add Sebrus Mail support with modular SMTP server, admin portal, and mail portal features**&#10;&#10;- Introduced `mail-server` crate for SMTP inbound server implementation, authentication, and message handling.&#10;- Added Admin Portal for domain, account, and certificate management (`docs/design/ADMIN_PORTAL.md`).&#10;- Added Mail Portal UX for user mailbox interactions (`docs/design/MAIL_PORTAL.md`).&#10;- Updated seed data and roles with `Sebrus Mail Admin` functionality.&#10;- Cleaned up outdated IDE files and adjusted workspace member configuration for `sebrus_mail`." />
-    <MESSAGE value="**Add Sebrus Mail portal and admin UI skeleton**&#10;&#10;- Introduced design documents for Sebrus Mail (`MAIL_PORTAL.md`, `ADMIN_PORTAL.md`) with UX details.&#10;- Implemented initial `mail-server` crate for SMTP handling and recipient resolution.&#10;- Added &quot;Sebrus Mail Admin&quot; role to seed data for admin access.&#10;- Updated workspace configurations to include `rust_apps/sebrus_mail` and `crates/mail-server`. &#10;- Cleanup: removed old `.idea` configuration files." />
-    <MESSAGE value="Remove TLS certificate management from mail server:  &#10;- Eliminated `tls_cert` and `tls_key` fields and logic from `Domain` struct and database schema.  &#10;- Removed unused dependencies (`tokio-rustls`, `rustls-pemfile`) from `Cargo.toml`.  &#10;- Updated documentation to reflect the change, clarifying that TLS is managed by the ingress controller." />
-    <MESSAGE value="added styling" />
-    <option name="LAST_COMMIT_MESSAGE" value="added styling" />
+    <MESSAGE value="**Add multi-port support for Kubernetes payload validation and rendering**  &#10;&#10;- Implement validation and error handling for `k8s.ports` array in addition to the legacy single `k8s.port` field.&#10;- Enhance manifest rendering to support multiple service and container ports, handling optional `name` and `protocol` fields.&#10;- Auto-generate unique port names when multiple unnamed ports are provided.&#10;- Support `liveness_port`, `readiness_port`, and `ingress.port` as integers or port names.&#10;- Update frontend to allow dynamic addition and management of multiple ports in the deployment form. &#10;- Reflect changes in `README.md` to document updated Kubernetes payload specification." />
+    <MESSAGE value="Replace all references of &quot;sebrus_mail&quot; with &quot;sebrus_apps&quot; in configuration files, paths, and manifests." />
+    <MESSAGE value="Add multi-port entry support in Kubernetes deployment form&#10;&#10;- Allow service and container ports to be specified as comma-separated lists (e.g., `8000, 8081`) for efficient multi-port configuration.&#10;- Add validation for port ranges, alignment between service and container ports, and naming constraints for multi-port rows.&#10;- Expand backend logic to handle multiple ports per row, enabling better support for complex Kubernetes payloads.&#10;- Enhance frontend UI with hints about multi-port entry and streamlined row expansion." />
+    <MESSAGE value="**Keep &quot;Kind&quot; dropdown visible for all target types**&#10;&#10;- Ensure the &quot;Kind&quot; dropdown remains displayed even with a single option, supporting better legacy configuration handling.&#10;- Automatically pre-select a lone option, but retain placeholder logic for multiple options.&#10;- Refactor related UI logic in `portal.modals.js` and `portal.deploy.js` for consistency." />
+    <MESSAGE value="**Add Frappe cache-busting mechanism to Dockerfile and pipeline**&#10;&#10;- Introduce `FRAPPE_CACHE_BUSTER` to ensure latest Frappe commits are cloned during Docker build, preventing stale layers from being reused.&#10;- Update Azure pipeline to resolve the latest Frappe `version-16` commit and pass it as a build argument.&#10;- Extend Docker build arguments to include `FRAPPE_CACHE_BUSTER`, mirroring the existing `PORTAL_CACHE_BUSTER` logic for consistency." />
+    <MESSAGE value="**Simplify hint rendering logic in `portal.deploy.js`**&#10;&#10;- Remove redundant hint rendering for scoped environment overrides.&#10;- Adjust deployment form to streamline hint presentation and improve clarity.&#10;- Maintain consistent styling and logic flow for better user experience." />
+    <MESSAGE value="**Refactor deployment logic with improved error handling and clean formatting**&#10;&#10;- Simplify code by consistently applying indentation across string replacements and SQL queries.&#10;- Enhance `update_env_health` to ensure deployment attribution reflects actual deploy logs, avoiding contamination from live sync viewers.&#10;- Improve `upsert_env_status` logic to handle attribution and status updates distinctly, adhering to deploy-specific attribution rules.&#10;- Adjust and refactor tests to maintain code clarity, validate proper attribution mechanics, and ensure robust Kubernetes payload validation." />
+    <MESSAGE value="Update routes and links to rename &quot;/register&quot; to &quot;/request-access&quot; in Nexfin portal" />
+    <MESSAGE value="Refactor `demo` configuration references; update related logging and conditions." />
+    <MESSAGE value="Refactor: Consolidate demo configuration structure and remove unused test file" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor: Consolidate demo configuration structure and remove unused test file" />
   </component>
 </project>
