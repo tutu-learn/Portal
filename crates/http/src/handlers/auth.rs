@@ -46,7 +46,26 @@ pub async fn login(
     let pool = resolve_site_pool(&state, &headers).map(|(_, p)| p);
     match pool {
         Some(pool) => {
+            // Throttle online brute force: the peer address (not the spoofable
+            // X-Forwarded-For) keys the counter, combined with the account.
+            let peer = addr
+                .as_ref()
+                .map(|a| a.0.ip().to_string())
+                .or_else(|| extract_client_ip(&headers, None))
+                .unwrap_or_else(|| "unknown".into());
             let ip = extract_client_ip(&headers, addr.map(|a| a.0));
+            if let Some(retry_after) = state.login_limiter.retry_after(&usr, &peer) {
+                let mut res = Json(serde_json::json!({
+                    "error": "too many failed attempts — try again later"
+                }))
+                .into_response();
+                *res.status_mut() = StatusCode::TOO_MANY_REQUESTS;
+                res.headers_mut().insert(
+                    axum::http::header::RETRY_AFTER,
+                    retry_after.to_string().parse().unwrap(),
+                );
+                return res;
+            }
             let user_agent = extract_user_agent(&headers);
             let metadata = session::SessionMetadata {
                 ip: ip.clone(),
@@ -58,6 +77,7 @@ pub async fn login(
                 .await
             {
                 Ok(session) => {
+                    state.login_limiter.clear(&usr, &peer);
                     kiff_logger::record_authentication_event(
                         &pool,
                         &usr,
@@ -73,9 +93,14 @@ pub async fn login(
                     )
                     .await
                     .unwrap_or_else(|| "/desk".to_string());
-                    let cookie = format!(
-                        "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
-                        session.id
+                    // `Secure` follows secure_cookie_flag(): forced via
+                    // ANRI_COOKIE_SECURE, otherwise auto (on for any
+                    // non-local Host so the cookie never rides cleartext in
+                    // production, off for localhost dev over plain HTTP).
+                    let cookie = crate::middleware::security_headers::session_cookie(
+                        &session.id,
+                        86400,
+                        &headers,
                     );
                     let mut res = Json(serde_json::json!({
                         "message": "Logged In",
@@ -88,6 +113,7 @@ pub async fn login(
                     res
                 }
                 Err(e) => {
+                    state.login_limiter.record_failure(&usr, &peer);
                     kiff_logger::record_authentication_event(
                         &pool,
                         &usr,
@@ -125,7 +151,8 @@ pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> impl I
                     record_logout(&pool, &user, &headers).await;
                 }
             }
-            let cookie = "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+            let cookie =
+                crate::middleware::security_headers::session_cookie("", 0, &headers);
             let mut res = Json(serde_json::json!({ "message": "Logged Out" })).into_response();
             res.headers_mut()
                 .insert(SET_COOKIE, cookie.parse().unwrap());
@@ -152,7 +179,7 @@ pub async fn logout_redirect(
             }
         }
     }
-    let cookie = "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+    let cookie = crate::middleware::security_headers::session_cookie("", 0, &headers);
     let target = custom_login_target(&state.config, None).unwrap_or_else(|| "/login".into());
     let mut res = Redirect::temporary(&target).into_response();
     res.headers_mut()

@@ -148,5 +148,15 @@ pub fn create_router() -> Router<AppState> {
     #[cfg(debug_assertions)]
     let router = router.nest_service("/assets", ServeDir::new("crates/http/assets"));
 
+    // Baseline security headers on every response (off via
+    // ANRI_SECURITY_HEADERS=off for proxy-managed deployments).
+    let router = if crate::middleware::security_headers::enabled() {
+        router.layer(axum::middleware::from_fn(
+            crate::middleware::security_headers::security_headers,
+        ))
+    } else {
+        router
+    };
+
     router
 }

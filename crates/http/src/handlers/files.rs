@@ -32,9 +32,55 @@ pub async fn serve_private(
     State(state): State<AppState>,
     Path(filename): Path<String>,
     headers: axum::http::HeaderMap,
+    axum::extract::RawQuery(raw_query): axum::extract::RawQuery,
 ) -> impl IntoResponse {
-    if authenticate_request(&state, &headers).await.is_none() {
-        return (StatusCode::UNAUTHORIZED, "authentication required").into_response();
+    let session = match authenticate_request(&state, &headers).await {
+        Some(session) => session,
+        None => return (StatusCode::UNAUTHORIZED, "authentication required").into_response(),
+    };
+    // Sidecar metadata (`<id>.key`, `<id>.owner`) must never be served: it
+    // contains the access keys for the blob tree.
+    if filename.ends_with(".key") || filename.ends_with(".owner") {
+        return (StatusCode::NOT_FOUND, "file not found").into_response();
+    }
+    // Apps store blobs under the shared private tree but keep their own
+    // permission models; the framework cannot enforce them itself. Without a
+    // registered gate every authenticated user could read every app's private
+    // files (proof-of-payment scans, signed agreements, personal vault
+    // documents…) through this route, bypassing app-level gates entirely.
+    // Refuse outright when no gate is registered, and let the gate decide
+    // otherwise. 404 (not 403) so existence information does not leak.
+    let gate = match state.private_file_gate.as_ref() {
+        Some(gate) => gate,
+        None => {
+            tracing::warn!(
+                "refusing private file request: no PrivateFileGate registered"
+            );
+            return (StatusCode::NOT_FOUND, "file not found").into_response();
+        }
+    };
+    if !gate.can_read(&session.user, &filename).await {
+        return (StatusCode::NOT_FOUND, "file not found").into_response();
+    }
+    // Framework-managed blobs (stored via rust_apps_core::blob) additionally
+    // require the unguessable key issued at upload time, supplied as `?key=`.
+    // Membership in an authorized document is not proof of possession —
+    // without this check, anyone who can reference a blob ID can read it.
+    if rust_apps_core::blob::blob_exists(&state, &filename) {
+        let key = raw_query
+            .as_deref()
+            .unwrap_or("")
+            .split('&')
+            .find_map(|pair| pair.split_once('='))
+            .filter(|(k, _)| *k == "key")
+            .map(|(_, v)| v.to_string());
+        let authorized = match key {
+            Some(key) => rust_apps_core::blob::open_blob(&state, &filename, &key).is_ok(),
+            None => false,
+        };
+        if !authorized {
+            return (StatusCode::NOT_FOUND, "file not found").into_response();
+        }
     }
     let site = resolve_site_name(&state, &headers)
         .and_then(|name| state.site_manager.sites().get(&name).cloned());
@@ -47,6 +93,18 @@ pub async fn serve_private(
             }
         }
         None => (StatusCode::NOT_FOUND, "site not found").into_response(),
+    }
+}
+
+/// Gate implementation that preserves the pre-gate behavior for apps that
+/// genuinely want any authenticated user to reach their private files.
+/// Register explicitly; it is intentionally not the default.
+pub struct AllowAllPrivateFiles;
+
+#[async_trait::async_trait]
+impl rust_apps_core::PrivateFileGate for AllowAllPrivateFiles {
+    async fn can_read(&self, _user: &str, _path: &str) -> bool {
+        true
     }
 }
 

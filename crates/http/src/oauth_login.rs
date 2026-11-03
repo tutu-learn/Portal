@@ -223,10 +223,7 @@ pub async fn handle_office365_callback(
             );
         }
     };
-    let cookie = format!(
-        "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
-        session.id
-    );
+    let cookie = crate::middleware::security_headers::session_cookie(&session.id, 86400, headers);
 
     // An explicit redirect_to carried through the OAuth flow always wins;
     // otherwise fall back to the user's own home-page override, then the

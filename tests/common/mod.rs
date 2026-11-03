@@ -261,5 +261,7 @@ fn build_state_with_apps(
         logger: Arc::new(std::sync::OnceLock::new()),
         boot_cache: Arc::new(rust_apps_core::BootCache::new()),
         asset_cache: Arc::new(rust_apps_core::AssetCache::default()),
+        private_file_gate: None,
+        login_limiter: Arc::new(rust_apps_core::LoginRateLimiter::new(5, std::time::Duration::from_secs(300), std::time::Duration::from_secs(300))),
     }
 }

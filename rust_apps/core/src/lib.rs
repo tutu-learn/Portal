@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use axum::Router;
@@ -87,9 +87,11 @@ impl BootCache {
     }
 }
 
+pub mod blob;
 pub mod hooks;
 pub mod layer;
 pub mod logging;
+pub mod tokens;
 
 pub use layer::SebrusLoggerLayer;
 pub use logging::{log_app_event, log_document_event};
@@ -113,6 +115,104 @@ pub struct AppState {
     pub boot_cache: Arc<BootCache>,
     /// Cached static Desk assets (bundle map and icon sprites).
     pub asset_cache: Arc<AssetCache>,
+    /// Application hook that authorizes downloads from the framework's
+    /// private file tree (`GET /private/files/*`). When `None`, private
+    /// files are refused outright: any authenticated user could otherwise
+    /// read every app's blobs regardless of app-level permission gates.
+    pub private_file_gate: Option<Arc<dyn PrivateFileGate>>,
+    /// Failed-login throttle applied by the login endpoint.
+    pub login_limiter: Arc<LoginRateLimiter>,
+}
+
+/// Application-level authorization hook for the framework's private file
+/// storage (`sites/<site>/private/files/…` served at `/private/files/*`).
+///
+/// Apps store blobs under the shared private tree but keep their own
+/// permission models; the framework cannot know them. Register a gate to
+/// enforce per-app rules, and refuse requests when no gate is registered.
+#[async_trait::async_trait]
+pub trait PrivateFileGate: Send + Sync {
+    /// `path` is the request path relative to the site's `private/files`
+    /// directory (e.g. `"nexfin/F-000123"`). `user` is the authenticated
+    /// session user. Return `true` to serve the file.
+    async fn can_read(&self, user: &str, path: &str) -> bool;
+}
+
+/// In-memory failed-login throttle.
+///
+/// Counts failures per account and per account+peer, rejecting further
+/// attempts with a lockout window once either counter trips. This is a
+/// best-effort online-brute-force brake, not a replacement for strong
+/// passwords; thresholds are configurable via the environment:
+///
+/// - `ANRI_LOGIN_MAX_FAILURES` (default 5)
+/// - `ANRI_LOGIN_WINDOW_SECS` (default 300)
+/// - `ANRI_LOGIN_LOCKOUT_SECS` (default 300)
+pub struct LoginRateLimiter {
+    max_failures: u32,
+    window: Duration,
+    lockout: Duration,
+    /// (account, peer) → failure instants.
+    attempts: Mutex<HashMap<(String, String), Vec<Instant>>>,
+    /// (account, peer) → locked out until.
+    locked_until: Mutex<HashMap<(String, String), Instant>>,
+}
+
+impl LoginRateLimiter {
+    pub fn new(max_failures: u32, window: Duration, lockout: Duration) -> Self {
+        Self {
+            max_failures: max_failures.max(1),
+            window,
+            lockout,
+            attempts: Mutex::new(HashMap::new()),
+            locked_until: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn from_env() -> Self {
+        let env = |key: &str| -> Option<u64> {
+            std::env::var(key).ok().and_then(|v| v.parse().ok())
+        };
+        Self::new(
+            env("ANRI_LOGIN_MAX_FAILURES").unwrap_or(5) as u32,
+            Duration::from_secs(env("ANRI_LOGIN_WINDOW_SECS").unwrap_or(300)),
+            Duration::from_secs(env("ANRI_LOGIN_LOCKOUT_SECS").unwrap_or(300)),
+        )
+    }
+
+    /// Seconds until the next attempt is allowed, or `None`.
+    pub fn retry_after(&self, account: &str, peer: &str) -> Option<u64> {
+        let key = (account.to_string(), peer.to_string());
+        let locked = self.locked_until.lock().unwrap();
+        locked.get(&key).map(|until| {
+            until
+                .saturating_duration_since(Instant::now())
+                .as_secs()
+                .max(1)
+        })
+    }
+
+    /// Record a failed attempt; locks the account+peer when the count trips.
+    pub fn record_failure(&self, account: &str, peer: &str) {
+        let now = Instant::now();
+        let key = (account.to_string(), peer.to_string());
+        let mut attempts = self.attempts.lock().unwrap();
+        let entry = attempts.entry(key.clone()).or_default();
+        entry.retain(|t| now.duration_since(*t) <= self.window);
+        entry.push(now);
+        if entry.len() as u32 >= self.max_failures {
+            let mut locked = self.locked_until.lock().unwrap();
+            locked.insert(key, now + self.lockout);
+            entry.clear();
+        }
+    }
+
+    /// Clear counters after a successful login.
+    pub fn clear(&self, account: &str, peer: &str) {
+        let key = (account.to_string(), peer.to_string());
+        self.attempts.lock().unwrap().remove(&key);
+        self.locked_until.lock().unwrap().remove(&key);
+    }
 }
 
 /// Context passed to every Rust app during registration and lifecycle hooks.
@@ -305,6 +405,13 @@ impl DocHook {
 pub struct ApiMethod {
     pub name: &'static str,
     pub handler: BoxApiMethod,
+    /// Whether the method may be dispatched on an HTTP GET request.
+    ///
+    /// `SameSite=Lax` session cookies ride along on top-level cross-site GET
+    /// navigations, so a state-changing method reachable over GET is a CSRF
+    /// target via a crafted link. Methods must opt in explicitly; the default
+    /// keeps every method POST-only.
+    pub allow_get: bool,
 }
 
 pub type BoxApiMethod =
@@ -321,7 +428,15 @@ impl ApiMethod {
         Self {
             name,
             handler: Box::new(move |ctx, params| Box::pin(handler(ctx, params))),
+            allow_get: false,
         }
+    }
+
+    /// Mark the method as safe to dispatch over HTTP GET (read-only methods
+    /// only). State-changing methods must stay POST-only.
+    pub fn with_allow_get(mut self, allow: bool) -> Self {
+        self.allow_get = allow;
+        self
     }
 }
 
@@ -584,6 +699,8 @@ impl orm::DocHookRunner for RustAppRegistry {
                             logger: Arc::new(std::sync::OnceLock::new()),
                             boot_cache: Arc::new(BootCache::new()),
                             asset_cache: Arc::new(AssetCache::default()),
+                            private_file_gate: None,
+                            login_limiter: Arc::new(LoginRateLimiter::from_env()),
                         });
                     let ctx = AppContext::new(app.name(), state);
                     (hook.handler)(&ctx, doc)?;
@@ -595,6 +712,17 @@ impl orm::DocHookRunner for RustAppRegistry {
 }
 
 impl RustAppRegistry {
+    /// Find a registered API method by name without invoking it.
+    ///
+    /// Used by the HTTP layer to make policy decisions (e.g. whether the
+    /// method may be dispatched over GET) before calling [`call_method`].
+    pub fn find_method(&self, name: &str) -> Option<ApiMethod> {
+        self.apps
+            .iter()
+            .flat_map(|app| app.api_methods())
+            .find(|method| method.name == name)
+    }
+
     /// Find and invoke a Rust API method by name.
     ///
     /// Returns `Ok(None)` if no Rust method with this name is registered,
@@ -1054,5 +1182,32 @@ mod tests {
         cache.invalidate_all();
         assert!(cache.get("alice", "k").is_none());
         assert!(cache.get("bob", "k").is_none());
+    }
+
+    #[test]
+    fn login_limiter_locks_after_max_failures_and_clears_on_success() {
+        let limiter = LoginRateLimiter::new(3, Duration::from_secs(60), Duration::from_secs(60));
+        assert!(limiter.retry_after("alice", "10.0.0.1").is_none());
+        limiter.record_failure("alice", "10.0.0.1");
+        limiter.record_failure("alice", "10.0.0.1");
+        assert!(limiter.retry_after("alice", "10.0.0.1").is_none());
+        // Third failure trips the lockout; a different peer is unaffected.
+        limiter.record_failure("alice", "10.0.0.1");
+        assert!(limiter.retry_after("alice", "10.0.0.1").is_some());
+        assert!(limiter.retry_after("alice", "10.0.0.2").is_none());
+        assert!(limiter.retry_after("bob", "10.0.0.1").is_none());
+        // Success clears the lockout and the failure counter.
+        limiter.clear("alice", "10.0.0.1");
+        assert!(limiter.retry_after("alice", "10.0.0.1").is_none());
+    }
+
+    #[test]
+    fn api_methods_default_to_post_only() {
+        let method = ApiMethod::new("demo.ping", |_ctx, _params| async {
+            Ok(Value::Null)
+        });
+        assert!(!method.allow_get);
+        let method = method.with_allow_get(true);
+        assert!(method.allow_get);
     }
 }

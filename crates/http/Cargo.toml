@@ -28,6 +28,7 @@ serde_json     = { workspace = true }
 tracing        = { workspace = true }
 dashmap        = { workspace = true }
 uuid           = { workspace = true }
+async-trait    = "0.1"
 chrono         = { workspace = true }
 mime_guess       = { workspace = true }
 serde_urlencoded = "0.7"

@@ -1108,6 +1108,25 @@ pub async fn getdoc_native(
             Ok(mut doc) => {
                 let user = authenticate_request(&state, &headers).await.map(|u| u.user);
 
+                // Enforce read permission on the document itself. Without this
+                // gate, any authenticated user could read every DocType
+                // (shareholder records, transfer cases, AGM ballots with their
+                // vote choices, notifications, …) through this Desk-compatible
+                // endpoint, bypassing the role checks the portal API methods
+                // apply. `has_permission` denies when no DocPerm grants read.
+                let effective_user = user.clone().unwrap_or_else(|| "Guest".into());
+                let read_allowed = state
+                    .permissions
+                    .has_permission(&pool, &effective_user, &doctype, "read", Some(&doc))
+                    .await
+                    .unwrap_or(false);
+                if !read_allowed {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(serde_json::json!({ "error": "permission denied" })),
+                    );
+                }
+
                 // Whitelisted framework DocTypes may rely on controller ``onload``
                 // data that the native ORM does not produce (e.g. User.onload
                 // populates __onload.all_modules for the "Allow Modules" UI).
@@ -3155,6 +3174,28 @@ pub async fn call_method_get(
     headers: axum::http::HeaderMap,
     axum::extract::RawQuery(raw_query): axum::extract::RawQuery,
 ) -> impl IntoResponse {
+    // GET dispatch is restricted for Rust-registered API methods: only
+    // methods that explicitly opt in via `ApiMethod::with_allow_get` may run
+    // over GET. `SameSite=Lax` session cookies ride along on top-level
+    // cross-site GET navigations, so any state-changing method reachable over
+    // GET is a one-click CSRF target. Methods without an opt-in (every
+    // `ApiMethod::new` by default) must be POSTed.
+    //
+    // Names that no Rust app registers keep the legacy behavior and fall
+    // through to the Python dispatcher, which mirrors Frappe's own GET
+    // semantics (OAuth callbacks like `login_via_office365` redirect here).
+    if let Some(found) = state.rust_apps.find_method(&method) {
+        if !found.allow_get {
+            return (
+                StatusCode::METHOD_NOT_ALLOWED,
+                Json(serde_json::json!({
+                    "error": "this method is not available over GET; use POST"
+                })),
+            )
+                .into_response();
+        }
+    }
+
     let params: HashMap<String, Value> = raw_query
         .as_deref()
         .map(parse_query_preserving_plus)
@@ -3728,9 +3769,10 @@ async fn session_cookie_after_py_login(
         .create(&pool, py_user, "localhost".into())
         .await
         .ok()?;
-    Some(format!(
-        "sid={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400",
-        session.id
+    Some(crate::middleware::security_headers::session_cookie(
+        &session.id,
+        86400,
+        headers,
     ))
 }
 

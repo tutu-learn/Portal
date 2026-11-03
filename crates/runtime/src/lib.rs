@@ -9,7 +9,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
 use rust_apps_core::RustApp;
@@ -226,6 +225,10 @@ pub async fn run_with_config(
         logger: Arc::new(std::sync::OnceLock::new()),
         boot_cache: Arc::new(rust_apps_core::BootCache::new()),
         asset_cache: Arc::new(rust_apps_core::AssetCache::default()),
+        // No app-specific private-file rules in the bare runtime: private
+        // downloads are refused until an app registers a gate.
+        private_file_gate: None,
+        login_limiter: Arc::new(rust_apps_core::LoginRateLimiter::from_env()),
     };
 
     // Initialize the shared log engine and start the sink consumer. This used
@@ -271,12 +274,19 @@ pub async fn run_with_config(
         let ctx = rust_apps_core::AppContext::new(app.name(), app_state_for_routes.clone());
         router = app.routes(&ctx, router);
     }
+    // App routes were mounted after create_router applied its own pass, so
+    // repeat the security-headers layer here to cover them as well.
+    if http::middleware::security_headers::enabled() {
+        router = router.layer(axum::middleware::from_fn(
+            http::middleware::security_headers::security_headers,
+        ));
+    }
     let mut router = router
         .layer(axum::middleware::from_fn_with_state(
             app_state_for_routes.clone(),
             http::middleware::auth::token_auth_middleware,
         ))
-        .layer(CorsLayer::permissive());
+        .layer(http::middleware::security_headers::cors_layer());
 
     // Optional per-process request concurrency limit. E2E runs set this to 1
     // to work around a SIGBUS under concurrent SQLite/TigerBeetle access on macOS.
