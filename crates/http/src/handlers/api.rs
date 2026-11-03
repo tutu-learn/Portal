@@ -1859,9 +1859,18 @@ pub async fn reportview_get(
         return reportview_kiff_log_get(state, params, &headers).await;
     }
 
-    let user = session_user_from_request(&state, &headers)
-        .await
-        .unwrap_or_else(|| "Guest".into());
+    let user = match session_user_from_request(&state, &headers).await {
+        Some(u) => u,
+        None => {
+            // Desk endpoint: a session is mandatory. Without this check the
+            // query below ran as "Guest" and dumped any doctype.
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "message": "authentication required" })),
+            )
+                .into_response();
+        }
+    };
 
     info!(
         "reportview.get doctype={} fields={:?} filters={:?}",
@@ -1941,6 +1950,27 @@ pub async fn reportview_get(
         None => None,
     };
 
+    // Enforce row-level read permissions before running the query, exactly
+    // like the REST list endpoint: owner-only and user-permission scoping
+    // become WHERE conditions, and a user with no read permission at all is
+    // rejected instead of receiving an empty column set.
+    let permission_conditions = match state
+        .permissions
+        .get_permission_query_conditions(&pool, &user, &doctype)
+        .await
+    {
+        Ok(None) => None,
+        Ok(Some(cond)) if cond == "1 = 0" => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "message": "permission denied" })),
+            )
+                .into_response();
+        }
+        Ok(Some(cond)) => Some(vec![cond]),
+        Err(e) => return frappe_error_response(e).into_response(),
+    };
+
     let filters = params.get("filters").and_then(|s| parse_filters(s));
 
     let limit_start = params
@@ -1961,7 +1991,7 @@ pub async fn reportview_get(
             filters,
             fields,
             None,
-            None,
+            permission_conditions,
             Some(limit_start + page_length),
         )
         .await
@@ -2026,7 +2056,36 @@ pub async fn reportview_get_count(
 
     let filters = params.get("filters").and_then(|s| parse_filters(s));
 
-    match pool.count(&doctype, filters, None).await {
+    let user = match session_user_from_request(&state, &headers).await {
+        Some(u) => u,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "message": "authentication required" })),
+            )
+                .into_response();
+        }
+    };
+
+    // Same row-level read-permission enforcement as reportview.get.
+    let permission_conditions = match state
+        .permissions
+        .get_permission_query_conditions(&pool, &user, &doctype)
+        .await
+    {
+        Ok(None) => None,
+        Ok(Some(cond)) if cond == "1 = 0" => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "message": "permission denied" })),
+            )
+                .into_response();
+        }
+        Ok(Some(cond)) => Some(vec![cond]),
+        Err(e) => return frappe_error_response(e).into_response(),
+    };
+
+    match pool.count(&doctype, filters, permission_conditions).await {
         Ok(n) => (StatusCode::OK, Json(json!({ "message": n }))).into_response(),
         Err(e) => frappe_error_response(e).into_response(),
     }
@@ -2088,9 +2147,15 @@ async fn get_kiff_log_doc(
         }
     };
 
-    let user = session_user_from_request(&state, headers)
-        .await
-        .unwrap_or_else(|| "Guest".into());
+    let user = match session_user_from_request(&state, headers).await {
+        Some(u) => u,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "message": "authentication required" })),
+            );
+        }
+    };
     let query = apply_sebrus_log_viewer_filter(&state, &user, headers, "*").await;
 
     let _ = service.commit().await;
@@ -2224,9 +2289,16 @@ async fn reportview_kiff_log_get(
     let query = params.get("filters").cloned().unwrap_or_default();
     let query = kiff_log_query_from_filters(&query);
 
-    let user = session_user_from_request(&state, headers)
-        .await
-        .unwrap_or_else(|| "Guest".into());
+    let user = match session_user_from_request(&state, headers).await {
+        Some(u) => u,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "message": "authentication required" })),
+            )
+                .into_response();
+        }
+    };
     let query = apply_sebrus_log_viewer_filter(&state, &user, headers, &query).await;
 
     let service = match state.logger.get() {
@@ -2278,9 +2350,16 @@ async fn kiff_log_count(
     let query = params.get("filters").cloned().unwrap_or_default();
     let query = kiff_log_query_from_filters(&query);
 
-    let user = session_user_from_request(&state, headers)
-        .await
-        .unwrap_or_else(|| "Guest".into());
+    let user = match session_user_from_request(&state, headers).await {
+        Some(u) => u,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "message": "authentication required" })),
+            )
+                .into_response();
+        }
+    };
     let query = apply_sebrus_log_viewer_filter(&state, &user, headers, &query).await;
 
     let service = match state.logger.get() {

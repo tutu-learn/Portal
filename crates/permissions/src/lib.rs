@@ -229,28 +229,13 @@ impl PermissionEngine {
                 }
             }
 
-            // Automatic roles.
+            // Automatic roles every user gets. "Desk User" is deliberately
+            // NOT implicit: desk access must come from an explicit role
+            // grant, otherwise any registered portal user (e.g. a
+            // self-registered applicant) inherits the whole Desk UI.
             for auto in ["All", "Guest"] {
                 if !roles.iter().any(|r| r == auto) {
                     roles.push(auto.into());
-                }
-            }
-
-            // System users implicitly get Desk User.
-            let user_type_sql = format!(
-                r#"SELECT user_type FROM "user" WHERE name = {}"#,
-                pool.placeholder(1)
-            );
-            if let Ok(rows) = pool
-                .execute_sql(&user_type_sql, vec![serde_json::Value::String(user.into())])
-                .await
-            {
-                if let Some(row) = rows.into_iter().next() {
-                    if row.get("user_type").and_then(|v| v.as_str()) == Some("System User")
-                        && !roles.iter().any(|r| r == "Desk User")
-                    {
-                        roles.push("Desk User".into());
-                    }
                 }
             }
 
@@ -912,5 +897,87 @@ mod tests {
             !allowed.contains("admin_note"),
             "permlevel-3 field must stay hidden at level 0"
         );
+    }
+
+    #[tokio::test]
+    async fn system_user_does_not_implicitly_get_desk_user() -> Result<()> {
+        let pool = setup_test_db().await?;
+        pool.execute_sql(
+            r#"CREATE TABLE IF NOT EXISTS "user" (name TEXT PRIMARY KEY, user_type TEXT)"#,
+            vec![],
+        )
+        .await?;
+        pool.execute_sql(
+            r#"CREATE TABLE IF NOT EXISTS "has_role" (
+                name TEXT PRIMARY KEY, parent TEXT, parenttype TEXT, role TEXT
+            )"#,
+            vec![],
+        )
+        .await?;
+        pool.execute_sql(
+            r#"INSERT INTO "user" (name, user_type) VALUES ('portal.user@example.com', 'System User')"#,
+            vec![],
+        )
+        .await?;
+        pool.execute_sql(
+            r#"INSERT INTO "has_role" (name, parent, parenttype, role)
+               VALUES ('portal.user@example.com-All', 'portal.user@example.com', 'User', 'All')"#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let roles = engine.get_roles(&pool, "portal.user@example.com").await?;
+        assert!(
+            roles.contains(&"All".to_string()),
+            "All is an automatic role"
+        );
+        assert!(
+            !roles.contains(&"Desk User".to_string()),
+            "Desk User must not be implicit for System Users (regression: it \
+             exposed the full Desk UI and data APIs to any registered user)"
+        );
+
+        pool.execute_sql(
+            r#"INSERT INTO "has_role" (name, parent, parenttype, role)
+               VALUES ('portal.user@example.com-Desk User', 'portal.user@example.com', 'User', 'Desk User')"#,
+            vec![],
+        )
+        .await?;
+        engine.clear_roles_cache("portal.user@example.com");
+        let roles = engine.get_roles(&pool, "portal.user@example.com").await?;
+        assert!(
+            roles.contains(&"Desk User".to_string()),
+            "explicit Desk User grant must be honored"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn no_read_grant_yields_impossible_query_condition() -> Result<()> {
+        let pool = setup_test_db().await?;
+        create_doctype_table(&pool, "SecretDoc").await?;
+        pool.execute_sql("DELETE FROM __kiff_docperm WHERE parent = '*'", vec![])
+            .await?;
+        pool.execute_sql(
+            r#"CREATE TABLE IF NOT EXISTS "user_permission" (
+                name TEXT PRIMARY KEY, user TEXT, allow TEXT, for_value TEXT,
+                applicable_for TEXT, is_default INTEGER DEFAULT 0
+            )"#,
+            vec![],
+        )
+        .await?;
+
+        let engine = PermissionEngine::new();
+        let cond = engine
+            .get_permission_query_conditions(&pool, "random.user", "SecretDoc")
+            .await?;
+        assert_eq!(
+            cond.as_deref(),
+            Some("1 = 0"),
+            "a user with no read grant must be scoped to nothing (this is the \
+             reportview.get 403 gate)"
+        );
+        Ok(())
     }
 }

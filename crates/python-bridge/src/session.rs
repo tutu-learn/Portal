@@ -57,29 +57,11 @@ pub fn get_roles(_py: Python<'_>, user: String) -> PyResult<Vec<String>> {
                     }
                 }
 
+                // "Desk User" is deliberately NOT implicit here either - it
+                // must mirror PermissionEngine::get_roles.
                 for auto in ["All", "Guest"] {
                     if !roles.iter().any(|r| r == auto) {
                         roles.push(auto.into());
-                    }
-                }
-
-                let user_type_sql = format!(
-                    r#"SELECT user_type FROM "user" WHERE name = {}"#,
-                    pool.placeholder(1)
-                );
-                if let Ok(rows) = pool
-                    .execute_sql(
-                        &user_type_sql,
-                        vec![serde_json::Value::String(user.clone())],
-                    )
-                    .await
-                {
-                    if let Some(row) = rows.into_iter().next() {
-                        if row.get("user_type").and_then(|v| v.as_str()) == Some("System User")
-                            && !roles.iter().any(|r| r == "Desk User")
-                        {
-                            roles.push("Desk User".into());
-                        }
                     }
                 }
             }

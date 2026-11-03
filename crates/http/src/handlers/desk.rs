@@ -874,6 +874,38 @@ pub async fn get_workspaces_native(
 
     let is_guest = user.is_none();
     let user_name = user.as_deref().unwrap_or("Guest");
+
+    // Desk access is not automatic: require a desk-capable role. The
+    // permission engine no longer grants "Desk User" implicitly (every
+    // System User used to get it), so portal-only users - e.g.
+    // self-registered applicants - receive an empty boot here instead of
+    // the full admin Desk UI.
+    if !is_guest {
+        let desk_access = user_name == "Administrator"
+            || state
+                .permissions
+                .get_roles(&pool, user_name)
+                .await
+                .map(|roles| {
+                    roles
+                        .iter()
+                        .any(|r| r == "System Manager" || r == "Desk User")
+                })
+                .unwrap_or(false);
+        if !desk_access {
+            let empty_pages =
+                json!({ "pages": [], "has_access": false, "has_create_access": false });
+            return Json(json!({ "message": {
+                "pages": [],
+                "has_access": false,
+                "has_create_access": false,
+                "workspace_pages": empty_pages,
+                "sidebar_items": {},
+            }}))
+            .into_response();
+        }
+    }
+
     let blocked_modules = if let Some(ref u) = user {
         get_blocked_modules(&pool, u).await.unwrap_or_default()
     } else {
