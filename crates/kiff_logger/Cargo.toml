@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rust_apps_core = { path = "../../rust_apps/core" }
-log_engine     = { path = "../log_engine" }
+rust_apps_core = { path = "../../rust_apps/core", version = "0.1" }
+log_engine     = { path = "../log_engine", version = "0.1" }
 config         = { workspace = true }
 error          = { workspace = true }
 serde          = { workspace = true }
@@ -19,5 +19,5 @@ argon2         = "0.5"
 rand           = "0.8"
 hex            = "0.4"
 orm            = { workspace = true }
-permissions    = { path = "../permissions" }
-session        = { path = "../session" }
+permissions    = { path = "../permissions", version = "0.1" }
+session        = { path = "../session", version = "0.1" }

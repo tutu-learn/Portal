@@ -1,0 +1,14 @@
+[package]
+name = "anri"
+version = "0.1.0"
+edition = "2021"
+description = "Anri framework — build and serve Frappe-compatible Rust apps"
+
+[dependencies]
+runtime        = { path = "../runtime", version = "0.1" }
+rust_apps_core = { path = "../../rust_apps/core", version = "0.1" }
+error          = { workspace = true }
+async-trait    = "0.1"
+
+[dev-dependencies]
+tokio          = { workspace = true }

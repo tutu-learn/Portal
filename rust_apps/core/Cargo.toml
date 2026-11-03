@@ -7,12 +7,12 @@ edition = "2021"
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
-metadata       = { path = "../../crates/metadata" }
-permissions    = { path = "../../crates/permissions" }
-queue          = { path = "../../crates/queue" }
-session        = { path = "../../crates/session" }
-sql-translator = { path = "../../crates/sql-translator" }
-log_engine     = { path = "../../crates/log_engine" }
+metadata       = { path = "../../crates/metadata", version = "0.1" }
+permissions    = { path = "../../crates/permissions", version = "0.1" }
+queue          = { path = "../../crates/queue", version = "0.1" }
+session        = { path = "../../crates/session", version = "0.1" }
+sql-translator = { path = "../../crates/sql-translator", version = "0.1" }
+log_engine     = { path = "../../crates/log_engine", version = "0.1" }
 
 axum               = { workspace = true }
 dashmap            = { workspace = true }

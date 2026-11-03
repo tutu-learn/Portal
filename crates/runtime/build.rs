@@ -55,10 +55,13 @@ fn main() {
     write_if_changed(&out_path, &generated);
 
     // Manifest syncing rewrites Cargo.toml files, which is only valid when
-    // developing inside the master repo. When this crate is built as a git or
-    // registry dependency, its sources live in cargo's cache and are treated
-    // as read-only.
-    if in_cargo_cache(&manifest_dir) {
+    // developing inside the master repo. Skip it when this crate is built as
+    // a dependency (cargo's git/registry cache) or from a packaged .crate
+    // (cargo package / cargo publish verification), where the master repo's
+    // rust_apps/ and root Cargo.toml are absent or read-only.
+    let master_repo_checkout =
+        workspace_root.join("rust_apps").is_dir() && workspace_root.join("Cargo.toml").is_file();
+    if in_cargo_cache(&manifest_dir) || !master_repo_checkout {
         return;
     }
 
@@ -78,8 +81,13 @@ fn main() {
 /// filesystems when the JSON name and directory casing differ.
 fn resolve_app_dirs(workspace_root: &Path, apps: &[String]) -> Vec<(String, String)> {
     let rust_apps_dir = workspace_root.join("rust_apps");
-    let entries: Vec<String> = fs::read_dir(&rust_apps_dir)
-        .expect("read rust_apps directory")
+    // When this crate is built from a packaged .crate (registry consumer),
+    // the master repo's rust_apps/ directory is not present — treat that as
+    // "no in-tree apps" instead of failing the build.
+    let Ok(entries_iter) = fs::read_dir(&rust_apps_dir) else {
+        return Vec::new();
+    };
+    let entries: Vec<String> = entries_iter
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let name = entry.file_name().into_string().ok()?;
@@ -108,8 +116,13 @@ fn resolve_app_dirs(workspace_root: &Path, apps: &[String]) -> Vec<(String, Stri
 /// `rust_apps/strongroom/tauri`).
 fn resolve_app_workspace_members(workspace_root: &Path, apps: &[String]) -> Vec<String> {
     let rust_apps_dir = workspace_root.join("rust_apps");
-    let entries: Vec<String> = fs::read_dir(&rust_apps_dir)
-        .expect("read rust_apps directory")
+    // When this crate is built from a packaged .crate (registry consumer),
+    // the master repo's rust_apps/ directory is not present — treat that as
+    // "no in-tree apps" instead of failing the build.
+    let Ok(entries_iter) = fs::read_dir(&rust_apps_dir) else {
+        return Vec::new();
+    };
+    let entries: Vec<String> = entries_iter
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let name = entry.file_name().into_string().ok()?;

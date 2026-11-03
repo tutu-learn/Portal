@@ -10,8 +10,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 error       = { workspace = true }
 orm         = { workspace = true }
-permissions = { path = "../permissions" }
-log_engine  = { path = "../log_engine" }
+permissions = { path = "../permissions", version = "0.1" }
+log_engine  = { path = "../log_engine", version = "0.1" }
 serde       = { workspace = true }
 serde_json  = { workspace = true }
 pyo3        = { workspace = true }
@@ -19,6 +19,6 @@ tokio       = { workspace = true }
 tracing     = { workspace = true }
 chrono      = { workspace = true }
 uuid        = { workspace = true }
-queue       = { path = "../queue" }
+queue       = { path = "../queue", version = "0.1" }
 reqwest     = { workspace = true }
 base64      = { workspace = true }

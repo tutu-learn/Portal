@@ -15,19 +15,19 @@ path = "src/main.rs"
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
-sql-translator = { path = "../sql-translator" }
-python-bridge  = { path = "../python-bridge" }
-session        = { path = "../session" }
-permissions    = { path = "../permissions" }
-metadata       = { path = "../metadata" }
-queue          = { path = "../queue" }
-http           = { path = "../http" }
-rust_apps_core = { path = "../../rust_apps/core" }
+sql-translator = { path = "../sql-translator", version = "0.1" }
+python-bridge  = { path = "../python-bridge", version = "0.1" }
+session        = { path = "../session", version = "0.1" }
+permissions    = { path = "../permissions", version = "0.1" }
+metadata       = { path = "../metadata", version = "0.1" }
+queue          = { path = "../queue", version = "0.1" }
+http           = { path = "../http", version = "0.1" }
+rust_apps_core = { path = "../../rust_apps/core", version = "0.1" }
 async-trait    = "0.1"
 
-kiff_logger    = { path = "../kiff_logger" }
-log_engine     = { path = "../log_engine" }
-kiff_sync      = { path = "../kiff_sync" }
+kiff_logger    = { path = "../kiff_logger", version = "0.1" }
+log_engine     = { path = "../log_engine", version = "0.1" }
+kiff_sync      = { path = "../kiff_sync", version = "0.1" }
 axum           = { workspace = true }
 tower          = { workspace = true, features = ["limit"] }
 tokio          = { workspace = true }
@@ -39,7 +39,6 @@ dashmap        = { workspace = true }
 chrono         = { workspace = true }
 pyo3           = { workspace = true }
 tower-http     = { workspace = true }
-nexfin = { path = "../../rust_apps/nexfin" }
 
 [build-dependencies]
 serde          = { workspace = true, features = ["derive"] }

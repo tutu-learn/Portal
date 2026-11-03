@@ -10,15 +10,15 @@ http-body-util = "0.1"
 error          = { workspace = true }
 config         = { workspace = true }
 orm            = { workspace = true }
-session        = { path = "../session" }
-permissions    = { path = "../permissions" }
-metadata       = { path = "../metadata" }
-queue          = { path = "../queue" }
-sql-translator = { path = "../sql-translator" }
-python-bridge  = { path = "../python-bridge" }
-rust_apps_core = { path = "../../rust_apps/core" }
-log_engine     = { path = "../log_engine" }
-kiff_logger    = { path = "../kiff_logger" }
+session        = { path = "../session", version = "0.1" }
+permissions    = { path = "../permissions", version = "0.1" }
+metadata       = { path = "../metadata", version = "0.1" }
+queue          = { path = "../queue", version = "0.1" }
+sql-translator = { path = "../sql-translator", version = "0.1" }
+python-bridge  = { path = "../python-bridge", version = "0.1" }
+rust_apps_core = { path = "../../rust_apps/core", version = "0.1" }
+log_engine     = { path = "../log_engine", version = "0.1" }
+kiff_logger    = { path = "../kiff_logger", version = "0.1" }
 axum           = { workspace = true }
 tower          = { workspace = true }
 tower-http     = { workspace = true }

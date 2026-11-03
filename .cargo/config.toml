@@ -1,0 +1,7 @@
+# Azure Artifacts Cargo registry that hosts the Anri framework crates.
+# The feed "anri" lives in the "Sebrus Compliance System" project of the
+# sebrus organization. Create it once under Artifacts → Create Feed, then
+# authenticate (a PAT with Packaging read+write via `cargo login --registry anri`,
+# or the CargoAuthenticate task in azure-pipelines.yml).
+[registries]
+anri = { index = "sparse+https://pkgs.dev.azure.com/sebrus/Sebrus%20Compliance%20System/_packaging/anri/Cargo/index/" }
