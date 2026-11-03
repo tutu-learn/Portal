@@ -5,6 +5,10 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_getpage_permission_manager() {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: page comes from the apps/frappe fixture tree");
+        return;
+    }
     let pool = crate::common::setup_test_db().await.unwrap();
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -60,6 +64,10 @@ async fn test_getpage_permission_manager() {
 
 #[tokio::test]
 async fn test_getpage_post_permission_manager() {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: page comes from the apps/frappe fixture tree");
+        return;
+    }
     let pool = crate::common::setup_test_db().await.unwrap();
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -290,6 +298,10 @@ async fn test_getdoc_native_includes_onload_modules() {
 
 #[tokio::test]
 async fn test_permission_manager_get_roles_and_doctypes() {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: asserts synced DocTypes from the apps/frappe fixture tree");
+        return;
+    }
     let pool = crate::common::setup_test_db().await.unwrap();
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);
@@ -313,6 +325,10 @@ async fn test_permission_manager_get_roles_and_doctypes() {
 
 #[tokio::test]
 async fn test_permission_manager_get_roles_and_doctypes_post() {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: asserts synced DocTypes from the apps/frappe fixture tree");
+        return;
+    }
     let pool = crate::common::setup_test_db().await.unwrap();
     let state = crate::common::build_app_state(pool);
     let app = http::router::create_router().with_state(state);

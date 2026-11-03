@@ -40,6 +40,13 @@ async fn template_db() -> error::Result<String> {
             let pool = orm::DatabasePool::connect_sqlite(&path).await?;
             orm::migrations::Migrator::run(&pool.domain_pools()).await?;
             orm::doctype_sync::sync_all(&pool, vec![], vec![], vec![], vec![], vec![]).await?;
+            if !frappe_fixtures_available() {
+                // Fixture-less checkout (clean CI clone): sync_all had no
+                // DocTypes to sync and skipped seeding, so create the identity
+                // tables and seed the users/roles the tests log in with.
+                ensure_identity_tables(&pool).await?;
+                orm::doctype_sync::ensure_core_users_and_roles(&pool).await?;
+            }
             set_admin_password(&pool).await?;
             pool.execute_sql("PRAGMA wal_checkpoint(TRUNCATE)", vec![])
                 .await?;
@@ -50,7 +57,73 @@ async fn template_db() -> error::Result<String> {
         .clone())
 }
 
+/// True when the gitignored Frappe source tree is present (local dev
+/// checkouts). Clean CI clones don't have it; tests that assert fixture
+/// content must skip instead of fail.
+pub fn frappe_fixtures_available() -> bool {
+    std::path::Path::new("apps/frappe/frappe").is_dir()
+}
+
+/// Minimal identity tables for fixture-less databases. On real sites DocType
+/// sync creates these from the frappe fixtures with the full column set; only
+/// the columns the seed upserts and the permission engine reads are here.
+async fn ensure_identity_tables(pool: &orm::DatabasePool) -> error::Result<()> {
+    for sql in [
+        r#"CREATE TABLE IF NOT EXISTS "user" (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL DEFAULT 'Administrator',
+            creation TEXT, modified TEXT, modified_by TEXT,
+            docstatus INTEGER NOT NULL DEFAULT 0,
+            first_name TEXT, email TEXT,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            user_type TEXT
+        )"#,
+        r#"CREATE TABLE IF NOT EXISTS "role" (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL DEFAULT 'Administrator',
+            creation TEXT, modified TEXT, modified_by TEXT,
+            docstatus INTEGER NOT NULL DEFAULT 0,
+            role_name TEXT,
+            desk_access INTEGER NOT NULL DEFAULT 0,
+            disabled INTEGER NOT NULL DEFAULT 0
+        )"#,
+        r#"CREATE TABLE IF NOT EXISTS "has_role" (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL DEFAULT 'Administrator',
+            creation TEXT, modified TEXT, modified_by TEXT,
+            docstatus INTEGER NOT NULL DEFAULT 0,
+            idx INTEGER NOT NULL DEFAULT 0,
+            parent TEXT, parentfield TEXT, parenttype TEXT, role TEXT
+        )"#,
+        r#"CREATE TABLE IF NOT EXISTS "user_permission" (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL DEFAULT 'Administrator',
+            creation TEXT, modified TEXT, modified_by TEXT,
+            docstatus INTEGER NOT NULL DEFAULT 0,
+            "user" TEXT, allow TEXT, for_value TEXT, applicable_for TEXT,
+            is_default INTEGER NOT NULL DEFAULT 0
+        )"#,
+    ] {
+        pool.execute_sql(sql, vec![]).await?;
+    }
+    Ok(())
+}
+
 async fn set_admin_password(pool: &orm::DatabasePool) -> error::Result<()> {
+    // __auth is normally created by ensure_core_users_and_roles during seeding,
+    // which is skipped on fixture-less databases — create it here if needed.
+    pool.execute_sql(
+        r#"CREATE TABLE IF NOT EXISTS "__auth" (
+            name TEXT,
+            doctype TEXT,
+            fieldname TEXT,
+            password TEXT,
+            encrypted INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (name, doctype, fieldname)
+        )"#,
+        vec![],
+    )
+    .await?;
     pool.execute_sql(
         r#"INSERT OR REPLACE INTO "__auth" (name, doctype, fieldname, password, encrypted)
            VALUES ('Administrator', 'User', 'password', ?, 0)"#,

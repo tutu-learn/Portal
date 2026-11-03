@@ -31,6 +31,10 @@ async fn test_admin_always_has_permission() -> Result<()> {
 
 #[tokio::test]
 async fn test_guest_limited_permission() -> Result<()> {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: relies on the Gender doctype's seeded fixture grants");
+        return Ok(());
+    }
     let pool = crate::common::setup_test_db().await?;
     let engine = permissions::PermissionEngine::new();
 
@@ -93,6 +97,10 @@ async fn test_owner_only_permission() -> Result<()> {
 
 #[tokio::test]
 async fn test_permission_query_conditions() -> Result<()> {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: relies on the Gender doctype's seeded fixture grants");
+        return Ok(());
+    }
     let pool = crate::common::setup_test_db().await?;
     let engine = permissions::PermissionEngine::new();
 

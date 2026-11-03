@@ -11,6 +11,20 @@ pub(crate) async fn insert_seed_data(
     workspace_fixtures: Vec<(String, String, String)>,
     page_fixtures: Vec<(String, String)>,
 ) -> Result<()> {
+    // DocType tables come from fixture sync. On a bare database (no apps/
+    // fixtures on disk, e.g. a clean CI clone of the framework repo) they
+    // don't exist and there is nothing meaningful to seed.
+    let user_table = pool
+        .execute_sql(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user'",
+            vec![],
+        )
+        .await?;
+    if user_table.is_empty() {
+        info!("doctype tables not synced; skipping seed data");
+        return Ok(());
+    }
+
     ensure_core_users_and_roles(pool).await?;
     insert_user_types(pool).await?;
     insert_workflow_defaults(pool).await?;

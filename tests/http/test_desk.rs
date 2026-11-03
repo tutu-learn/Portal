@@ -46,6 +46,10 @@ fn extract_boot_json(html: &str) -> serde_json::Value {
 
 #[tokio::test(flavor = "current_thread")]
 async fn test_desk_bootinfo_has_module_app_app_data_allowed_modules() {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: module/workspace data comes from the apps/frappe fixture tree");
+        return;
+    }
     let pool = crate::common::setup_test_db().await.unwrap();
 
     // Seed an extra module/workspace owned by a Rust app so we can verify

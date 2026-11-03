@@ -2,6 +2,10 @@ use error::Result;
 
 #[tokio::test]
 async fn test_get_doc_loads_child_tables() -> Result<()> {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: needs the User doctype fixture metadata");
+        return Ok(());
+    }
     let pool = crate::common::setup_test_db().await?;
 
     // Build a User document with child-table rows.
@@ -46,6 +50,10 @@ async fn test_get_doc_loads_child_tables() -> Result<()> {
 
 #[tokio::test]
 async fn test_get_doc_injects_onload_modules() -> Result<()> {
+    if !crate::common::frappe_fixtures_available() {
+        eprintln!("skipping: needs the User/Module Profile doctype fixtures");
+        return Ok(());
+    }
     let pool = crate::common::setup_test_db().await?;
 
     // The User and Module Profile forms need __onload.all_modules for the
