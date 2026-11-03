@@ -168,7 +168,10 @@
                 if (res.ok && data.message === 'Logged In') {
                     const params = new URLSearchParams(window.location.search);
                     const redirectTo = params.get('redirect-to') || '/app';
-                    window.location.href = redirectTo;
+                    // Same-origin paths only — blocks open redirects and
+                    // javascript:/data: URLs in the redirect-to parameter.
+                    const url = new URL(redirectTo, window.location.origin);
+                    window.location.href = url.origin === window.location.origin ? url.href : '/app';
                 } else {
                     errorMsg.textContent = data.error || 'Login failed';
                     errorMsg.style.display = 'block';

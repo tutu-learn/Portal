@@ -12,6 +12,7 @@ members = [
     "crates/metadata",
     "crates/http",
     "crates/runtime",
+    "crates/anri",
     "crates/log_engine",
     "cli",
     "crates/kiff_logger",

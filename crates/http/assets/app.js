@@ -1,6 +1,10 @@
 const API = '/api';
 let currentUser = null;
 
+// Escape a value for safe interpolation into HTML text or attribute context.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 async function api(path, opts = {}) {
     const res = await fetch(API + path, {
         credentials: 'same-origin',
@@ -20,9 +24,12 @@ function toast(msg, type = 'success') {
     setTimeout(() => el.remove(), 3000);
 }
 
+// Decode a hash segment without crashing on malformed %-escapes.
+const decodeSeg = s => { try { return decodeURIComponent(s); } catch { return s; } };
+
 function route() {
     const hash = location.hash.slice(1) || 'login';
-    const [page, ...rest] = hash.split('/');
+    const [page, ...rest] = hash.split('/').map(decodeSeg);
     if (page === 'login') return renderLogin();
     if (page === 'list') return renderList(rest[0]);
     if (page === 'form') return renderForm(rest[0], rest[1]);
@@ -56,46 +63,66 @@ function renderLogin() {
     };
 }
 
+function navUserHtml() {
+    return `<span>${esc(currentUser || 'Guest')}</span> <a href="#login" class="btn btn-secondary" style="margin-left:12px;padding:4px 10px;font-size:12px">Logout</a>`;
+}
+
 async function renderList(doctype) {
     if (!doctype) doctype = 'TestDocType';
-    document.getElementById('nav-user').innerHTML = `<span>${currentUser || 'Guest'}</span> <a href="#login" class="btn btn-secondary" style="margin-left:12px;padding:4px 10px;font-size:12px">Logout</a>`;
+    document.getElementById('nav-user').innerHTML = navUserHtml();
     document.getElementById('main').innerHTML = `
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <h2>${doctype}</h2>
-                <button class="btn btn-primary" onclick="location.hash='#form/${doctype}/new'">+ New</button>
+                <h2>${esc(doctype)}</h2>
+                <button class="btn btn-primary" id="new-btn">+ New</button>
             </div>
             <div id="list-table" class="table-wrap"><div class="empty">Loading…</div></div>
         </div>`;
+    document.getElementById('new-btn').onclick = () => {
+        location.hash = '#form/' + encodeURIComponent(doctype) + '/new';
+    };
     try {
-        const data = await api(`/resource/${doctype}`);
+        const data = await api(`/resource/${encodeURIComponent(doctype)}`);
         const docs = data.data || [];
         if (!docs.length) {
-            document.getElementById('list-table').innerHTML = `<div class="empty">No ${doctype} records found.<br>Create a table and insert some data via the API.</div>`;
+            document.getElementById('list-table').innerHTML = `<div class="empty">No ${esc(doctype)} records found.<br>Create a table and insert some data via the API.</div>`;
             return;
         }
         const keys = Object.keys(docs[0]).filter(k => !['fields','doctype'].includes(k));
         document.getElementById('list-table').innerHTML = `
             <table>
-                <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}<th style="width:80px"></th></tr></thead>
+                <thead><tr>${keys.map(k => `<th>${esc(k)}</th>`).join('')}<th style="width:80px"></th></tr></thead>
                 <tbody>
-                    ${docs.map(d => `<tr onclick="location.hash='#form/${doctype}/${d.name}'">` +
-                        keys.map(k => `<td>${d[k] ?? ''}</td>`).join('') +
-                        `<td><button class="btn btn-danger" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();deleteDoc('${doctype}','${d.name}')">Del</button></td>` +
+                    ${docs.map((d, i) => `<tr class="doc-row" data-i="${i}" style="cursor:pointer">` +
+                        keys.map(k => `<td>${esc(d[k])}</td>`).join('') +
+                        `<td><button class="btn btn-danger del-btn" data-i="${i}" style="padding:4px 10px;font-size:12px">Del</button></td>` +
                     `</tr>`).join('')}
                 </tbody>
             </table>`;
+        document.querySelectorAll('#list-table .doc-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const d = docs[+row.dataset.i];
+                location.hash = '#form/' + encodeURIComponent(doctype) + '/' + encodeURIComponent(d.name);
+            });
+        });
+        document.querySelectorAll('#list-table .del-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const d = docs[+btn.dataset.i];
+                deleteDoc(doctype, d.name);
+            });
+        });
     } catch (err) {
-        document.getElementById('list-table').innerHTML = `<div class="empty">Error: ${err.message}</div>`;
+        document.getElementById('list-table').innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`;
     }
 }
 
 async function renderForm(doctype, name) {
-    document.getElementById('nav-user').innerHTML = `<span>${currentUser || 'Guest'}</span> <a href="#login" class="btn btn-secondary" style="margin-left:12px;padding:4px 10px;font-size:12px">Logout</a>`;
+    document.getElementById('nav-user').innerHTML = navUserHtml();
     const isNew = name === 'new';
     let doc = {};
     if (!isNew) {
-        try { doc = (await api(`/resource/${doctype}/${name}`)).data || {}; }
+        try { doc = (await api(`/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)).data || {}; }
         catch (err) { toast(err.message, 'error'); }
     }
     const fields = doc.fields || {};
@@ -103,33 +130,34 @@ async function renderForm(doctype, name) {
     document.getElementById('main').innerHTML = `
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <h2>${isNew ? 'New ' + doctype : doc.name}</h2>
+                <h2>${isNew ? 'New ' + esc(doctype) : esc(doc.name)}</h2>
                 <div>
-                    <button class="btn btn-secondary" onclick="history.back()">Back</button>
+                    <button class="btn btn-secondary" id="back-btn">Back</button>
                     <button class="btn btn-primary" id="save-btn" style="margin-left:8px">Save</button>
                 </div>
             </div>
             <form id="doc-form">
-                <input type="hidden" name="doctype" value="${doctype}">
-                <div class="form-group"><label>Name</label><input name="name" value="${doc.name || ''}" ${isNew ? '' : 'readonly'}></div>
+                <input type="hidden" name="doctype" value="${esc(doctype)}">
+                <div class="form-group"><label>Name</label><input name="name" value="${esc(doc.name || '')}" ${isNew ? '' : 'readonly'}></div>
                 ${keys.map(k => `
-                    <div class="form-group"><label>${k}</label><input name="${k}" value="${fields[k] ?? ''}"></div>
+                    <div class="form-group"><label>${esc(k)}</label><input name="${esc(k)}" value="${esc(fields[k] ?? '')}"></div>
                 `).join('')}
             </form>
         </div>`;
+    document.getElementById('back-btn').onclick = () => history.back();
     document.getElementById('save-btn').onclick = async () => {
         const fd = new FormData(document.getElementById('doc-form'));
         const payload = {};
         fd.forEach((v, k) => { if (k !== 'doctype') payload[k] = v; });
         try {
             if (isNew) {
-                await api(`/resource/${doctype}`, { method: 'POST', body: JSON.stringify(payload) });
+                await api(`/resource/${encodeURIComponent(doctype)}`, { method: 'POST', body: JSON.stringify(payload) });
                 toast('Created');
             } else {
-                await api(`/resource/${doctype}/${doc.name}`, { method: 'PUT', body: JSON.stringify(payload) });
+                await api(`/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(doc.name)}`, { method: 'PUT', body: JSON.stringify(payload) });
                 toast('Saved');
             }
-            location.hash = `#list/${doctype}`;
+            location.hash = `#list/${encodeURIComponent(doctype)}`;
         } catch (err) { toast(err.message, 'error'); }
     };
 }
@@ -137,7 +165,7 @@ async function renderForm(doctype, name) {
 async function deleteDoc(doctype, name) {
     if (!confirm(`Delete ${doctype} ${name}?`)) return;
     try {
-        await api(`/resource/${doctype}/${name}`, { method: 'DELETE' });
+        await api(`/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, { method: 'DELETE' });
         toast('Deleted');
         route();
     } catch (err) { toast(err.message, 'error'); }

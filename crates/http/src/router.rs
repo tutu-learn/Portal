@@ -14,7 +14,7 @@ use tower_http::services::ServeDir;
 /// The caller applies state via `.with_state(state)` after all apps have
 /// contributed their routes.
 pub fn create_router() -> Router<AppState> {
-    Router::new()
+    let router = Router::new()
         .route(
             "/api/resource/:doctype",
             get(api::get_list).post(api::insert_doc),
@@ -127,7 +127,6 @@ pub fn create_router() -> Router<AppState> {
         .nest_service("/assets/frappe/dist", ServeDir::new("crates/http/assets/frappe/dist"))
         .nest_service("/assets/frappe/node_modules", ServeDir::new("apps/frappe/node_modules"))
         .nest_service("/assets/frappe", ServeDir::new("apps/frappe/frappe/public"))
-        .nest_service("/assets", ServeDir::new("crates/http/assets"))
         .route("/login", get(desk::serve_login))
         // The bundled Frappe Desk JS only strips the /desk prefix. Redirect
         // /app so the SPA sees a URL it can route correctly.
@@ -141,5 +140,13 @@ pub fn create_router() -> Router<AppState> {
         .route("/desk", get(desk::serve_desk))
         .route("/desk/*path", get(desk::serve_desk))
         .route("/thruster/:platform/:filename", get(thruster::serve_binary))
-        .fallback(desk::serve_desk)
+        .fallback(desk::serve_desk);
+
+    // crates/http/assets holds the dev/test SPA (index.html, app.js) — a
+    // development harness, not a production surface. Serve it from debug
+    // builds only; release builds get no blanket /assets mount at all.
+    #[cfg(debug_assertions)]
+    let router = router.nest_service("/assets", ServeDir::new("crates/http/assets"));
+
+    router
 }

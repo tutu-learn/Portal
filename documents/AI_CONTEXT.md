@@ -28,6 +28,8 @@ The Python bridge imports the real Frappe app from `apps/frappe/` but intercepts
 | `crates/queue` | Background job queue, scheduler |
 | `crates/config` | Site configuration |
 | `crates/error` | Shared error types |
+| `crates/runtime` | Runtime library (`run` / `run_with_config`) + `anri-runtime` binary |
+| `crates/anri` | Facade crate — the single dependency for external app repos |
 
 ### Python Shim Layout
 

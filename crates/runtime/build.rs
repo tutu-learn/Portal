@@ -54,6 +54,14 @@ fn main() {
     let out_path = out_dir.join("registered_apps.rs");
     write_if_changed(&out_path, &generated);
 
+    // Manifest syncing rewrites Cargo.toml files, which is only valid when
+    // developing inside the master repo. When this crate is built as a git or
+    // registry dependency, its sources live in cargo's cache and are treated
+    // as read-only.
+    if in_cargo_cache(&manifest_dir) {
+        return;
+    }
+
     let app_members = resolve_app_workspace_members(&workspace_root, &apps);
     let runtime_changed = sync_runtime_cargo_toml(&manifest_dir, &app_dirs);
     let workspace_changed = sync_workspace_cargo_toml(&workspace_root, &app_members);
@@ -366,6 +374,15 @@ fn runtime_has_app_dependency(manifest_dir: &Path, app: &str) -> bool {
         }
     }
     false
+}
+
+/// True when this crate is being built out of cargo's cache (a git or
+/// registry dependency checkout) rather than a local checkout of the master
+/// repo. Manifest syncing is skipped in that case.
+fn in_cargo_cache(manifest_dir: &Path) -> bool {
+    manifest_dir
+        .components()
+        .any(|c| c.as_os_str() == ".cargo")
 }
 
 fn write_if_changed(path: &Path, contents: &str) -> bool {

@@ -131,7 +131,8 @@ anri/
 │   ├── queue/           # Background jobs + scheduler
 │   ├── metadata/        # DocType engine + migrations
 │   ├── http/            # Axum HTTP server
-│   └── runtime/         # Main binary
+│   ├── runtime/         # Runtime library + anri-runtime binary
+│   └── anri/            # Facade crate external app repos depend on
 ├── python/frappe/       # frappe shim (drop-in replacement)
 ├── cli/                 # kiff CLI
 ├── rust_apps/           # Native Rust apps
@@ -173,6 +174,44 @@ Enabled apps are declared in `rust_apps/apps.json`:
   ]
 }
 ```
+
+### Apps in their own repositories
+
+An app does not have to live in `rust_apps/`. A separate app repo depends on
+the `anri` facade crate and ships its own server binary:
+
+```toml
+[dependencies]
+anri  = { git = "https://github.com/<org>/NexsusAG.git", rev = "<pinned commit>" }
+# or during local development:
+# anri = { path = "../NexsusAG/crates/anri" }
+tokio = { version = "1", features = ["full"] }
+```
+
+```rust
+use anri::prelude::*;
+
+struct MyApp;
+
+#[async_trait]
+impl RustApp for MyApp {
+    fn name(&self) -> &'static str { "my_app" }
+    fn version(&self) -> &'static str { "0.1.0" }
+}
+
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
+async fn main() -> anri::Result<()> {
+    anri::run(vec![Box::new(MyApp)]).await
+}
+```
+
+`anri::run` starts the full runtime (migrations, DocType sync, Python bridge,
+HTTP server, queue workers, scheduler) with the given apps; `kiff_logger` is
+always appended internally. Use `anri::run_with_config(config, apps)` to supply
+a `RuntimeConfig` directly instead of reading `ANRI_RUNTIME_CONFIG`.
+
+Git dependencies resolve the framework's internal `path` dependencies inside
+the same repo checkout, so no crates.io publishing is needed.
 
 ## OAuth / Social Login
 
