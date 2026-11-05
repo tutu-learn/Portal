@@ -269,6 +269,32 @@ impl DatabasePool {
             .collect())
     }
 
+    /// DocField-defined defaults for a DocType as (fieldname, fieldtype,
+    /// default), only for fields with a non-empty `default`.
+    ///
+    /// DocField metadata always lives in the core domain, so this queries the
+    /// core pool regardless of which domain owns `doctype`.
+    async fn get_field_defaults(&self, doctype: &str) -> Result<Vec<(String, String, String)>> {
+        let meta = self.core();
+        let meta_table = meta.table_name("DocField");
+        let sql = format!(
+            r#"SELECT fieldname, fieldtype, "default" FROM "{}" WHERE parent = ? AND "default" IS NOT NULL AND "default" != ''"#,
+            meta_table,
+        );
+        let rows = meta
+            .query_raw(&sql, vec![Value::String(doctype.into())])
+            .await?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|mut r| {
+                let fieldname = r.remove("fieldname")?.as_str()?.to_string();
+                let fieldtype = r.remove("fieldtype")?.as_str()?.to_string();
+                let default = r.remove("default")?.as_str()?.to_string();
+                Some((fieldname, fieldtype, default))
+            })
+            .collect())
+    }
+
     /// Return the set of valid column identifiers for a DocType data table.
     ///
     /// Includes the standard Frappe columns plus every `fieldname` defined in
@@ -761,15 +787,76 @@ impl DatabasePool {
             params.push(v.clone());
         }
 
-        let placeholders: Vec<String> = (1..=params.len()).map(|_| "?".to_string()).collect();
+        // Apply DocField defaults for unset fields of numeric fieldtypes,
+        // mirroring Frappe's insert-time default application (`_set_defaults`)
+        // and the default-aware column definitions. Without this an INSERT
+        // that omits e.g. `enabled` inherits the SQL column default — 0 on
+        // schemas synced before defaults were honored — creating disabled
+        // users. Restricted to numeric fieldtypes: a literal default is only
+        // safe there (Date defaults like "Today" are expressions, and text
+        // columns never had baked defaults, so backfilling them would change
+        // behavior for existing apps).
+        let field_defaults = self.get_field_defaults(&doc.doctype).await.unwrap_or_else(|e| {
+            warn!(
+                doctype = %doc.doctype,
+                error = %e,
+                "failed to load docfield defaults; inserting without backfilled defaults"
+            );
+            Vec::new()
+        });
+        let mut extra: Vec<(String, Value)> = Vec::new();
+        for (fieldname, fieldtype, default) in field_defaults {
+            if !matches!(
+                fieldtype.as_str(),
+                "Check" | "Int" | "Rating" | "Float" | "Currency" | "Percent"
+            ) {
+                continue;
+            }
+            if table_field_names.contains(&fieldname) || cols.iter().any(|c| c == &fieldname) {
+                continue;
+            }
+            extra.push((fieldname, default_value_param(&fieldtype, &default)));
+        }
 
-        let sql = format!(
-            "INSERT INTO \"{}\" ({}) VALUES ({})",
-            table,
-            cols.join(", "),
-            placeholders.join(", ")
-        );
+        if !extra.is_empty() {
+            let mut cols_with_defaults = cols.clone();
+            let mut params_with_defaults = params.clone();
+            for (fieldname, value) in &extra {
+                cols_with_defaults.push(fieldname.clone());
+                params_with_defaults.push(value.clone());
+            }
+            match pool
+                .execute_raw(
+                    &insert_sql(&table, &cols_with_defaults),
+                    params_with_defaults,
+                )
+                .await
+            {
+                Ok(_) => {
+                    pool.save_child_tables(doc).await?;
+                    crate::hooks::run_hook("after_insert", &doc.doctype, doc).await?;
+                    return Ok(doc.name.clone());
+                }
+                // A default whose column doesn't exist yet (a table that
+                // predates the field) must not break inserts that worked
+                // before: fall back to the plain insert below. SQLite phrases
+                // this two ways depending on where the name is resolved.
+                Err(e)
+                    if e.to_string().contains("no such column")
+                        || e.to_string().contains("has no column named") =>
+                {
+                    warn!(
+                        doctype = %doc.doctype,
+                        name = %doc.name,
+                        error = %e,
+                        "docfield-default backfill hit a missing column; falling back to a plain insert"
+                    );
+                }
+                Err(e) => return Err(e),
+            }
+        }
 
+        let sql = insert_sql(&table, &cols);
         debug!("insert_doc sql: {}", sql);
         pool.execute_raw(&sql, params).await?;
         pool.save_child_tables(doc).await?;
@@ -901,6 +988,32 @@ impl DatabasePool {
 fn table_name(doctype: &str) -> String {
     let name = doctype.to_lowercase().replace(" ", "_");
     name.strip_prefix("tab").unwrap_or(&name).to_string()
+}
+
+/// Convert a DocField `default` string into a bind parameter matching the
+/// fieldtype, mirroring Frappe's insert-time default application.
+fn default_value_param(fieldtype: &str, default: &str) -> Value {
+    match fieldtype {
+        "Check" | "Int" | "Rating" => {
+            Value::Number(default.trim().parse::<i64>().unwrap_or(0).into())
+        }
+        "Float" | "Currency" | "Percent" => Value::Number(
+            serde_json::Number::from_f64(default.trim().parse::<f64>().unwrap_or(0.0))
+                .unwrap_or_else(|| serde_json::Number::from(0)),
+        ),
+        _ => Value::String(default.to_string()),
+    }
+}
+
+/// Build the INSERT statement for `cols` (one `?` placeholder per column).
+fn insert_sql(table: &str, cols: &[String]) -> String {
+    let placeholders: Vec<String> = (1..=cols.len()).map(|_| "?".to_string()).collect();
+    format!(
+        "INSERT INTO \"{}\" ({}) VALUES ({})",
+        table,
+        cols.join(", "),
+        placeholders.join(", ")
+    )
 }
 
 pub struct Transaction<'a>(sqlx::Transaction<'a, sqlx::Sqlite>);
@@ -1149,6 +1262,147 @@ mod tests {
         assert!(core_rows.is_empty());
 
         std::env::remove_var("KIFF_SQLITE_SHARDED");
+    }
+
+    #[tokio::test]
+    async fn insert_doc_backfills_docfield_defaults() {
+        let path = format!("/tmp/orm_insert_defaults_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let pool = DatabasePool::connect_sqlite(&path).await.unwrap();
+
+        // Minimal DocField metadata: User.enabled defaults to 1 (the Frappe
+        // DocField default behind the "User is disabled" OAuth failure),
+        // simultaneous_sessions to 2, and birth_date carries a "Today"
+        // expression default that must NOT be backfilled as a literal.
+        pool.execute_sql(
+            r#"CREATE TABLE "docfield" (parent TEXT, fieldname TEXT, fieldtype TEXT, "default" TEXT, options TEXT)"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+        pool.execute_sql(
+            r#"INSERT INTO "docfield" (parent, fieldname, fieldtype, "default") VALUES
+               ('User', 'enabled', 'Check', '1'),
+               ('User', 'simultaneous_sessions', 'Int', '2'),
+               ('User', 'birth_date', 'Date', 'Today')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        // Data table with the OLD buggy schema: the Check column defaults to 0.
+        pool.execute_sql(
+            r#"CREATE TABLE "user" (
+                name TEXT PRIMARY KEY, owner TEXT, creation TEXT, modified TEXT,
+                docstatus INTEGER DEFAULT 0, enabled INTEGER DEFAULT 0,
+                simultaneous_sessions INTEGER DEFAULT 0, birth_date TEXT, email TEXT
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        // Insert a doc that does NOT set `enabled`: the DocField default must
+        // be applied, not the SQL column default (which would create a
+        // disabled user — the OAuth "User is disabled" login failure).
+        let mut doc = Document::new("User", "u1@example.com");
+        doc.set_field("email", "u1@example.com");
+        pool.insert_doc(&doc).await.unwrap();
+
+        let rows = pool
+            .execute_sql(
+                r#"SELECT enabled, simultaneous_sessions, birth_date
+                   FROM "user" WHERE name = 'u1@example.com'"#,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(rows[0].get("enabled").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(
+            rows[0]
+                .get("simultaneous_sessions")
+                .and_then(|v| v.as_i64()),
+            Some(2)
+        );
+        // Date defaults like "Today" are expressions, not literals — the
+        // value must stay unset (NULL reads back as "" for TEXT columns in
+        // this runtime) rather than storing the string "Today".
+        assert!(
+            rows[0]
+                .get("birth_date")
+                .map(|v| v.is_null() || v.as_str() == Some(""))
+                .unwrap_or(true),
+            "expression defaults must not be backfilled as literals"
+        );
+
+        // A caller that sets the field explicitly wins over the default.
+        let mut doc2 = Document::new("User", "u2@example.com");
+        doc2.set_field("email", "u2@example.com");
+        doc2.set_field("enabled", 0);
+        pool.insert_doc(&doc2).await.unwrap();
+        let rows2 = pool
+            .execute_sql(
+                r#"SELECT enabled FROM "user" WHERE name = 'u2@example.com'"#,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(rows2[0].get("enabled").and_then(|v| v.as_i64()), Some(0));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn insert_doc_falls_back_when_default_column_is_missing() {
+        let path = format!("/tmp/orm_insert_defaults_fallback_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let pool = DatabasePool::connect_sqlite(&path).await.unwrap();
+
+        // DocField metadata knows a field the physical table predates.
+        pool.execute_sql(
+            r#"CREATE TABLE "docfield" (parent TEXT, fieldname TEXT, fieldtype TEXT, "default" TEXT, options TEXT)"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+        pool.execute_sql(
+            r#"INSERT INTO "docfield" (parent, fieldname, fieldtype, "default")
+               VALUES ('User', 'legacy_flag', 'Check', '1')"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        // Table WITHOUT the `legacy_flag` column.
+        pool.execute_sql(
+            r#"CREATE TABLE "user" (
+                name TEXT PRIMARY KEY, owner TEXT, creation TEXT, modified TEXT,
+                docstatus INTEGER DEFAULT 0, email TEXT
+            )"#,
+            vec![],
+        )
+        .await
+        .unwrap();
+
+        // Must not fail with "no such column": the backfill is skipped and
+        // the insert proceeds exactly as it did before backfilling existed.
+        let mut doc = Document::new("User", "u3@example.com");
+        doc.set_field("email", "u3@example.com");
+        pool.insert_doc(&doc).await.unwrap();
+
+        let rows = pool
+            .execute_sql(
+                r#"SELECT email FROM "user" WHERE name = 'u3@example.com'"#,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            rows[0].get("email").and_then(|v| v.as_str()),
+            Some("u3@example.com")
+        );
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[tokio::test]

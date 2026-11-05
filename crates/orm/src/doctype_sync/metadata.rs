@@ -267,6 +267,16 @@ pub(crate) async fn create_metadata_tables(pool: &DatabasePool) -> Result<()> {
     "#;
     pool.execute_sql(docfield_sql, vec![]).await?;
 
+    // Handle upgrades from databases created before "default" was part of the
+    // metadata table layout (same precedent as restrict_to_domain above).
+    crate::doctype_sync::data_tables::add_column_if_missing(
+        pool,
+        "docfield",
+        "default",
+        "\"default\" TEXT",
+    )
+    .await?;
+
     // Handle upgrades from databases created before permlevel enforcement was
     // added to the docfield metadata table.
     crate::doctype_sync::data_tables::add_column_if_missing(

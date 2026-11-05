@@ -41,15 +41,16 @@ pub(crate) async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
             continue;
         }
 
-        // Read fields for this doctype from metadata
+        // Read fields for this doctype from metadata, including each
+        // field's `default` so column definitions can honor it.
         let field_rows = pool
             .execute_sql(
-                "SELECT fieldname, fieldtype FROM \"docfield\" WHERE parent = ? ORDER BY idx",
+                "SELECT fieldname, fieldtype, \"default\" FROM \"docfield\" WHERE parent = ? ORDER BY idx",
                 vec![serde_json::Value::String(doctype_name.into())],
             )
             .await?;
 
-        let fields: Vec<(String, String)> = field_rows
+        let fields: Vec<(String, String, Option<String>)> = field_rows
             .into_iter()
             .filter_map(|mut r| {
                 let fname = r
@@ -58,7 +59,10 @@ pub(crate) async fn sync_data_tables(pool: &DatabasePool) -> Result<()> {
                 let ftype = r
                     .remove("fieldtype")
                     .and_then(|v| v.as_str().map(String::from))?;
-                Some((fname, ftype))
+                let fdefault = r
+                    .remove("default")
+                    .and_then(|v| v.as_str().map(String::from));
+                Some((fname, ftype, fdefault))
             })
             .collect();
 
@@ -117,7 +121,7 @@ async fn create_data_table(
     pool: &DatabasePool,
     doctype_name: &str,
     istable: bool,
-    fields: &[(String, String)],
+    fields: &[(String, String, Option<String>)],
 ) -> Result<()> {
     // Data tables live in the domain determined by the DocType name.
     let domain_pool = pool.for_doctype(doctype_name);
@@ -150,7 +154,7 @@ async fn create_data_table(
     let standard_names: std::collections::HashSet<String> =
         expected_cols.iter().map(|(name, _)| name.clone()).collect();
 
-    for (fieldname, fieldtype) in fields {
+    for (fieldname, fieldtype, default) in fields {
         if is_ui_or_child_field(fieldtype) {
             continue;
         }
@@ -160,8 +164,8 @@ async fn create_data_table(
             continue;
         }
         let col_name = quote_if_reserved(fieldname);
-        let sql_type = fieldtype_to_sql(fieldtype);
-        expected_cols.push((fieldname.to_string(), format!("{} {}", col_name, sql_type)));
+        let sql_def = field_column_def(fieldtype, default.as_deref());
+        expected_cols.push((fieldname.to_string(), format!("{} {}", col_name, sql_def)));
     }
 
     // Check if table already exists
@@ -344,11 +348,26 @@ fn is_ui_or_child_field(fieldtype: &str) -> bool {
     )
 }
 
-fn fieldtype_to_sql(fieldtype: &str) -> &'static str {
+/// SQL column definition for a DocField, honoring the field's `default`.
+///
+/// Frappe's `updatedb` bakes the DocField default into the column (e.g.
+/// `tabUser.enabled` becomes `int(1) NOT NULL DEFAULT 1`), and inserts that
+/// omit the field rely on it. Hardcoding `DEFAULT 0` for every Check column
+/// instead created every such record disabled — the OAuth "User is
+/// disabled" login failure. Numeric fields with an unparseable or absent
+/// default fall back to the type's zero value, matching the old behavior.
+fn field_column_def(fieldtype: &str, default: Option<&str>) -> String {
+    let d = default.map(str::trim).filter(|d| !d.is_empty());
     match fieldtype {
-        "Check" | "Int" | "Rating" => "INTEGER DEFAULT 0",
-        "Float" | "Currency" | "Percent" => "REAL DEFAULT 0.0",
-        _ => "TEXT",
+        "Check" | "Int" | "Rating" => {
+            let n = d.and_then(|d| d.parse::<i64>().ok()).unwrap_or(0);
+            format!("INTEGER DEFAULT {n}")
+        }
+        "Float" | "Currency" | "Percent" => {
+            let x = d.and_then(|d| d.parse::<f64>().ok()).unwrap_or(0.0);
+            format!("REAL DEFAULT {x}")
+        }
+        _ => "TEXT".to_string(),
     }
 }
 
@@ -576,8 +595,8 @@ mod tests {
             "K8s Command",
             false,
             &[
-                ("id".to_string(), "Data".to_string()),
-                ("status".to_string(), "Data".to_string()),
+                ("id".to_string(), "Data".to_string(), None),
+                ("status".to_string(), "Data".to_string(), None),
             ],
         )
         .await
@@ -604,5 +623,37 @@ mod tests {
         assert!(dup.is_err());
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// A Check field whose DocField defines `default: "1"` (like
+    /// `User.enabled`) must produce a column default of 1, not 0 — this is
+    /// what keeps inserts that omit the field from creating disabled users.
+    #[test]
+    fn check_field_with_default_one_gets_column_default_one() {
+        assert_eq!(field_column_def("Check", Some("1")), "INTEGER DEFAULT 1");
+        // Frappe fixtures sometimes carry the default as a quoted string.
+        assert_eq!(field_column_def("Check", Some("\"1\"")), "INTEGER DEFAULT 0");
+    }
+
+    #[test]
+    fn check_field_without_default_keeps_zero_default() {
+        assert_eq!(field_column_def("Check", None), "INTEGER DEFAULT 0");
+        assert_eq!(field_column_def("Check", Some("")), "INTEGER DEFAULT 0");
+        assert_eq!(field_column_def("Check", Some("0")), "INTEGER DEFAULT 0");
+    }
+
+    #[test]
+    fn numeric_fields_honor_parseable_defaults() {
+        assert_eq!(field_column_def("Int", Some("2")), "INTEGER DEFAULT 2");
+        assert_eq!(field_column_def("Int", Some("abc")), "INTEGER DEFAULT 0");
+        assert_eq!(field_column_def("Float", Some("1.5")), "REAL DEFAULT 1.5");
+        assert_eq!(field_column_def("Currency", None), "REAL DEFAULT 0");
+    }
+
+    #[test]
+    fn non_numeric_fields_stay_plain_text() {
+        assert_eq!(field_column_def("Data", Some("hello")), "TEXT");
+        assert_eq!(field_column_def("Link", Some("User")), "TEXT");
+        assert_eq!(field_column_def("Text Editor", None), "TEXT");
     }
 }

@@ -206,6 +206,40 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ).await?;
     }
 
+    // Repair users created by insert paths that omitted `enabled` while the
+    // column defaulted to 0 (the Check-column default bug): those rows read
+    // as disabled, and the OAuth login rejects them with "User ... is
+    // disabled". Deliberately disabled users are indistinguishable by
+    // `enabled` alone (also 0), but a deliberate disable goes through the
+    // document layer, which always writes `user_type` — a sparse insert
+    // leaves it NULL/empty. Only those sparse rows, plus rows whose
+    // `enabled` is explicitly NULL (no legitimate path writes that), are
+    // touched.
+    let victims = pool
+        .execute_sql(
+            r#"SELECT name FROM "user"
+               WHERE enabled IS NULL OR (enabled = 0 AND (user_type IS NULL OR user_type = ''))"#,
+            vec![],
+        )
+        .await?;
+    if !victims.is_empty() {
+        pool.execute_sql(
+            r#"UPDATE "user" SET enabled = 1
+               WHERE enabled IS NULL OR (enabled = 0 AND (user_type IS NULL OR user_type = ''))"#,
+            vec![],
+        )
+        .await?;
+        let names: Vec<String> = victims
+            .iter()
+            .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        warn!(
+            count = names.len(),
+            ?names,
+            "re-enabled users whose `enabled` was never set (Check-column default bug; rows have no user_type) — review these accounts, they may be missing other defaults too. Deliberately disabled users (enabled = 0 with user_type set) were left untouched."
+        );
+    }
+
     // Administrator password seed. A non-empty ANRI_ADMIN_PASSWORD always
     // wins: the stored hash is re-synced on every startup so deployments can
     // set (and later rotate) the password via the environment. Without it,
