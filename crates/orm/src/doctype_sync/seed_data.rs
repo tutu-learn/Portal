@@ -143,7 +143,9 @@ pub fn hash_user_password(password: &str) -> Result<String> {
 /// Ensure the core users, roles, and Administrator role links exist.
 ///
 /// This is safe to call on every startup: it upserts the default records and
-/// leaves manually changed data untouched.
+/// leaves manually changed data untouched — except the Administrator password
+/// when `ANRI_ADMIN_PASSWORD` is set (non-empty): that value always wins and
+/// the stored hash is re-synced on every startup.
 pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
     // Create __auth table for password storage (matches Frappe's architecture)
     // Older databases were created without the encrypted column; migrate them.
@@ -204,34 +206,42 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
         ).await?;
     }
 
-    // Administrator password seed. Only inserted on first bootstrap: when a
-    // password row already exists we do nothing, so a user-changed password
-    // survives restarts and we never print a generated password that isn't
-    // actually stored.
-    let admin_password_exists = !pool
-        .execute_sql(
-            r#"SELECT 1 FROM "__auth" WHERE name = 'Administrator' AND doctype = 'User' AND fieldname = 'password' LIMIT 1"#,
-            vec![],
-        )
-        .await?
-        .is_empty();
+    // Administrator password seed. A non-empty ANRI_ADMIN_PASSWORD always
+    // wins: the stored hash is re-synced on every startup so deployments can
+    // set (and later rotate) the password via the environment. Without it,
+    // the password is seeded only on first bootstrap: when a password row
+    // already exists we do nothing, so a user-changed password survives
+    // restarts and we never print a generated password that isn't actually
+    // stored. Never log the password itself.
+    let from_env = std::env::var("ANRI_ADMIN_PASSWORD")
+        .ok()
+        .filter(|pw| !pw.is_empty());
 
-    if !admin_password_exists {
-        // The seed password is determined at runtime: ANRI_ADMIN_PASSWORD
-        // when set (non-empty), otherwise a random password printed once to
-        // stderr. Never log the password itself.
-        let admin_password = match std::env::var("ANRI_ADMIN_PASSWORD") {
-            Ok(pw) if !pw.is_empty() => pw,
-            _ => {
+    let admin_password = match &from_env {
+        Some(pw) => Some(pw.clone()),
+        None => {
+            let row_exists = !pool
+                .execute_sql(
+                    r#"SELECT 1 FROM "__auth" WHERE name = 'Administrator' AND doctype = 'User' AND fieldname = 'password' LIMIT 1"#,
+                    vec![],
+                )
+                .await?
+                .is_empty();
+            if row_exists {
+                None
+            } else {
                 let pw = generate_admin_password();
                 eprintln!(
                     "Generated Administrator password for new site: {} — store it and change it after first login",
                     pw
                 );
                 warn!("generated a random Administrator password for new site (printed to stderr)");
-                pw
+                Some(pw)
             }
-        };
+        }
+    };
+
+    if let Some(admin_password) = admin_password {
         let admin_hash = tokio::task::spawn_blocking(move || hash_user_password(&admin_password))
             .await
             .map_err(|e| {
@@ -241,12 +251,15 @@ pub async fn ensure_core_users_and_roles(pool: &DatabasePool) -> Result<()> {
             &format!(
                 r#"INSERT INTO "__auth" (name, doctype, fieldname, password, encrypted)
                    VALUES ('Administrator', 'User', 'password', {}, 0)
-                   ON CONFLICT(name, doctype, fieldname) DO NOTHING"#,
+                   ON CONFLICT(name, doctype, fieldname) DO UPDATE SET password = EXCLUDED.password"#,
                 pool.placeholder(1)
             ),
             vec![serde_json::Value::String(admin_hash.into())],
         )
         .await?;
+        if from_env.is_some() {
+            info!("Administrator password synced from ANRI_ADMIN_PASSWORD");
+        }
     }
 
     // Roles

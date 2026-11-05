@@ -1,5 +1,7 @@
 mod common;
 
+#[path = "orm/test_admin_password_seed.rs"]
+mod test_admin_password_seed;
 #[path = "orm/test_child_tables.rs"]
 mod test_child_tables;
 #[path = "orm/test_get_doc.rs"]

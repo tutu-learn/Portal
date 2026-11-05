@@ -67,7 +67,7 @@ pub fn frappe_fixtures_available() -> bool {
 /// Minimal identity tables for fixture-less databases. On real sites DocType
 /// sync creates these from the frappe fixtures with the full column set; only
 /// the columns the seed upserts and the permission engine reads are here.
-async fn ensure_identity_tables(pool: &orm::DatabasePool) -> error::Result<()> {
+pub async fn ensure_identity_tables(pool: &orm::DatabasePool) -> error::Result<()> {
     for sql in [
         r#"CREATE TABLE IF NOT EXISTS "user" (
             name TEXT PRIMARY KEY,
