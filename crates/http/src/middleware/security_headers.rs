@@ -5,6 +5,11 @@
 //! scripts and styles, so the CSP keeps `'unsafe-inline'` for both while still
 //! pinning every other fetch directive to `'self'`.
 //!
+//! `script-src` also keeps `'unsafe-eval'`: the bundled Desk JS probes ES6
+//! support with `new Function("(a = 0) => a")`, which CSP classifies as eval
+//! regardless of the payload. Without the keyword every browser fails the
+//! probe and Desk pops a false "Browser not supported" warning on load.
+//!
 //! Escape hatches for deployments that manage headers at the proxy layer:
 //! - `ANRI_SECURITY_HEADERS=off` disables this middleware entirely.
 //! - `ANRI_HSTS=1` adds `Strict-Transport-Security` (only meaningful when the
@@ -92,7 +97,7 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
     );
     headers.insert(
         axum::http::header::HeaderName::from_static("content-security-policy"),
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; \
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; \
          img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; \
          frame-ancestors 'self'; base-uri 'self'"
             .parse()
